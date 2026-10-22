@@ -1,0 +1,23 @@
+# WeDoCode Shopping (PHP) - configuração da aplicação
+# Caminho padrão: work/config/application.toml (relativo à raiz do projeto)
+# Outro arquivo: SHOPPING_CONFIG_FILE=/caminho/application.toml
+# Sobrescritas locais (fora do git): application.local.toml nesta mesma pasta.
+
+[app]
+# Pasta base de runtime (data, log, temp, frontend), relativa a ESTE arquivo.
+basedir = ".."
+
+[database]
+# Arquivo SQLite, relativo a data/. Criado com schema e seed na primeira subida.
+path = "wedocode-shopping.db"
+
+[server]
+port = 8080
+devMode = true
+
+[security]
+jwt.secret = "wdc-shopping-jwt-s3cr3t-k3y-ch4ng3-1n-pr0duct10n"
+
+[simulation]
+# Simula login lento (3 s) no LoginPresenter
+slowLogin = false

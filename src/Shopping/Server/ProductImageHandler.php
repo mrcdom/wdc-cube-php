@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Wdc\Shopping\Server;
+
+use Amp\Http\HttpStatus;
+use Amp\Http\Server\Request;
+use Amp\Http\Server\RequestHandler;
+use Amp\Http\Server\Response;
+use Amp\Http\Server\Router;
+use Psr\Log\LoggerInterface;
+use Throwable;
+use Wdc\Framework\Domain\Exception\BusinessException;
+use Wdc\Shopping\Domain\Product\ProductRepository;
+
+/** `GET /image/product/{id}.png` — a única chamada HTTP de dados que o shell React faz. */
+final readonly class ProductImageHandler implements RequestHandler
+{
+    public function __construct(
+        private ProductRepository $products,
+        private LoggerInterface $logger,
+    ) {
+    }
+
+    public function handleRequest(Request $request): Response
+    {
+        $args = $request->getAttribute(Router::class);
+        $id = is_array($args) ? filter_var($args['id'] ?? null, FILTER_VALIDATE_INT) : false;
+        if ($id === false) {
+            return new Response(HttpStatus::BAD_REQUEST);
+        }
+        try {
+            $image = $this->products->fetchImage($id);
+        } catch (BusinessException) {
+            return new Response(HttpStatus::NOT_FOUND);   // produto inexistente
+        } catch (Throwable $e) {
+            $this->logger->error('Processing image request', ['exception' => $e]);
+
+            return new Response(HttpStatus::INTERNAL_SERVER_ERROR);
+        }
+
+        return $image === null
+            ? new Response(HttpStatus::NO_CONTENT)
+            : new Response(HttpStatus::OK, ['content-type' => 'image/png', 'cache-control' => 'public, max-age=3600'], $image);
+    }
+}

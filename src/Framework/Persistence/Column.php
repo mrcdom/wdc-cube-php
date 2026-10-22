@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Wdc\Framework\Persistence;
+
+use Closure;
+
+/**
+ * Mapeamento campo do bean ⇄ coluna.
+ *
+ * @template E of object
+ */
+final readonly class Column
+{
+    /**
+     * @param Closure(E): mixed        $get
+     * @param Closure(E, mixed): mixed $set
+     */
+    public function __construct(
+        public string $field,
+        public string $column,
+        public ColumnType $type,
+        public Closure $get,
+        public Closure $set,
+    ) {
+    }
+
+    /** @param E $bean */
+    public function read(object $bean): mixed
+    {
+        return ($this->get)($bean);   // parênteses: chamar a closure guardada na propriedade
+    }
+
+    /** @param E $bean */
+    public function write(object $bean, mixed $dbValue): void
+    {
+        ($this->set)($bean, $this->type->toPhp($dbValue));
+    }
+}

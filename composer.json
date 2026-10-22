@@ -1,0 +1,42 @@
+{
+    "name": "wedocode/wdc-cube-php",
+    "description": "Cube MVP em PHP: presenters no servidor, cliente fino por WebSocket — com a aplicação de demonstração Shopping",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "ext-gmp": "*",
+        "ext-openssl": "*",
+        "ext-pdo_sqlite": "*",
+        "amphp/http-client": "^5.3",
+        "amphp/http-server": "^3.4",
+        "amphp/http-server-router": "^2.0",
+        "amphp/http-server-static-content": "^2.0",
+        "amphp/websocket-server": "^4.0",
+        "psr/log": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Wdc\\Framework\\": "src/Framework/",
+            "Wdc\\Shopping\\": "src/Shopping/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Wdc\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "check": ["@analyse", "@test"]
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "require-dev": {
+        "amphp/websocket-client": "^2.0",
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^13.4"
+    }
+}
