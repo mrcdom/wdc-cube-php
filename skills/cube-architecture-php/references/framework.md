@@ -78,14 +78,17 @@ enum Place: int implements CubePlace
 
 ## 4. Navigation and lifecycle
 
-- `Routes::xxx($app, $intent)` → `$app->navigate()->step(Place::ROOT)->...->execute($intent)`.
+- Navigation goes through the destination's keys: `XxxKeys::of($app)->go()` (from the current
+  state) or `(new XxxKeys($app, $intent))->go()` (with an intent in transit). `go()` calls
+  `Place::go`, which calls the `Routes` method:
+  `$app->navigate()->step(Place::ROOT)->...->execute($intent)`.
 - `applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool` on each
   place, root to leaf. `false` stops the walk.
 - Commit: presenters of the new chain stay; the rest are released leaf first. A presenter
   created in this navigation and not accepted is released too.
 - Exception: rollback (the old presenters get the previous intent back; the new ones are
   released) and the exception is rethrown to the caller.
-- Redirect: a presenter that calls `Routes::other($app, $intent)` inside `applyParameters`
+- Redirect: a presenter that calls `(new OtherKeys($app, $intent))->go()` inside `applyParameters`
   and returns `false` starts a new navigation; the outer one is marked interrupted and
   neither commits nor rolls back. A redirect loop is detected and the navigation abandoned,
   so the session stays usable.

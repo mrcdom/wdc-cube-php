@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Open\Login;
 
-use Wdc\Shopping\Presentation\Presenter\RootKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -16,7 +16,6 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
-use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
 
@@ -46,7 +45,7 @@ final class LoginPresenter extends AbstractCubePresenter
         if ($initialization) {
             $this->view = (self::$createView ?? throw new LogicException('LoginPresenter::$createView não configurado'))($this);
         }
-        $this->ownerSlot = (new RootKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+        $this->ownerSlot = (new LoginKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -77,7 +76,7 @@ final class LoginPresenter extends AbstractCubePresenter
                     $this->app->clientPersistentStore()->secure()->set(StorageKeys::AUTH_TOKEN, $result->persistentToken);
                 }
                 $this->app->setSubject($result->subject);
-                Routes::home($this->app);
+                HomeKeys::of($this->app)->go();
             }
         } catch (OfflineException) {
             $this->alertDatabaseIsOffline();

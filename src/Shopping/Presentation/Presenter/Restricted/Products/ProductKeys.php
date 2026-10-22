@@ -6,10 +6,10 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Products;
 
 use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Place;
-use Wdc\Shopping\Presentation\Presenter\RootKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 
 /** Keys do detalhe do produto: `product?pr-id=3`. */
-final class ProductKeys extends RootKeys
+final class ProductKeys extends HomeKeys
 {
     /** Prefixo dos nomes deste arquivo - único na aplicação. */
     private const string PREFIX = 'pr';

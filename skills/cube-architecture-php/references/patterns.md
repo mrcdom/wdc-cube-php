@@ -73,7 +73,7 @@ public static function orders(ShoppingApplication $app, ?CubeIntent $intent = nu
 ```php
 // Presenter/Restricted/Orders/OrdersKeys.php - the ONLY file that knows these names
 /** Keys da lista de pedidos: `orders?or-status=paid&or-page=2`. */
-final class OrdersKeys extends RootKeys            // inherits userId and ownerSlot
+final class OrdersKeys extends HomeKeys            // inherits userId and ownerSlot from the root
 {
     /** Prefixo dos nomes deste arquivo - único na aplicação. Escolha um que ainda não exista. */
     private const string PREFIX = 'or';
@@ -120,7 +120,24 @@ final class OrdersKeys extends RootKeys            // inherits userId and ownerS
 }
 ```
 
-Keys inherit down the tree: `RootKeys` → (branch keys) → screen keys. A name is declared once,
+Every place has its keys - guards and screens without names too - and the classes mirror the
+tree: `RootKeys` → `OpenKeys` → `LoginKeys`; `RootKeys` → `RestrictedKeys` → `HomeKeys` →
+`CartKeys`/`ProductKeys`/`ReceiptKeys`. A keys without names only declares `place()`:
+
+```php
+/** Keys do carrinho: `cart`. */
+final class CartKeys extends HomeKeys
+{
+    public function place(): CubePlace
+    {
+        return Place::CART;
+    }
+}
+```
+
+Navigation always goes through the destination's keys: `CartKeys::of($this->app)->go()` from
+an event; `(new LoginKeys($this->app, $intent))->go()` when redirecting inside
+`applyParameters`. A name is declared once,
 in the OWNER's keys; a deeper place extends those keys to READ it. `KeysNamesTest` checks the
 prefixes and the tables. Writing a property needs a variable (`$keys = new OrdersKeys(...);
 $keys->page = 2;`): PHP refuses to write on `(new OrdersKeys(...))->page`.
@@ -259,7 +276,7 @@ final class ProductPresenter extends AbstractCubePresenter
                 return;
             }
             $this->app->cart()?->addProduct($this->state->product ?? throw new LogicException('No product'), $quantity);
-            Routes::cart($this->app);
+            CartKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Adding an item to cart', $caught);   // unexpected: the alert
         }
@@ -361,11 +378,11 @@ final class RestrictedPresenter implements CubePresenter
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
     {
         if ($this->app->subject() === null) {
-            Routes::open($this->app, $intent);          // redirect WITH the intent in transit
+            (new OpenKeys($this->app, $intent))->go();  // redirect WITH the intent in transit
             return false;
         }
         if ($deepest) {                                // the branch alone is not a screen
-            Routes::home($this->app, $intent);
+            (new HomeKeys($this->app, $intent))->go();
             return false;
         }
 

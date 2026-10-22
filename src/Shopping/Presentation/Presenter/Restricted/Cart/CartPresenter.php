@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Cart;
 
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptKeys;
-use Wdc\Shopping\Presentation\Presenter\RootKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -19,7 +19,6 @@ use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
 use Wdc\Shopping\Domain\Exception\InvalidCartItemException;
-use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
@@ -62,7 +61,7 @@ final class CartPresenter extends AbstractCubePresenter
         if ($initialization) {
             $this->view = (self::$createView ?? throw new LogicException('CartPresenter::$createView não configurado'))($this);
         }
-        $this->ownerSlot = (new RootKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+        $this->ownerSlot = (new CartKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -100,7 +99,7 @@ final class CartPresenter extends AbstractCubePresenter
             }
             if ($this->cart->removeProduct($productId)) {
                 if ($this->cart->size() === 0) {
-                    Routes::home($this->app);
+                    HomeKeys::of($this->app)->go();
                 } else {
                     $this->state->items = $this->cart->cartItems();
                     $this->update();
@@ -140,7 +139,7 @@ final class CartPresenter extends AbstractCubePresenter
     public function onOpenProducts(): void
     {
         try {
-            Routes::home($this->app);
+            HomeKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Going to root restricted place', $caught);
         }

@@ -6,10 +6,10 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Receipt;
 
 use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Place;
-use Wdc\Shopping\Presentation\Presenter\RootKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 
 /** Keys do recibo: `receipt?rc-id=7`. */
-final class ReceiptKeys extends RootKeys
+final class ReceiptKeys extends HomeKeys
 {
     /** Prefixo dos nomes deste arquivo - único na aplicação. */
     private const string PREFIX = 'rc';

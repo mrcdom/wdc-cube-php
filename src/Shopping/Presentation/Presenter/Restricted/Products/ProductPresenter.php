@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Products;
 
+use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
 use Closure;
 use LogicException;
@@ -16,7 +18,6 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
-use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
@@ -91,7 +92,7 @@ final class ProductPresenter extends AbstractCubePresenter
             $product = $this->state->product ?? throw new LogicException('Sem produto carregado');
             $cart = $this->app->cart() ?? throw new LogicException('Carrinho não inicializado');
             $cart->addProduct($product, $quantity);
-            Routes::cart($this->app);
+            CartKeys::of($this->app)->go();
         } catch (OfflineException $caught) {
             $this->alert(1, 'Carrinho não acessível. Aguarde alguns instantes e tente novamente.');
             $this->app->logger()->error('onAddToCart', ['exception' => $caught]);
@@ -103,7 +104,7 @@ final class ProductPresenter extends AbstractCubePresenter
     public function onOpenProducts(): void
     {
         try {
-            Routes::home($this->app);
+            HomeKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Going to home of restricted place', $caught);
         }

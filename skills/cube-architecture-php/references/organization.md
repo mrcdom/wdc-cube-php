@@ -71,9 +71,9 @@ Presentation/
   Presenter/
     RootPresenter.php        place ROOT (+ the alert view)
     RootKeys.php             the base keys: user parameter and the composition slot
-    Open/                    place OPEN (public area)
-      Login/                 LOGIN: presenter, view state, service, result types
-    Restricted/              place RESTRICTED (guard)
+    Open/                    place OPEN (public area): OpenKeys, OpenPresenter
+      Login/                 LOGIN: keys, presenter, view state, service, result types
+    Restricted/              place RESTRICTED (guard): RestrictedKeys, RestrictedPresenter
       Home/                  HOME (slot owner)
         Products/            child segment of the home (panel)
         Purchases/           child segment of the home (panel)
@@ -82,8 +82,8 @@ Presentation/
       Receipt/               RECEIPT (inside HOME)
 ```
 
-A screen folder holds: `XxxPresenter.php`, `XxxViewState.php`, `XxxKeys.php` (when it reads
-or publishes names), the presentation structs it
+A screen folder holds: `XxxKeys.php` (every place has one), `XxxPresenter.php`,
+`XxxViewState.php`, the presentation structs it
 shows (`XxxInfo.php`, `XxxItem.php`), its service (`XxxService.php`), and its child
 segments. What several screens read lives with the screen that owns the subject; the
 others import from there.

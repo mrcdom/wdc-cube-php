@@ -7,7 +7,8 @@ rest is a suggestion.
 ## Places, routes and names
 
 - [ ] New place: enum case with an id deeper than its parent, `name()`, `createPresenter`,
-      `go`, and a `Routes` method with the full chain. *Symptom: F5 on the new address opens
+      `go`, a `Routes` method with the full chain, and its `XxxKeys` extending the parent
+      place's keys. *Symptom: F5 on the new address opens
       the root; "unhandled match case" on navigation.*
 - [ ] New name declared in the OWNER's keys (the presenter that publishes it) as a `P_`/`A_`
       constant `self::PREFIX . '-code'`; a new keys file gets a prefix that does not exist yet.
@@ -49,7 +50,7 @@ rest is a suggestion.
 - [ ] Every event handler wraps its body: expected failures → error code in its state;
       unexpected → `alertUnexpectedError`. *Symptom: an error with no context, or a screen
       half-updated.*
-- [ ] Navigation from an event starts from `newIntent()` and catches the destination's
+- [ ] Navigation from an event goes through the destination's keys (`XxxKeys::of($this->app)`, set what it needs, `->go()`) and catches the destination's
       expected exceptions. *Symptom: the error of the destination becomes a generic alert.*
 - [ ] Change in its own place: state + `update()` + `updateHistory()` (if published), no
       navigation to itself.

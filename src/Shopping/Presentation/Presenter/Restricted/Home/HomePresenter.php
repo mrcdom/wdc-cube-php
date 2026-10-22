@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Home;
 
+use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartKeys;
+use Wdc\Shopping\Presentation\Presenter\Open\Login\LoginKeys;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductKeys;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptKeys;
-use Wdc\Shopping\Presentation\Presenter\RootKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -22,7 +23,6 @@ use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartManager;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\Products\ProductsPanelPresenter;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\Purchases\PurchasesPanelPresenter;
-use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
 
@@ -82,7 +82,7 @@ final class HomePresenter extends AbstractCubePresenter
     {
         $subject = $this->app->subject();
         if ($subject === null) {
-            Routes::login($this->app, $intent);
+            (new LoginKeys($this->app, $intent))->go();
 
             return false;
         }
@@ -105,7 +105,7 @@ final class HomePresenter extends AbstractCubePresenter
             $this->update();
         }
 
-        $keys = new RootKeys($this->app, $intent);
+        $keys = new HomeKeys($this->app, $intent);
         $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         if ($this->ownerSlot === null) {
             return false;
@@ -170,7 +170,7 @@ final class HomePresenter extends AbstractCubePresenter
     public function onOpenCart(): void
     {
         try {
-            Routes::cart($this->app);
+            CartKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Trying to go to cart place', $caught);
         }
@@ -185,7 +185,7 @@ final class HomePresenter extends AbstractCubePresenter
             $storage = $this->app->clientPersistentStore()->secure();
             $storage->remove(StorageKeys::AUTH_TOKEN);
             $this->app->authService()?->logout($storage->get(StorageKeys::AUTH_REFRESH_TOKEN));
-            Routes::login($this->app);
+            LoginKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Trying to go to login place', $caught);
         }

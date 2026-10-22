@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Receipt;
 
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -14,7 +15,6 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
-use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
@@ -72,7 +72,7 @@ final class ReceiptPresenter extends AbstractCubePresenter
     public function onOpenProducts(): void
     {
         try {
-            Routes::home($this->app);
+            HomeKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Going to restricted home place', $caught);
         }

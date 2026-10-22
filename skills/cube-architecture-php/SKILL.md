@@ -64,7 +64,7 @@ switch faces.
 | ------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Cube                           | `Place` enum (implements `CubePlace`) + `Routes` (one static method per face: the chain of places) |
 | Intent                         | `CubeIntent`: place + parameters (go to the address) + attributes and view slots (do not)           |
-| Change face                    | `Routes::xxx($app, $intent)` → `$app->navigate()->step(...)->execute($intent)`                      |
+| Change face                    | `XxxKeys::of($app)->go()` → `Place::go` → `Routes` → `$app->navigate()->step(...)->execute()`       |
 | Session                        | `CubeApplication` subclass (`ShoppingApplication`); remote host subclass for the WebSocket session  |
 | Presenter                      | `AbstractCubePresenter`; control state is its fields; `public readonly XxxViewState $state`         |
 | Rendering state                | `XxxViewState implements ViewState`: public properties, serialized to JSON for the React view       |
@@ -115,7 +115,7 @@ Consequences:
 - **Identity is derived, not stored.** What a presenter does not publish disappears from
   the address. Whoever left the face stops publishing.
 - **A failed navigation is an exception at the caller.** The event handler that called
-  `Routes::xxx()` catches the specific exception (e.g. `ProductNotFoundException`) and shows
+  `$keys->go()` catches the specific exception (e.g. `ProductNotFoundException`) and shows
   an error code in ITS OWN state; the screen stays where it was.
 
 ## The skeleton of a presenter
@@ -236,8 +236,9 @@ view, wiring, tests) are in [references/patterns.md](references/patterns.md).
 9. **Parameter and attribute names live in keys classes, unique across the application, each
    with one owner.** A navigation passes the SAME intent through every `applyParameters` from
    root to leaf; two presenters using the same name overwrite each other mid-walk. Each place
-   that reads or publishes something has an `XxxKeys` (extending the keys of the place above,
-   so a deeper place can READ what an ancestor publishes). The file declares a two-letter
+   has its own `XxxKeys` - guards and screens without names included - extending the keys of
+   the place above, so the class tree mirrors the place tree and a deeper place can READ what
+   an ancestor publishes. The file declares a two-letter
    `PREFIX`, unique in the application, and its names as private constants
    `P_X = self::PREFIX . '-code'` (parameters) and `A_X = ...` (attributes), exposed as typed
    properties with `get`/`set` hooks. Nobody else touches the intent by name -
@@ -251,7 +252,7 @@ view, wiring, tests) are in [references/patterns.md](references/patterns.md).
 11. **A trip starts from STATE**: `XxxKeys::of($this->app)` builds the intent from
     `newIntent()` (every live presenter publishes), you set what the destination needs and
     call `->go()`. A redirect INSIDE `applyParameters` passes the intent in transit instead
-    (`Routes::xxx($this->app, $intent)`), so what the address just brought is not lost.
+    (`(new XxxKeys($this->app, $intent))->go()`), so what the address just brought is not lost.
     Heavy data already in hand travels as an ATTRIBUTE (an `A_` name in the keys), not as a parameter.
 12. **Do not navigate to the place you are already on.** Change your own state, `update()`,
     and - if the change alters what you publish - `$this->app->updateHistory()` so the
@@ -305,9 +306,10 @@ Details and templates in [references/patterns.md](references/patterns.md).
 1. Decide on which **face** it appears and who is its slot owner (inside what is it?).
 2. Add the case to `Place` (id grows with depth; `name()` is the address name;
    `createPresenter` and `go`), and the route method to `Routes`.
-3. If the place reads or publishes names: a keys class next to the presenter
-   (`XxxKeys extends RootKeys`, or the keys of the place above), with a NEW two-letter
+3. A keys class next to the presenter, extending the keys of the place above
+   (`CartKeys extends HomeKeys`), with `place()`. If it declares names: a NEW two-letter
    prefix, its `P_`/`A_` constants and typed properties that validate on `get`.
+   `KeysNamesTest` fails while a place has no keys.
 4. Write: view state → info structs + service (with the projection) → presenter (with
    `skeleton()` and a NEW random 12-hex `classId`) → `$createView` in the remote host AND in
    the test mock (+ a view mock class) → the React view with the same `classId` and event

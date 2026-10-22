@@ -6,9 +6,13 @@ namespace Wdc\Tests\Shopping\Presentation;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use Wdc\Framework\Cube\CubeKeys;
+use Wdc\Shopping\Presentation\Place;
+use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
  * Todo nome de parâmetro e de atributo é único na aplicação: uma navegação passa o MESMO intent
@@ -94,6 +98,37 @@ final class KeysNamesTest extends TestCase
         $shared = array_filter($owners, static fn (array $files) => count($files) > 1);
 
         self::assertSame([], $shared, 'prefixo usado por mais de um arquivo de keys');
+    }
+
+    /** Cada place tem a SUA classe de keys - inclusive guardas e telas sem parâmetros. */
+    #[Test]
+    public function everyPlaceHasExactlyOneKeysClass(): void
+    {
+        $owners = [];
+        foreach (self::keysFiles() as $path) {
+            $class = self::className($path);
+            $reflection = new ReflectionClass($class);
+            if ($reflection->isAbstract() || !$reflection->isSubclassOf(CubeKeys::class)) {
+                continue;
+            }
+            /** @var CubeKeys<ShoppingApplication> $keys */
+            $keys = $reflection->newInstanceWithoutConstructor();   // place() não depende do estado
+            $owners[$keys->place()->name()][] = $class;
+        }
+
+        foreach (Place::cases() as $place) {
+            self::assertCount(1, $owners[$place->name()] ?? [], "place {$place->name}: precisa de exatamente uma classe de keys");
+        }
+    }
+
+    /** @return class-string */
+    private static function className(string $path): string
+    {
+        preg_match('/^namespace ([^;]+);/m', (string) file_get_contents($path), $ns);
+        $class = ($ns[1] ?? '') . '\\' . basename($path, '.php');
+        self::assertTrue(class_exists($class), "classe {$class} não encontrada");
+
+        return $class;
     }
 
     #[Test]
