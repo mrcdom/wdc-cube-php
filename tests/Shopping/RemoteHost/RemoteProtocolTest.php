@@ -117,7 +117,7 @@ final class RemoteProtocolTest extends TestCase
         self::assertArrayNotHasKey('contentViewId', $home, 'home sem conteúdo aberto');
         self::assertSame(self::PRODUCTS, FakeBrowser::classOf($home['productsPanelViewId']));
         self::assertSame(self::PURCHASES, FakeBrowser::classOf($home['purchasesPanelViewId']));
-        self::assertMatchesRegularExpression('/^home\?userId=0&sign=[0-9A-Za-z]+$/', (string) $browser->uri);
+        self::assertMatchesRegularExpression('/^home\?rt-user=0&sign=[0-9A-Za-z]+$/', (string) $browser->uri);
 
         $token = $browser->storage['persistent-secure'][StorageKeys::AUTH_TOKEN] ?? '';
         self::assertCount(3, explode('.', $token), 'o JWT chegou cifrado e o cliente o abriu');
@@ -154,7 +154,7 @@ final class RemoteProtocolTest extends TestCase
         $product = $browser->state($browser->screen()['contentViewId']);
         self::assertSame(self::PRODUCT, FakeBrowser::classOf($product['#']));
         self::assertStringStartsWith('Ideal para transporte', $product['product']['description']);
-        self::assertMatchesRegularExpression('/^product\?userId=0&productId=3&sign=/', (string) $browser->uri);
+        self::assertMatchesRegularExpression('/^product\?rt-user=0&pr-id=3&sign=/', (string) $browser->uri);
 
         $browser->submit($product['#'], 2, ['p.quantity' => 2, 'quantity' => 2]);
         $cart = $browser->state($browser->screen()['contentViewId']);
@@ -208,7 +208,7 @@ final class RemoteProtocolTest extends TestCase
         $browser = $this->loggedIn();
         $before = $browser->uri;
 
-        $browser->submit(FakeBrowser::BROWSER, -2, ['p.path' => 'cart?userId=0&sign=forjada']);
+        $browser->submit(FakeBrowser::BROWSER, -2, ['p.path' => 'cart?rt-user=0&sign=forjada']);
 
         self::assertSame($before, $browser->uri, 'servidor reenvia a URL atual');
         self::assertArrayNotHasKey('contentViewId', $browser->screen());

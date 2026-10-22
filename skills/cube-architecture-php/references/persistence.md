@@ -1,0 +1,252 @@
+# Persistence: entities, criteria, projection, JsonQuery
+
+The data layer is part of the architecture, not an afterthought: its central mechanism - a
+projection turned into ONE query that returns the whole graph as JSON - is what keeps
+screens fast and free of N+1. Sources: `src/Framework/Domain/`, `src/Framework/Persistence/`,
+and the Shopping repositories in `src/Shopping/Persistence/Repository/`.
+
+## Contents
+
+1. The entity
+2. The criteria
+3. The projection
+4. The repository contract
+5. A repository implementation
+6. JsonQuery: what it generates
+7. Transactions
+8. Security in the data layer
+9. The asynchronous database
+10. Schema and seed
+11. The REST API
+12. Rules that break silently
+
+---
+
+## 1. The entity
+
+A plain class with nullable fields and a fluent API: `field()` reads, `withField()` writes
+and returns `$this`. `null` means "not loaded / not projected".
+
+```php
+final class Product
+{
+    private ?int $id = null;
+    private ?string $name = null;
+    private ?float $price = null;
+
+    public function id(): ?int { return $this->id; }
+    public function withId(?int $id): static { $this->id = $id; return $this; }
+    // ...
+}
+```
+
+Relations are entities (`Purchase::user(): ?User`) and lists (`Purchase::items()`: a list of
+`PurchaseItem` or a `ProjectionList` when used as a projection). Ids start at 0 in the seed:
+never test an id with `!$id`.
+
+## 2. The criteria
+
+One `XxxCriteria` per entity, with a `Criterion` per filterable field (created in the
+constructor, never null), an optional projection and an `XxxOrderBy` enum.
+
+```php
+$criteria = (new ProductCriteria())
+    ->withProjection(ProductInfo::projection())
+    ->withOrderBy(ProductOrderBy::CHEAPEST_FIRST);
+$criteria->price()->ge(10.0);                                   // ComparableCriterion: gt ge lt le between
+$criteria->name()->or()->like('Bola%')->name()->like('Fita%');  // TextCriterion: like ilike containing startingWith
+$criteria->productId()->in([1, 2, 3]);                          // eq ne in isNull isNotNull
+```
+
+- Requests on the same field are ANDed; `or()` makes that field disjunctive.
+- A `null` value adds no request: an empty screen filter means "do not filter".
+- `withXxx($value)` is the shortcut for `xxx()->eq($value)`.
+- Virtual fields are allowed (`PurchaseCriteria::productId` = "has an item with this product",
+  translated to `EXISTS`).
+- Without `orderBy`, results come ordered by id (never in physical order).
+
+## 3. The projection
+
+The entity itself as a mask: a non-null field = a column to select. The values are
+conventions from `ProjectionValues` (`PV::INT`, `PV::FLOAT`, `PV::STR`, `PV::BOOL`,
+`PV::dateTime()`).
+
+```php
+$projection = (new Purchase())
+    ->withId(PV::INT)
+    ->withBuyDate(PV::dateTime())
+    ->withUser((new User())->withId(PV::INT)->withName(PV::STR))            // N:1, nested
+    ->withItems(PV::singletonList(                                           // 1:N, with its own criteria and slice
+        (new PurchaseItem())->withAmount(PV::INT)->withProduct((new Product())->withName(PV::STR)),
+        (new PurchaseItemCriteria())->withOrderBy(PurchaseItemOrderBy::MOST_EXPENSIVE_FIRST),
+    )->withLimit(3));
+```
+
+- A relation that projects ONLY the id comes from the FK column, with no subquery.
+- The 1:N slice (`withLimit`/`withOffset`) applies PER PARENT.
+- Keep each screen's projection next to the struct it fills (`ProductInfo::projection()`),
+  so "what the screen shows" and "what the query selects" change together.
+
+## 4. The repository contract
+
+`Repository<E, C>`: `insert`, `update($new, $old = null, $projection = null)`,
+`insertOrUpdate`, `delete($criteria)`, `count($criteria)`,
+`fetch($criteria, $offset = 0, $limit = 0)`, `fetchPage($criteria, $page, $pageSize)`,
+`fetchById($id, $projection = null)`, `newProjection()`.
+
+- `insert` generates the id from the sequence when it is null and writes it back to the bean.
+- `update` writes only the fields that are both projected AND changed relative to `$old`
+  (`$old = null` ⇒ every projected field).
+- Domain interfaces (`ProductRepository`) add specific operations (`fetchImage`).
+
+## 5. A repository implementation
+
+```php
+/** @extends AbstractRepository<Purchase, PurchaseCriteria> */
+final class PurchaseRepositoryImpl extends AbstractRepository implements PurchaseRepository
+{
+    /** @var JsonQuery<Purchase, PurchaseCriteria> */
+    private readonly JsonQuery $query;
+
+    public function __construct(Database $db, private readonly ShoppingRepositories $repos)
+    {
+        parent::__construct($db);
+        $table = new Table('EN_PURCHASE', static fn (): Purchase => new Purchase(), [
+            new Column('id', 'ID', ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
+            new Column('buyDate', 'BUYDATE', ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
+        ]);
+        // targets in closures: purchase → item → purchase is a cycle
+        $this->query = new JsonQuery($table, PurchaseCriteria::class, 'pu', $db->dialect())
+            ->withConditions($this->conditions(...))
+            ->withOrdering($this->orderBy(...))
+            ->addToOne('user', static fn (Purchase $p) => $p->user(), static fn (Purchase $p, ?User $u) => $p->withUser($u),
+                fn () => $this->repos->users->query(), 'USERID')
+            ->addToMany('items', static fn (Purchase $p) => $p->items(), static fn (Purchase $p, array $items) => $p->withItems($items),
+                fn () => $this->repos->purchaseItems->query(), 'PURCHASEID');
+    }
+
+    public function query(): JsonQuery { return $this->query; }
+
+    protected function sequence(): string { return 'SQ_PURCHASE'; }
+
+    protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
+    {
+        return Sql::and([
+            CriterionTranslator::translate("{$a}.ID", $criteria->purchaseId()),
+            CriterionTranslator::translate("{$a}.USERID", $criteria->userId()),
+            CriterionTranslator::translate("{$a}.BUYDATE", $criteria->buyDate(), ColumnType::formatDate(...)),
+        ]);
+    }
+
+    protected function orderBy(?object $criteria, string $a): string
+    {
+        return match ($criteria?->orderBy()) {
+            null => '',                                               // ⇒ by id
+            PurchaseOrderBy::NEWEST_FIRST => "{$a}.ID DESC",
+            PurchaseOrderBy::MOST_RECENT_PURCHASE_FIRST => "{$a}.BUYDATE DESC, {$a}.ID DESC",   // tie-break by id
+            // ...
+        };
+    }
+
+    protected function projectionOf(object $criteria): ?object { return $criteria->projection(); }
+
+    protected function criteriaForIds(array $ids, object $projection): object
+    {
+        return (new PurchaseCriteria())->purchaseId()->in($ids)->withProjection($projection);
+    }
+}
+```
+
+- Columns that are FKs and not fields (`USERID`) are written by `insertBean($bean, ['USERID'
+  => ...])` / `updateBean(..., ['USERID' => [getter, ColumnType]])`.
+- SQL identifiers never use quotes (PostgreSQL lowercases unquoted names).
+- Every ORDER BY ends with a unique tie-break (the id): pagination needs a total order.
+- Wire the repository in the composition root (`ShoppingRepositories`).
+
+## 6. JsonQuery: what it generates
+
+One SELECT per `fetch`, whatever the depth of the projection:
+
+```
+SELECT {"id": pu1.ID, "buyDate": pu1.BUYDATE,
+        "user":  (SELECT {"id": u2.ID, "name": u2.NAME} FROM EN_USER u2 WHERE u2.ID = pu1.USERID),
+        "items": (SELECT [ {...} ORDER BY pi3.PRICE DESC, pi3.ID ] FROM EN_PURCHASEITEM pi3
+                  WHERE pi3.PURCHASEID = pu1.ID AND pi3.ID IN (<slice per parent>))} AS json
+FROM EN_PURCHASE pu1 WHERE ... ORDER BY ... LIMIT ...
+```
+
+(`{...}`/`[...]` are built with the database's JSON functions - `JsonDialect`.) The result is
+parsed and hydrated into entities. Inspect the generated SQL in a test with
+`$db->onQuery(fn (string $sql, array $params) => ...)`.
+
+## 7. Transactions
+
+```php
+$this->app->tx()->required(function (TransactionContext $tx) use ($purchase): void {
+    $this->purchases->insert($purchase);        // purchase + items, atomically
+});
+```
+
+- REQUIRED, reentrant: the outermost call owns the transaction (a pool connection bound to
+  the current Fiber); inner calls take part; an exception in a participant marks
+  rollback-only.
+- Other sessions keep running in the meantime, outside the transaction.
+- Work started with `async()` inside `required()` runs in another Fiber: OUTSIDE the
+  transaction.
+
+## 8. Security in the data layer
+
+- Presenters get repositories wrapped by `Secured*Repository`, which put the session's
+  `SecurityContext` as the current one (`CurrentSecurityContext::runAs`) on every call.
+- The current security context is per Fiber: never keep it in a static field.
+- Permissions are `entity:operation` (`purchase:write`) plus `data:all`; roles in `Role`.
+- Without `data:all`, a user only sees and changes their own data: the REST controllers
+  force the owner criterion (`SecurityEnforcer::forceOwner`, which also neutralizes an
+  `"or": true` sent by the client) and check ownership before updates.
+
+## 9. The asynchronous database
+
+- `Database` wraps an `amphp/postgres` pool (`database.pool.maxConnections`, default 16).
+  Connections open on demand and close after 60 s idle.
+- A query suspends only its Fiber; queries of different sessions run in parallel.
+- API: `fetchAll($sql, $params)`, `fetchValue`, `execute` (affected rows), `exec` (DDL,
+  several statements), `nextval`, `beginTransaction`, `bind` (transaction ↔ Fiber).
+- Parameters are positional `?`. Binary values go wrapped in `Blob`. Dates are stored as
+  UTC `TIMESTAMP` (the session runs in UTC).
+- The REST API's remote transactions use a dedicated connection per transaction, outside
+  the pool.
+
+## 10. Schema and seed
+
+`ShoppingSchema`: DDL (`create` if the tables do not exist, `drop`), `reset` (delete all and
+seed). Seed ids are public constants (`ShoppingSchema::PEN_DRIVE2GB_ID`), used by the tests
+(`use ShoppingSchema as Seed`). The server creates the database if it does not exist and
+the schema on first start.
+
+## 11. The REST API
+
+Repositories are also exposed over HTTP (`src/Shopping/Persistence/Rest/`):
+`/api/auth/*` (HMAC challenge, JWT), `/api/repo/<entity>/<operation>`, `/api/tx/*` (remote
+transaction with `X-Tx-Id`). Each entity has a `ModelCodec` (`ProductCodec`...) that reads
+and writes the JSON, including criteria (`{"price": {"or": true, "p": [{"o": "GE", "v": [10]}]}}`)
+and projected collections (`{"shape": {...}, "where": {...}, "limit": 5}`). A new entity
+field needs: entity, column, codec (read, read-for-update, write), and - if filterable -
+criteria, translator and codec criteria field.
+
+## 12. Rules that break silently
+
+- [ ] Every `fetch`/`fetchById` from a screen passes a projection with exactly what it shows.
+      *Symptom: slow screens, large payloads, a field "randomly" null because the default
+      projection did not include it.*
+- [ ] No repository call inside a loop over rows: put the relation in the projection.
+      *Symptom: N+1 - one query per row, latency growing with the list.*
+- [ ] Each 1:N projection that can be large carries a limit and an order.
+- [ ] ORDER BY ends with the id. *Symptom: a row appears twice or never across pages.*
+- [ ] Several writes in one `required()`. *Symptom: half an operation saved after an error.*
+- [ ] No `async()` expecting to be inside the transaction.
+- [ ] Criteria built from screen input: `null` means "no filter" - an id that must restrict
+      the query cannot come in null. *Symptom: a list that should be empty shows everything.*
+- [ ] Dates: write any timezone (the column type converts to UTC) and expect UTC back. The
+      reader's local time is the view's concern: send the instant (e.g. epoch milliseconds,
+      as the receipt does) and let the browser format it. *Symptom: times off by the
+      server's offset.*

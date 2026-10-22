@@ -145,7 +145,7 @@ abstract class ShoppingApplication extends CubeApplication
         return $this->purchaseItemRepository ??= new SecuredPurchaseItemRepository($this->context->purchaseItems, $this->securityContext(...));
     }
 
-    // :: Navegação por nome ("cart", "product?productId=3"...)
+    // :: Navegação por nome ("cart", "product?pr-id=3"...)
 
     public function go(string|CubeIntent $target): bool
     {

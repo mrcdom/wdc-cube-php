@@ -5,13 +5,20 @@ mostra, o que acontece em cada clique, para onde navegar — rodam num servidor 
 duração. O cliente (aqui, um shell React) só desenha o estado que recebe e devolve os eventos do
 usuário.
 
-```
-  browser (shell React)                      servidor PHP (um processo, event loop)
- ┌──────────────────────┐   WebSocket      ┌───────────────────────────────────────┐
- │ componentes React    │ ◀── estados ──── │ sessão: Application                   │
- │ (um por tipo de tela)│ ──── eventos ──▶ │   └─ presenters ─ views ─ estados     │
- └──────────────────────┘                  │        └─ serviços ─ repositórios ────┼──▶ banco
-                                           └───────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph browser["browser (shell React)"]
+        ui["componentes React<br/>(um por tipo de tela)"]
+    end
+    subgraph server["servidor PHP (um processo, event loop)"]
+        app["sessão: Application"] --> presenters["presenters"]
+        presenters --> views["views + estados"]
+        presenters --> services["serviços e repositórios"]
+    end
+    db[(PostgreSQL)]
+    ui -- "eventos (WebSocket)" --> app
+    views -- "estados (WebSocket)" --> ui
+    services --> db
 ```
 
 O que se ganha:
@@ -35,16 +42,18 @@ atributos da sessão e o acesso ao armazenamento do cliente (`clientSessionStore
 Um *place* é um nó de uma árvore de telas, identificado por um id que cresce com a profundidade.
 No Shopping:
 
-```
-ROOT ─┬─ OPEN ──────── LOGIN
-      └─ RESTRICTED ── HOME ─┬─ CART
-                             ├─ PRODUCT
-                             └─ RECEIPT
+```mermaid
+flowchart LR
+    ROOT --> OPEN --> LOGIN
+    ROOT --> RESTRICTED --> HOME
+    HOME --> CART
+    HOME --> PRODUCT
+    HOME --> RECEIPT
 ```
 
 Estar em `CART` significa ter ativos os presenters de toda a cadeia: `ROOT`, `RESTRICTED`, `HOME`
-e `CART`. O nome do place vai para a URL (`#restricted/home/cart?...`), então F5 e o botão
-voltar funcionam.
+e `CART`. O endereço é o nome do place mais fundo mais os parâmetros publicados, assinado pelo servidor
+(`#cart?rt-user=0&sign=...`), então F5 e o botão voltar funcionam.
 
 ### Presenter, view e estado
 
@@ -61,7 +70,7 @@ voltar funcionam.
 ### Intent e navegação
 
 Uma navegação é descrita por um `CubeIntent` — o place de destino, os **parâmetros** (vão para a
-URL), os **atributos** (só no servidor) e os **slots** — e executada como uma transação
+URL), os **atributos** (só no servidor) e os **slots**, lidos e escritos pelas keys (abaixo) — e executada como uma transação
 (`CubeNavigation`):
 
 1. percorre a cadeia de places da raiz até o destino, reaproveitando os presenters que já estão
@@ -78,6 +87,26 @@ As rotas do Shopping (`Routes`) são só cadeias de places:
 $app->navigate()->step(Place::ROOT)->step(Place::RESTRICTED)->step(Place::HOME)->step(Place::CART)
     ->execute($intent);
 ```
+
+### Keys: a leitura tipada do intent
+
+Os nomes de parâmetros e atributos não aparecem nos presenters. Cada place que lê ou publica
+algo tem uma classe de **keys** (`ProductKeys`, `ReceiptKeys`...), que herda das keys do place
+acima e expõe os valores como propriedades tipadas, já validadas na leitura:
+
+```php
+$keys = new ProductKeys($this->app, $intent);       // dentro de applyParameters
+$productId = $keys->productId;                      // inteiro >= 0, ou null se o endereço não traz um válido
+
+$receipt = ReceiptKeys::of($this->app);             // uma viagem que parte do estado atual
+$receipt->purchaseId = 7;
+$receipt->go();
+```
+
+Cada arquivo de keys declara um prefixo de duas letras, único na aplicação, e todos os seus
+nomes começam por ele (`pr-id`, `rc-id`). Como uma navegação passa o mesmo intent por todos os
+presenters do caminho, dois donos do mesmo nome se sobrescreveriam em silêncio; um teste
+(`KeysNamesTest`) varre as keys e garante a regra.
 
 ### Slots: telas dentro de telas
 

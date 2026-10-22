@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Products;
 
+use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
 use Closure;
 use LogicException;
 use Throwable;
@@ -15,13 +16,11 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
-use Wdc\Shopping\Presentation\PlaceAttributes;
-use Wdc\Shopping\Presentation\PlaceParameters;
 use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Detalhe do produto (`product?productId=N`).
+ * Detalhe do produto (`product?pr-id=N`).
  *
  * Produto inexistente ⇒ ProductNotFoundException dentro do applyParameters ⇒ a navegação
  * desfaz tudo (rollback) e relança; quem pediu (a home) mostra o erro.
@@ -48,21 +47,21 @@ final class ProductPresenter extends AbstractCubePresenter
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
     {
+        $keys = new ProductKeys($this->app, $intent);
         $oldId = $this->state->product?->id;
-        $newId = $intent->getParameterAsInt(PlaceParameters::PRODUCT_ID, $oldId)
-            ?? throw new LogicException('Missing PRODUCT_ID');
+        $newId = $keys->productId ?? throw new ProductNotFoundException();   // ausente ou inválido
 
         if ($this->state->product === null || $newId !== $oldId) {
             $this->state->product = $this->productService->loadProductById($newId);
             $this->update();
         }
         if ($initialization) {
-            $this->ownerSlot = $intent->getViewSlot(PlaceAttributes::SLOT_OWNER);
             $this->state->errorCode = 0;
             $this->state->errorMessage = null;
             $this->view = (self::$createView ?? throw new LogicException('ProductPresenter::$createView não configurado'))($this);
             $this->update();
         }
+        $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -71,7 +70,8 @@ final class ProductPresenter extends AbstractCubePresenter
     public function publishParameters(CubeIntent $intent): void
     {
         if ($this->state->product !== null) {
-            $intent->setParameter(PlaceParameters::PRODUCT_ID, $this->state->product->id);
+            $keys = new ProductKeys($this->app, $intent);
+            $keys->productId = $this->state->product->id;
         }
     }
 

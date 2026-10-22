@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Open\Login;
 
+use Wdc\Shopping\Presentation\Presenter\RootKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -15,7 +16,6 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
-use Wdc\Shopping\Presentation\PlaceAttributes;
 use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
@@ -44,9 +44,9 @@ final class LoginPresenter extends AbstractCubePresenter
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
     {
         if ($initialization) {
-            $this->ownerSlot = $intent->getViewSlot(PlaceAttributes::SLOT_OWNER);
             $this->view = (self::$createView ?? throw new LogicException('LoginPresenter::$createView não configurado'))($this);
         }
+        $this->ownerSlot = (new RootKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         $this->ownerSlot?->setView($this->view);
 
         return true;

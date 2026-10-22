@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Home;
 
+use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptKeys;
+use Wdc\Shopping\Presentation\Presenter\RootKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -16,8 +19,6 @@ use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
 use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
-use Wdc\Shopping\Presentation\PlaceAttributes;
-use Wdc\Shopping\Presentation\PlaceParameters;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartManager;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\Products\ProductsPanelPresenter;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\Purchases\PurchasesPanelPresenter;
@@ -87,7 +88,6 @@ final class HomePresenter extends AbstractCubePresenter
         }
 
         if ($initialization || $this->view === null) {
-            $this->ownerSlot = $intent->getViewSlot(PlaceAttributes::SLOT_OWNER);
             $this->view = (self::$createView ?? throw new LogicException('HomePresenter::$createView não configurado'))($this);
             $this->state->nickName = $subject->nickName;
 
@@ -105,6 +105,8 @@ final class HomePresenter extends AbstractCubePresenter
             $this->update();
         }
 
+        $keys = new RootKeys($this->app, $intent);
+        $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         if ($this->ownerSlot === null) {
             return false;
         }
@@ -112,7 +114,7 @@ final class HomePresenter extends AbstractCubePresenter
         if ($deepest) {
             $this->setContentView(null);   // a home é o destino: mostra os painéis
         } else {
-            $intent->setViewSlot(PlaceAttributes::SLOT_OWNER, $this->contentSlot);
+            $keys->ownerSlot = $this->contentSlot;   // reoferece, com o mesmo nome, ao nível de baixo
         }
 
         return true;
@@ -136,9 +138,9 @@ final class HomePresenter extends AbstractCubePresenter
 
                 return;
             }
-            $intent = $this->app->newIntent();
-            $intent->setParameter(PlaceParameters::PRODUCT_ID, $productId);
-            Routes::product($this->app, $intent);
+            $product = ProductKeys::of($this->app);   // a viagem parte do estado atual
+            $product->productId = $productId;
+            $product->go();
         } catch (ProductNotFoundException) {
             $this->alert(3, 'Código do produto não localizado.');
         } catch (Throwable $caught) {
@@ -155,9 +157,9 @@ final class HomePresenter extends AbstractCubePresenter
 
                 return;
             }
-            $intent = $this->app->newIntent();
-            $intent->setParameter(PlaceParameters::PURCHASE_ID, $purchaseId);
-            Routes::receipt($this->app, $intent);
+            $receipt = ReceiptKeys::of($this->app);
+            $receipt->purchaseId = $purchaseId;
+            $receipt->go();
         } catch (PurchaseNotFoundException) {
             $this->alert(5, 'Código do recibo não localizado.');
         } catch (Throwable $caught) {

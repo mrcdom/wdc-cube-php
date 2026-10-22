@@ -14,13 +14,11 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
-use Wdc\Shopping\Presentation\PlaceAttributes;
-use Wdc\Shopping\Presentation\PlaceParameters;
 use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Recibo de uma compra (`receipt?purchaseId=N`).
+ * Recibo de uma compra (`receipt?rc-id=N`).
  *
  * @extends AbstractCubePresenter<ShoppingApplication>
  */
@@ -46,9 +44,9 @@ final class ReceiptPresenter extends AbstractCubePresenter
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
     {
-        $this->state->notifySuccess = $intent->getAttribute(PlaceAttributes::ATTR_PURCHASE_MADE) === true;
-        $purchaseId = $intent->getParameterAsInt(PlaceParameters::PURCHASE_ID, $this->purchaseId)
-            ?? throw new LogicException('Missing PURCHASE_ID');
+        $keys = new ReceiptKeys($this->app, $intent);
+        $this->state->notifySuccess = $keys->purchaseMade;
+        $purchaseId = $keys->purchaseId ?? throw new PurchaseNotFoundException();   // ausente ou inválido
 
         if ($this->state->receipt === null || $purchaseId !== $this->purchaseId) {
             $this->state->receipt = $this->receiptService->loadReceipt($purchaseId) ?? throw new PurchaseNotFoundException();
@@ -56,10 +54,10 @@ final class ReceiptPresenter extends AbstractCubePresenter
             $this->update();
         }
         if ($initialization) {
-            $this->ownerSlot = $intent->getViewSlot(PlaceAttributes::SLOT_OWNER);
             $this->view = (self::$createView ?? throw new LogicException('ReceiptPresenter::$createView não configurado'))($this);
             $this->update();
         }
+        $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -67,7 +65,8 @@ final class ReceiptPresenter extends AbstractCubePresenter
 
     public function publishParameters(CubeIntent $intent): void
     {
-        $intent->setParameter(PlaceParameters::PURCHASE_ID, $this->purchaseId);
+        $keys = new ReceiptKeys($this->app, $intent);
+        $keys->purchaseId = $this->purchaseId;
     }
 
     public function onOpenProducts(): void

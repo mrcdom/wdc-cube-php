@@ -15,8 +15,6 @@ use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Shopping\Domain\User\UserCriteria;
 use Wdc\Shopping\Presentation\Exception\WrongPlace;
-use Wdc\Shopping\Presentation\PlaceAttributes;
-use Wdc\Shopping\Presentation\PlaceParameters;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\Subject;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
@@ -62,11 +60,12 @@ final class RootPresenter extends AbstractCubePresenter
             throw new WrongPlace();
         }
         // não aceita trocar o usuário pela URL
+        $keys = new RootKeys($this->app, $intent);
         $subject = $this->app->subject();
         if ($subject !== null) {
-            $intent->setParameter(PlaceParameters::USER_ID, $subject->id);
+            $keys->userId = $subject->id;
         }
-        $intent->setViewSlot(PlaceAttributes::SLOT_OWNER, $this->contentSlot);
+        $keys->ownerSlot = $this->contentSlot;   // oferecido a cada viagem: o nível de baixo o lê sempre
 
         return true;
     }
@@ -75,7 +74,8 @@ final class RootPresenter extends AbstractCubePresenter
     {
         $subject = $this->app->subject();
         if ($subject !== null) {
-            $intent->setParameter(PlaceParameters::USER_ID, $subject->id);
+            $keys = new RootKeys($this->app, $intent);
+            $keys->userId = $subject->id;
         }
     }
 
@@ -98,9 +98,9 @@ final class RootPresenter extends AbstractCubePresenter
     /**
      * Auto-login: o token persistente ("lembrar-me") guardado no armazenamento seguro do cliente.
      *
-     * O SecurityContext resolvido fica só na sessão, não no contexto global
-     * `SecurityContext.CURRENT` — num processo com várias sessões,
-     * gravá-lo no contexto global o deixaria visível às outras. Os repositórios da sessão o
+     * O SecurityContext resolvido fica só na sessão, não no contexto corrente
+     * (`CurrentSecurityContext`) — gravá-lo ali fora de uma chamada o deixaria visível a
+     * quem rodasse em seguida na mesma Fiber. Os repositórios da sessão o
      * aplicam a cada chamada.
      */
     private function tryAutoLogin(): void

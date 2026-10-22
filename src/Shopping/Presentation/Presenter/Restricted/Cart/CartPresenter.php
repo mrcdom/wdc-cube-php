@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Cart;
 
+use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptKeys;
+use Wdc\Shopping\Presentation\Presenter\RootKeys;
 use Closure;
 use LogicException;
 use Throwable;
@@ -17,8 +19,6 @@ use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
 use Wdc\Shopping\Domain\Exception\InvalidCartItemException;
-use Wdc\Shopping\Presentation\PlaceAttributes;
-use Wdc\Shopping\Presentation\PlaceParameters;
 use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
@@ -60,9 +60,9 @@ final class CartPresenter extends AbstractCubePresenter
     {
         $this->state->items = $this->cart->cartItems();
         if ($initialization) {
-            $this->ownerSlot = $intent->getViewSlot(PlaceAttributes::SLOT_OWNER);
             $this->view = (self::$createView ?? throw new LogicException('CartPresenter::$createView não configurado'))($this);
         }
+        $this->ownerSlot = (new RootKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -122,10 +122,10 @@ final class CartPresenter extends AbstractCubePresenter
             $subject = $this->app->subject() ?? throw new LogicException('Compra sem usuário logado');
             $purchaseId = $this->cart->commit($subject);
 
-            $intent = $this->app->newIntent();
-            $intent->setParameter(PlaceParameters::PURCHASE_ID, $purchaseId);
-            $intent->setAttribute(PlaceAttributes::ATTR_PURCHASE_MADE, true);
-            Routes::receipt($this->app, $intent);
+            $receipt = ReceiptKeys::of($this->app);   // a viagem parte do estado atual
+            $receipt->purchaseId = $purchaseId;
+            $receipt->purchaseMade = true;
+            $receipt->go();
         } catch (InvalidCartItemException $caught) {
             $this->alert(1, 'Deve existir pelo menos um item no carrinhro para se efetivar uma compra');
             $this->app->logger()->error('onBuy', ['exception' => $caught]);

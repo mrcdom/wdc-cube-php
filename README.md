@@ -128,5 +128,6 @@ curl -X POST localhost:8080/api/repo/product/count \
 - `frontend/remote.shell.react/` — o shell React (React, TypeScript, MUI)
 - `frontend/remote.bridge.react/` — o bridge: o protocolo do Cube no lado do cliente
 - `tests/` — PHPUnit
-- `bin/` — servidor, build do frontend, testes no PostgreSQL
+- `bin/` — servidor e build do frontend
+- `skills/cube-architecture-php/` — skill para assistentes de código (Claude Code): como escrever, revisar e depurar código nesta arquitetura
 - `work/` — configuração e dados de runtime

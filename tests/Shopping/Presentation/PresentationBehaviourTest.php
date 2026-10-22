@@ -46,10 +46,10 @@ final class PresentationBehaviourTest extends PresentationTestCase
     {
         $this->login();
 
-        $this->app->go('product?productId=' . Seed::BOLA_WILSON_ID);
+        $this->app->go('product?pr-id=' . Seed::BOLA_WILSON_ID);
 
         self::assertSame(Seed::BOLA_WILSON_ID, ProductViewMock::cast($this->home()->state->contentView)->state->product?->id);
-        self::assertSame('product?userId=0&productId=1', (string) $this->app->newIntent(), 'a URL vem dos presenters');
+        self::assertSame('product?rt-user=0&pr-id=1', (string) $this->app->newIntent(), 'a URL vem dos presenters');
     }
 
     #[Test]

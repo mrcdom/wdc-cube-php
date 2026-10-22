@@ -42,11 +42,16 @@ projeção grande demais) ou o pool pequeno demais: mais instâncias não resolv
 
 ## 3. A estratégia: várias instâncias + balanceador
 
-```
-                    ┌──────────────┐
-  browsers ──WS──▶  │ balanceador  │──▶ instância A ─┐
-  apps ─────HTTP──▶ │ (afinidade)  │──▶ instância B ─┼──▶ PostgreSQL
-                    └──────────────┘──▶ instância C ─┘
+```mermaid
+flowchart LR
+    browsers["browsers"] -- WebSocket --> lb["balanceador<br/>(afinidade)"]
+    apps["apps"] -- HTTP --> lb
+    lb --> a["instância A"]
+    lb --> b["instância B"]
+    lb --> c["instância C"]
+    a --> db[(PostgreSQL)]
+    b --> db
+    c --> db
 ```
 
 Cada instância é independente: tem seu event loop, seu pool de conexões e as sessões dos seus
