@@ -131,3 +131,7 @@ curl -X POST localhost:8080/api/repo/product/count \
 - `bin/` — servidor e build do frontend
 - `skills/cube-architecture-php/` — skill para assistentes de código (Claude Code): como escrever, revisar e depurar código nesta arquitetura
 - `work/` — configuração e dados de runtime
+
+## Licença
+
+[MIT](LICENSE).
