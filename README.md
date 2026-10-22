@@ -25,13 +25,23 @@ Usuários de demonstração (senha = login): `admin` (administrador, vê os dado
 
 ## Requisitos
 
-- PHP 8.4+ com as extensões `gmp`, `openssl` e `pdo_sqlite` (e `pdo_pgsql` para PostgreSQL)
+- PHP 8.4+ com as extensões `gmp`, `openssl` e `pgsql`
+- PostgreSQL 14+
 - Composer 2
 - Node.js 20+ (só para compilar o shell React)
 
-No macOS: `brew install php composer node`.
+No macOS: `brew install php composer node postgresql@17` (o PHP do Homebrew já traz `pgsql`).
 
 ## Compilar e rodar
+
+Antes da primeira subida, ponha o usuário e a senha do PostgreSQL em
+`work/config/application.local.toml` (fora do git):
+
+```toml
+[database]
+username = "postgres"
+password = "..."
+```
 
 ```bash
 composer install          # dependências PHP
@@ -46,9 +56,21 @@ Para desenvolver o frontend com recompilação automática:
 
 ## Testes
 
+Os testes usam um banco PostgreSQL só para eles — **é apagado e recriado a cada execução**, então
+nunca use o mesmo do servidor. Configure-o no `application.local.toml`:
+
+```toml
+[test.database]
+url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php_test"
+username = "postgres"
+password = "..."
+```
+
 ```bash
 composer check            # PHPStan (nível 8) + PHPUnit
 ```
+
+Em CI, as variáveis `WDC_TEST_DB_URL`, `WDC_TEST_DB_USER` e `WDC_TEST_DB_PASSWORD` substituem o arquivo.
 
 Os testes cobrem o motor, a persistência, os presenters (testes de aceitação com views falsas), o
 protocolo remoto, a API REST e o servidor de ponta a ponta (HTTP e WebSocket numa porta livre).
@@ -59,7 +81,7 @@ O teste do servidor que usa o shell React é pulado se o frontend não tiver sid
 Arquivo principal: [work/config/application.toml](work/config/application.toml). Sobrescritas
 locais, fora do git: `work/config/application.local.toml`, na mesma pasta.
 
-Na primeira subida, o servidor cria o banco SQLite em `work/data/` com o schema e os dados de
+Na primeira subida, o servidor cria o banco (se o usuário tiver permissão), o schema e os dados de
 demonstração, e gera chaves de desenvolvimento em `application.local.toml`. **Troque-as em
 produção**, assim como o `security.jwt.secret`.
 
@@ -68,20 +90,15 @@ Variáveis de ambiente: `SERVER_PORT`, `LOG_LEVEL` (`debug`, `info`, ...) e `SHO
 
 ## Banco de dados
 
-Padrão: SQLite em `work/data/`. Para PostgreSQL, no `application.local.toml`:
+PostgreSQL, acessado de forma assíncrona (`amphp/postgres`): uma consulta suspende só a sessão que
+a fez, e várias consultas rodam ao mesmo tempo, cada uma numa conexão do pool. Em `[database]`:
 
-```toml
-[database]
-url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php"
-username = "postgres"
-password = "..."
-```
+- `url` — endereço, padrão `pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php`;
+- `username`, `password` — no `application.local.toml`;
+- `pool.maxConnections` — tamanho do pool (padrão 16).
 
-O schema e os dados de demonstração são criados na primeira subida.
-
-Os testes rodam num SQLite em memória. Para rodá-los no PostgreSQL, defina `[test.database]`
-(`url`, `username`, `password`) no `application.local.toml` e use `bin/test-pgsql.sh`. Use um banco
-só para testes: ele é apagado e recriado.
+Se o banco não existir, o servidor tenta criá-lo; o schema e os dados de demonstração são criados
+na primeira subida.
 
 ## API REST
 

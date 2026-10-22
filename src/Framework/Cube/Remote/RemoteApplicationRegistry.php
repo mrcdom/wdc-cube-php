@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Cube\Remote;
 
+use Amp\Sync\LocalKeyedMutex;
 use Closure;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -18,6 +19,8 @@ use Wdc\Framework\Commons\Concurrent\Scheduler;
  */
 final class RemoteApplicationRegistry
 {
+    private ?LocalKeyedMutex $creating = null;
+
     public const float FLUSH_INTERVAL_SECONDS = 0.05;
     public const float EXPIRY_CHECK_INTERVAL_SECONDS = 30.0;
     public const int DEFAULT_SESSION_TTL_SECONDS = 180;
@@ -111,11 +114,21 @@ final class RemoteApplicationRegistry
         if (isset($this->instances[$appId])) {
             return $this->instances[$appId];
         }
-        if ($this->isFull()) {
-            throw new CapacityExceededException($this->maxInstances);
-        }
+        // criar a sessão consulta o banco (suspende a Fiber): sem o lock por appId, duas conexões
+        // com o mesmo id criariam duas sessões
+        $lock = ($this->creating ??= new LocalKeyedMutex())->acquire($appId);
+        try {
+            if (isset($this->instances[$appId])) {
+                return $this->instances[$appId];
+            }
+            if ($this->isFull()) {
+                throw new CapacityExceededException($this->maxInstances);
+            }
 
-        return $this->instances[$appId] = ($this->factory)($appId, $request);
+            return $this->instances[$appId] = ($this->factory)($appId, $request);
+        } finally {
+            $lock->release();
+        }
     }
 
     public function remove(string $appId): void

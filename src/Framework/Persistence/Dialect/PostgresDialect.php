@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Persistence\Dialect;
 
-use PDO;
 use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Persistence\Json\JsonDialect;
 use Wdc\Framework\Persistence\Json\PostgresJsonDialect;
@@ -25,15 +24,6 @@ final class PostgresDialect implements SqlDialect
     public function name(): string
     {
         return 'pgsql';
-    }
-
-    public function configure(PDO $pdo): void
-    {
-        $pdo->exec("SET TIME ZONE 'UTC'");
-        // Espera curta por trava de linha. Tudo roda num processo só: se uma transação remota
-        // (outra conexão) segura a linha, esperar muito só congelaria o event loop — quem a solta
-        // é este mesmo processo, na próxima requisição do cliente dela.
-        $pdo->exec("SET lock_timeout = '2s'");
     }
 
     public function json(): JsonDialect

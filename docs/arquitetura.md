@@ -166,7 +166,25 @@ compras e itens venham: é uma ida ao banco. Isso elimina o problema do N+1 sem 
 lote.
 
 O que muda de um banco para outro fica atrás de `SqlDialect` (sequências, paginação) e
-`JsonDialect` (as funções JSON). Há dialetos para SQLite e PostgreSQL.
+`JsonDialect` (as funções JSON). O projeto usa PostgreSQL; outro banco entraria como outro dialeto.
+
+### Acesso assíncrono
+
+O `Database` fala com o PostgreSQL por um pool de conexões assíncrono (`amphp/postgres`). Uma
+consulta suspende só a Fiber que a fez: enquanto o banco responde, o event loop atende as outras
+sessões, e consultas de sessões diferentes rodam ao mesmo tempo, cada uma numa conexão do pool.
+Para o código dos repositórios e presenters nada muda — `fetchAll()` devolve as linhas, como uma
+chamada comum.
+
+Duas consequências de projeto:
+
+- **A transação é da Fiber.** `required()` pega uma conexão do pool, abre a transação e a liga à
+  Fiber corrente; o SQL daquela Fiber vai para a transação, o das outras continua no pool. O
+  contexto de segurança da chamada também é guardado por Fiber.
+- **Cada sessão tem um lock.** Enquanto uma consulta está em andamento, um timer ou o envio de
+  fundo da mesma sessão podem rodar. A navegação, a sincronização dos formulários e o cálculo do
+  estado passam por um lock da sessão; o tratamento do evento em si não, para que um evento demorado
+  deixe o estado intermediário ("aguarde...") chegar ao cliente.
 
 ### Transações
 
@@ -197,9 +215,9 @@ só enquanto ela roda. Os endpoints estão listados no [README](../README.md#api
 ## 6. Execução: um processo, um event loop
 
 O servidor (Amp) roda num único processo PHP com um event loop. Cada conexão é uma Fiber: as
-esperas de rede não bloqueiam ninguém, mas o código de apresentação e o acesso ao banco são
-síncronos, então as sessões se revezam na CPU e na conexão com o banco. O que gasta muita CPU de
-uma vez (o PBKDF2 do handshake) roda em processos-worker.
+esperas de rede e de banco não bloqueiam ninguém, então muitas sessões convivem num processo. O
+que não espera — o código PHP em si — usa um núcleo de CPU, e as sessões se revezam nele. O que
+gasta muita CPU de uma vez (o PBKDF2 do handshake) roda em processos-worker.
 
 Para mais de um núcleo ou mais usuários, roda-se várias instâncias atrás de um balanceador: ver
 [escalando.md](escalando.md).
@@ -212,7 +230,7 @@ Para mais de um núcleo ou mais usuários, roda-se várias instâncias atrás de
 | `src/Framework/Cube/Remote/` | view remota, protocolo, segurança do canal, registro de sessões |
 | `src/Framework/Cube/Remote/Http/` | integração com o servidor HTTP/WebSocket (Amp) |
 | `src/Framework/Domain/` | contratos: repositório, critério, projeção, transação, segurança, codecs |
-| `src/Framework/Persistence/` | PDO, JsonQuery, dialetos, transações (locais e remotas) |
+| `src/Framework/Persistence/` | acesso ao PostgreSQL, JsonQuery, dialetos, transações (locais e remotas) |
 | `src/Framework/Rest/` | base da API REST |
 | `src/Framework/Commons/` | utilitários: agendador, Base62, RSA, JSON, log |
 | `src/Shopping/Domain/` | entidades, critérios, ordenações e codecs do Shopping |

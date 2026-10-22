@@ -6,7 +6,7 @@ namespace Wdc\Shopping\Persistence;
 
 use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Framework\Persistence\Database;
-use Wdc\Framework\Persistence\PdoTransactionService;
+use Wdc\Framework\Persistence\SqlTransactionService;
 use Wdc\Shopping\Persistence\Repository\ProductRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\PurchaseItemRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\PurchaseRepositoryImpl;
@@ -33,25 +33,18 @@ final class ShoppingRepositories
         // compra ⇄ item se referenciam: recebem o agregado e o consultam quando precisam
         $this->purchases = new PurchaseRepositoryImpl($db, $this);
         $this->purchaseItems = new PurchaseItemRepositoryImpl($db, $this);
-        $this->transactions = new PdoTransactionService($db);
+        $this->transactions = new SqlTransactionService($db);
     }
 
-    /** Abre o banco pelo DSN do PDO e cria o schema e o seed se ainda não existirem. */
-    public static function open(string $dsn, ?string $user = null, ?string $password = null): self
+    /**
+     * Abre o banco (criando-o, se preciso) e cria o schema e o seed se ainda não existirem.
+     *
+     * @param positive-int $maxConnections
+     */
+    public static function open(string $dsn, ?string $user = null, ?string $password = null, int $maxConnections = Database::DEFAULT_MAX_CONNECTIONS): self
     {
-        $db = Database::open($dsn, $user, $password);
+        $db = Database::open($dsn, $user, $password, $maxConnections);
         ShoppingSchema::create($db);
-
-        return new self($db);
-    }
-
-    /** Abre (ou cria) o banco SQLite; cria o schema e o seed se ainda não existirem. */
-    public static function openSqlite(string $path, bool $reset = false): self
-    {
-        $db = Database::sqlite($path);
-        if (!ShoppingSchema::create($db) && $reset) {
-            ShoppingSchema::reset($db);
-        }
 
         return new self($db);
     }

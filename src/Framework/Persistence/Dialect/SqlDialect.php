@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Persistence\Dialect;
 
-use PDO;
 use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Persistence\Json\JsonDialect;
 
 /**
- * O que muda de um banco para outro. O resto do SQL dos repositórios é o mesmo nos dois.
+ * O que muda de um banco para outro. O resto do SQL dos repositórios não depende do banco.
  */
 interface SqlDialect
 {
     public function name(): string;
-
-    /** Ajustes da conexão logo depois de aberta. */
-    public function configure(PDO $pdo): void;
 
     /** Como montar JSON em SQL (a projeção da JsonQuery). */
     public function json(): JsonDialect;

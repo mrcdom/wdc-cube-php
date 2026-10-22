@@ -17,7 +17,6 @@ use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemCriteria;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemOrderBy;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
-use Wdc\Tests\Support\TestDatabase;
 
 /**
  * A projeção em JSON traz o grafo pedido numa única ida ao banco (sem N+1) e só com os campos
@@ -99,9 +98,7 @@ final class JsonProjectionTest extends RepositoryTestCase
     {
         $this->repos->products->fetch(new ProductCriteria()->withProjection(new Product()->withName(PV::STR)));
 
-        $field = TestDatabase::dialect() === 'pgsql'
-            ? static fn (string $k, string $col): string => "'\"{$k}\":' || coalesce(to_json({$col}), 'null')"
-            : static fn (string $k, string $col): string => "'{$k}', {$col}";
+        $field = static fn (string $k, string $col): string => "'\"{$k}\":' || coalesce(to_json({$col}), 'null')";
         self::assertStringContainsString($field('name', 'pr1.NAME'), $this->statements[0]);
         self::assertStringContainsString($field('id', 'pr1.ID'), $this->statements[0], 'o id entra sempre');
         self::assertStringNotContainsString('PRICE', $this->statements[0]);
@@ -133,8 +130,7 @@ final class JsonProjectionTest extends RepositoryTestCase
         $items = PV::singletonList(new PurchaseItem()->withId(PV::INT), new PurchaseItemCriteria()->withOrderBy(PurchaseItemOrderBy::MOST_EXPENSIVE_FIRST));
         $this->repos->purchases->fetch(new PurchaseCriteria()->withProjection(new Purchase()->withItems($items)));
 
-        $aggregate = TestDatabase::dialect() === 'pgsql' ? 'string_agg' : 'json_group_array';
-        self::assertMatchesRegularExpression("/{$aggregate}\\(.+ ORDER BY pi\\d+\\.PRICE DESC, pi\\d+\\.ID ASC\\)/", $this->statements[0]);
+        self::assertMatchesRegularExpression("/string_agg\\(.+ ORDER BY pi\\d+\\.PRICE DESC, pi\\d+\\.ID ASC\\)/", $this->statements[0]);
     }
 
     #[Test]

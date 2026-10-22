@@ -53,15 +53,24 @@ final readonly class ShoppingConfig
         );
     }
 
-    /**
-     * DSN do PDO. `database.url` (ex.: `pgsql:host=localhost;port=5432;dbname=...`) ou, sem ele,
-     * o SQLite em `database.path`.
-     */
+    public const string DEFAULT_DATABASE_URL = 'pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php';
+
+    /** Endereço do PostgreSQL: `database.url` (ex.: `pgsql:host=localhost;port=5432;dbname=...`). */
     public function databaseDsn(): string
     {
         $url = $this->config->get('database.url');
 
-        return $url !== null && trim($url) !== '' ? $url : 'sqlite:' . $this->databasePath();
+        return $url !== null && trim($url) !== '' ? $url : self::DEFAULT_DATABASE_URL;
+    }
+
+    /**
+     * Tamanho do pool de conexões (`database.pool.maxConnections`).
+     *
+     * @return positive-int
+     */
+    public function databaseMaxConnections(): int
+    {
+        return max(1, $this->config->getInt('database.pool.maxConnections', 16));
     }
 
     public function databaseUser(): ?string
@@ -72,14 +81,6 @@ final readonly class ShoppingConfig
     public function databasePassword(): ?string
     {
         return $this->config->get('database.password');
-    }
-
-    /** Caminho do arquivo SQLite (`database.path`, relativo a data/). */
-    public function databasePath(): string
-    {
-        $path = $this->config->get('database.path', 'wedocode-shopping.db') ?? 'wedocode-shopping.db';
-
-        return self::isAbsolute($path) || $path === ':memory:' ? $path : $this->dataDir . '/' . $path;
     }
 
     private static function mkdir(string $dir): string

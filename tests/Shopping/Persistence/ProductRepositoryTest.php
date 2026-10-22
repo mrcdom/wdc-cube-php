@@ -13,7 +13,6 @@ use Wdc\Shopping\Domain\Product\ProductCriteria;
 use Wdc\Shopping\Domain\Product\ProductOrderBy;
 use Wdc\Shopping\Persistence\Repository\ProductRepositoryImpl;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
-use Wdc\Tests\Support\TestDatabase;
 
 /** Repositório de produtos: consultas, critérios, projeções e escrita sobre o seed. */
 final class ProductRepositoryTest extends RepositoryTestCase
@@ -342,12 +341,10 @@ final class ProductRepositoryTest extends RepositoryTestCase
     }
 
     #[Test]
-    public function filterByName_eq_caseSensitivityFollowsTheDatabase(): void
+    public function filterByName_eq_isCaseSensitive(): void
     {
-        // SQLite: COLLATE NOCASE ⇒ ignora maiúsculas.
-        // PostgreSQL: TEXT comum no DDL ⇒ diferencia.
-        $expected = TestDatabase::dialect() === 'pgsql' ? 0 : 1;
-        self::assertCount($expected, $this->repo()->fetch(new ProductCriteria()->withName('BOLA WILSON')));
+        // NAME é TEXT comum no DDL: a igualdade diferencia maiúsculas
+        self::assertCount(0, $this->repo()->fetch(new ProductCriteria()->withName('BOLA WILSON')));
         self::assertCount(1, $this->repo()->fetch(new ProductCriteria()->withName('Bola Wilson')));
     }
 

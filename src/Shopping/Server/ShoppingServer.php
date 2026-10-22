@@ -23,7 +23,7 @@ use Wdc\Framework\Cube\Remote\Http\WebCacheHandler;
 use Wdc\Framework\Cube\Remote\ParallelKeyDerivation;
 use Wdc\Framework\Cube\Remote\RemoteDispatcher;
 use Wdc\Shopping\Domain\ShoppingConfig;
-use Wdc\Framework\Persistence\Transaction\PdoRemoteTransactionCoordinator;
+use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
 use Wdc\Framework\Persistence\Transaction\RemoteTransactionOptions;
 use Wdc\Shopping\Persistence\Rest\RepositoryApiRoutes;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
@@ -61,8 +61,7 @@ final class ShoppingServer
 
     private readonly Router $router;
 
-    /** null num SQLite em memória: não há como abrir a conexão própria de cada transação. */
-    public readonly ?PdoRemoteTransactionCoordinator $remoteTransactions;
+    public readonly SqlRemoteTransactionCoordinator $remoteTransactions;
 
     private readonly ?AuthenticationServiceImpl $auth;
 
@@ -71,15 +70,17 @@ final class ShoppingServer
         private readonly LoggerInterface $logger,
     ) {
         $scheduler = new EventLoopScheduler($logger);
-        $this->repos = ShoppingRepositories::open($config->databaseDsn(), $config->databaseUser(), $config->databasePassword());
-        $this->logger->info('Banco: ' . $this->repos->db->dialect()->name());
+        $this->repos = ShoppingRepositories::open(
+            $config->databaseDsn(),
+            $config->databaseUser(),
+            $config->databasePassword(),
+            $config->databaseMaxConnections(),
+        );
         $jwtSecret = $config->jwtSecret;
         $auth = $this->auth = $jwtSecret === null || $jwtSecret === ''
             ? null
             : new AuthenticationServiceImpl($this->repos->users, $jwtSecret, $scheduler, logger: $logger);
-        $this->remoteTransactions = $this->repos->db->canOpenConnections()
-            ? new PdoRemoteTransactionCoordinator($this->repos->db, RemoteTransactionOptions::fromConfig($config->config), logger: $logger)
-            : null;
+        $this->remoteTransactions = new SqlRemoteTransactionCoordinator($this->repos->db, RemoteTransactionOptions::fromConfig($config->config), logger: $logger);
         $context = new ShoppingContext(
             $this->repos->users,
             $this->repos->products,
@@ -119,6 +120,8 @@ final class ShoppingServer
     {
         $this->host->registry->stop();
         $this->http->stop();
+        $this->remoteTransactions->close();
+        $this->repos->db->close();
     }
 
     private function buildRouter(): Router

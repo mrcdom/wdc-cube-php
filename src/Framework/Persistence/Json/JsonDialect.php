@@ -7,7 +7,7 @@ namespace Wdc\Framework\Persistence\Json;
 use Wdc\Framework\Persistence\Sql;
 
 /**
- * Como cada banco monta JSON em SQL. Hoje só SQLite; PostgreSQL entra como outra implementação.
+ * Como cada banco monta JSON em SQL. Hoje há a implementação para PostgreSQL; outro banco entra como outra implementação.
  */
 interface JsonDialect
 {

@@ -17,7 +17,9 @@ use Wdc\Framework\Cube\Remote\RemoteDispatcher;
 use Wdc\Framework\Domain\Config\AppConfig;
 use Wdc\Shopping\Domain\ShoppingConfig;
 use Wdc\Shopping\Server\ShoppingServer;
+use Wdc\Shopping\Persistence\ShoppingSchema;
 use Wdc\Tests\Shopping\RemoteHost\ClientCrypto;
+use Wdc\Tests\Support\TestDatabase;
 
 use function Amp\Websocket\Client\connect;
 
@@ -45,14 +47,14 @@ final class ShoppingServerTest extends TestCase
         $this->dir = sys_get_temp_dir() . '/wdc-server-' . bin2hex(random_bytes(4));
         mkdir("{$this->dir}/config", 0o775, true);
         symlink(dirname(__DIR__, 3) . '/work/frontend', "{$this->dir}/frontend");
-        $config = ShoppingConfig::configure(AppConfig::fromArray([
+        $config = ShoppingConfig::configure(AppConfig::fromArray(TestDatabase::serverConfig() + [
             'app.basedir' => '..',
-            'database.path' => ':memory:',
             'server.devMode' => 'true',
             'security.jwt.secret' => 'segredo-e2e',
         ], "{$this->dir}/config/application.toml"));
 
         $this->server = new ShoppingServer($config, new NullLogger());
+        ShoppingSchema::reset($this->server->repos->db);
         $this->server->start(0, '127.0.0.1');   // porta 0: o sistema escolhe uma livre
         $this->base = '127.0.0.1:' . $this->server->port();
         $this->http = HttpClientBuilder::buildDefault();

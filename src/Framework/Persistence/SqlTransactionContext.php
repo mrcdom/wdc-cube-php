@@ -6,8 +6,8 @@ namespace Wdc\Framework\Persistence;
 
 use Wdc\Framework\Domain\Transaction\TransactionContext;
 
-/** @internal usado só pelo PdoTransactionService */
-final class PdoTransactionContext implements TransactionContext
+/** @internal usado só pelo SqlTransactionService */
+final class SqlTransactionContext implements TransactionContext
 {
     private bool $rollbackOnly = false;
 

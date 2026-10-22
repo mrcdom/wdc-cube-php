@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Persistence\Transaction;
 
-use PDO;
+use Amp\Postgres\PostgresConnection;
+use Amp\Postgres\PostgresTransaction;
 
 /** @internal uma transação remota aberta */
 final class RemoteTransactionEntry
@@ -14,7 +15,8 @@ final class RemoteTransactionEntry
     public float $lastUsedAt;
 
     public function __construct(
-        public readonly PDO $pdo,
+        public readonly PostgresConnection $connection,
+        public readonly PostgresTransaction $transaction,
         public readonly ?string $owner,
         public readonly float $createdAt,
     ) {

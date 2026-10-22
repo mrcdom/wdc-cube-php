@@ -9,7 +9,7 @@ use Wdc\Shopping\Persistence\ShoppingRepositories;
 use Wdc\Tests\Support\TestDatabase;
 
 /**
- * Cada teste ganha um banco SQLite novo em memória, já com o seed, isolado dos demais.
+ * Cada teste começa com o banco de testes no seed (ver TestDatabase).
  */
 abstract class RepositoryTestCase extends TestCase
 {

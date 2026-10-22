@@ -10,23 +10,24 @@ mesma instância, roteando pelo `appId` da URL do WebSocket.
 ## 1. Como uma instância atende os usuários
 
 Cada instância é **um processo PHP com um event loop** (Amp). Cada usuário conectado é uma Fiber
-dentro desse processo, e todos dividem **uma conexão com o banco**.
+dentro desse processo, e as consultas ao banco usam um **pool de conexões assíncrono**.
 
-- O código da aplicação (presenters, repositórios) é síncrono. Enquanto uma consulta roda, o
-  processo inteiro espera e nenhuma outra Fiber anda. As consultas de usuários diferentes entram em
-  fila e rodam uma de cada vez.
-- As esperas de rede (WebSocket, HTTP, timers) não bloqueiam: aí o loop atende os outros.
-- O que gasta muita CPU de uma vez (o PBKDF2 do handshake, ~180 ms) já roda fora do loop, em
+- Esperas não bloqueiam: enquanto uma consulta aguarda o PostgreSQL (ou uma mensagem aguarda a
+  rede), o loop atende as outras sessões. Consultas de sessões diferentes rodam ao mesmo tempo,
+  cada uma numa conexão do pool (`database.pool.maxConnections`, padrão 16).
+- O código PHP em si (presenters, montagem das respostas) roda num núcleo de CPU, e as sessões se
+  revezam nele.
+- O que gasta muita CPU de uma vez (o PBKDF2 do handshake, ~180 ms) roda fora do loop, em
   processos-worker (`amphp/parallel`).
 
-Isso basta para muitos usuários: uma consulta típica leva milissegundos, porque o `JsonQuery`
-monta o grafo num SELECT só. Mas o modelo tem três limites:
+Isso basta para muitos usuários: uma consulta lenta atrasa só quem a fez, e uma consulta típica
+leva milissegundos, porque o `JsonQuery` monta o grafo num SELECT só. Os limites são:
 
 | Limite | Efeito |
 |---|---|
 | Um núcleo de CPU por processo | a instância não usa o resto da máquina |
-| Uma consulta por vez | o banco poderia atender várias em paralelo e não atende |
-| Consulta lenta trava todos | uma consulta de 2 s congela por 2 s todos os usuários da instância |
+| Pool cheio | com todas as conexões ocupadas, a próxima consulta espera uma vagar |
+| Código PHP demorado (sem esperar I/O) | um laço pesado num presenter atrasa todas as sessões da instância |
 
 ## 2. Quando escalar
 
@@ -36,8 +37,8 @@ Sinais de que uma instância não basta:
 - o tempo de resposta cresce com o número de sessões, mesmo com consultas rápidas;
 - o indicador "enviando" do shell aparece com frequência.
 
-Antes de multiplicar instâncias, confira se não é uma consulta lenta (índice faltando, projeção
-grande demais): ela trava todos e piora com mais usuários, com uma ou com dez instâncias.
+Antes de multiplicar instâncias, confira se o gargalo não é o banco (consulta sem índice,
+projeção grande demais) ou o pool pequeno demais: mais instâncias não resolvem nenhum dos dois.
 
 ## 3. A estratégia: várias instâncias + balanceador
 
@@ -48,9 +49,8 @@ grande demais): ela trava todos e piora com mais usuários, com uma ou com dez i
                     └──────────────┘──▶ instância C ─┘
 ```
 
-Cada instância é independente: tem seu event loop, sua conexão com o banco e as sessões dos seus
-usuários. O ganho vem de duas coisas: cada instância usa um núcleo, e o PostgreSQL atende as
-consultas das várias instâncias ao mesmo tempo.
+Cada instância é independente: tem seu event loop, seu pool de conexões e as sessões dos seus
+usuários. O ganho é usar os outros núcleos da máquina (ou outras máquinas).
 
 ## 4. Onde vive cada estado
 
@@ -59,7 +59,7 @@ consultas das várias instâncias ao mesmo tempo.
 | Estado | Onde vive | Consequência |
 |---|---|---|
 | Sessão Cube (presenters, carrinho, tela atual) | memória da instância | precisa de afinidade |
-| Dados (usuários, produtos, compras) | banco | compartilhado: tem de ser PostgreSQL |
+| Dados (usuários, produtos, compras) | PostgreSQL | compartilhado por todas |
 | Chaves `[remote]` (assinatura do `appId`, `app_skey`) | configuração | iguais em todas as instâncias |
 | Token "lembrar-me" (login automático) | storage do cliente, JWT | vale em qualquer instância (mesmo `jwt.secret`) |
 | API REST: nonce do desafio, sessão do access token, refresh | memória da instância | precisa de afinidade |
@@ -68,9 +68,7 @@ consultas das várias instâncias ao mesmo tempo.
 
 ## 5. Requisitos
 
-- [ ] **PostgreSQL.** O SQLite admite um só escritor por vez, e o servidor está configurado para
-  falhar na hora em vez de esperar. Com vários processos no mesmo arquivo, escritas simultâneas
-  dariam erro.
+- [ ] **O mesmo PostgreSQL** para todas as instâncias, com conexões suficientes (seção 9).
 - [ ] **As mesmas chaves `[remote]` em todas as instâncias.** Uma instância só aceita `appId`
   assinados com a sua chave. Sem a seção, cada instância geraria as suas próprias chaves de
   desenvolvimento e não reconheceria as sessões das outras. Gere as chaves uma vez e distribua o
@@ -224,8 +222,9 @@ quando estão ligadas.
 
 - **Instâncias por máquina:** uma por núcleo é o ponto de partida. Deixe folga para os workers do
   PBKDF2, que também usam CPU nos picos de login.
-- **Conexões no PostgreSQL:** cada instância usa 1 conexão, mais 1 por transação remota aberta
-  (teto de 128 por instância). Some tudo e confira o `max_connections` do banco.
+- **Conexões no PostgreSQL:** cada instância usa até `database.pool.maxConnections` (padrão 16),
+  mais 1 por transação remota aberta (teto de 128 por instância). Some tudo e confira o
+  `max_connections` do banco (o padrão do PostgreSQL é 100).
 - **Sessões por instância:** `server.maxSessions` limita (o padrão `-1` é sem limite). Acima do
   limite, a conexão é fechada com o código 4003. Uma sessão sem conexão expira em
   `server.sessionTtlSeconds` (padrão 180 s).
@@ -249,6 +248,5 @@ sessões novas para ela e esperar as atuais acabarem). O balanceador do exemplo 
 | O que | Como resolver |
 |---|---|
 | Login REST preso à instância (nonce e sessões em memória) | guardar nonce e sessões de refresh no banco: aí a API REST dispensa afinidade, exceto para transações remotas |
-| Uma consulta por vez em cada instância | driver assíncrono (`amphp/postgres`, com pool): enquanto uma consulta espera o banco, as outras Fibers seguem. Exige trocar o PDO por ele na camada de persistência. Não existe para SQLite |
 | Carrinho perdido quando a sessão muda de instância | guardar o carrinho no storage do cliente ou no banco |
 | Capacidade real desconhecida | benchmark: N sessões simultâneas e o tempo de resposta, para achar quantos usuários uma instância aguenta |

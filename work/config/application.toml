@@ -8,8 +8,14 @@
 basedir = ".."
 
 [database]
-# Arquivo SQLite, relativo a data/. Criado com schema e seed na primeira subida.
-path = "wedocode-shopping.db"
+# PostgreSQL. Usuário e senha ficam no application.local.toml (fora do git):
+#   [database]
+#   username = "postgres"
+#   password = "..."
+# Se o banco não existir, o servidor tenta criá-lo; o schema e o seed são criados na primeira subida.
+url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php"
+# conexões simultâneas com o banco (cada consulta em andamento ocupa uma)
+pool.maxConnections = 16
 
 [server]
 port = 8080

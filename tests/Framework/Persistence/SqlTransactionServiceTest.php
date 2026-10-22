@@ -11,7 +11,7 @@ use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
 use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
 
-final class PdoTransactionServiceTest extends RepositoryTestCase
+final class SqlTransactionServiceTest extends RepositoryTestCase
 {
     private function insertProduct(string $name): void
     {

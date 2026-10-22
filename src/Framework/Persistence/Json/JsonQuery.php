@@ -19,13 +19,14 @@ use Wdc\Framework\Persistence\Table;
  * Um único SELECT devolve, por linha, um objeto JSON com exatamente os campos projetados.
  * As relações projetadas entram como subconsultas correlacionadas DENTRO do JSON:
  *
- *     SELECT json_object(
- *         'id', p1.ID,
- *         'user', json((SELECT json_object('id', u2.ID, 'name', u2.NAME) FROM EN_USER u2 WHERE u2.ID = p1.USERID)),
- *         'items', json((SELECT json_group_array(json(json_object(...)) ORDER BY pi3.ID ASC)
- *                        FROM EN_PURCHASEITEM pi3 WHERE pi3.PURCHASEID = p1.ID))
- *     ) AS json
+ *     SELECT {
+ *         "id": p1.ID,
+ *         "user": (SELECT {"id": u2.ID, "name": u2.NAME} FROM EN_USER u2 WHERE u2.ID = p1.USERID),
+ *         "items": (SELECT [ {...} ORDER BY pi3.ID ] FROM EN_PURCHASEITEM pi3 WHERE pi3.PURCHASEID = p1.ID)
+ *     } AS json
  *     FROM EN_PURCHASE p1 WHERE ...
+ *
+ * (em pseudo-SQL: `{...}` e `[...]` são montados com as funções JSON do banco — ver JsonDialect).
  *
  * O grafo inteiro vem numa ida ao banco, sem N+1, e só com o que a tela pediu.
  *
@@ -157,10 +158,9 @@ final class JsonQuery
         [$where, $whereParams] = Sql::where($this->conditions($criteria, $alias, $ctx));
 
         $sql = "SELECT {$json->sql} AS json FROM {$this->table->name} {$alias}{$where}";
+        // sem ordenação pedida, a do id: sem ORDER BY o banco devolve as linhas em qualquer ordem
         $order = $this->ordering($criteria, $alias);
-        if ($order !== '') {
-            $sql .= " ORDER BY {$order}";
-        }
+        $sql .= ' ORDER BY ' . ($order !== '' ? $order : "{$alias}.{$this->table->id()->column} ASC");
         $sql .= $this->sqlDialect->limit($limit, $offset);
 
         return new Sql($sql, [...$json->params, ...$whereParams]);

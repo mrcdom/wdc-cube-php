@@ -8,6 +8,7 @@ use LogicException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use Wdc\Framework\Commons\Codec\Base62;
+use Wdc\Framework\Commons\Concurrent\ReentrantLock;
 use Wdc\Framework\Commons\Lang\Coerce;
 use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\Util\QueryString;
@@ -17,8 +18,11 @@ use Wdc\Framework\Cube\Util\QueryString;
  * sujas, despacho de requests, montagem das respostas, assinatura da URL, cifra do canal,
  * client storage e tempo de vida.
  *
- * Modelo de execução: roda num único event loop — um
- * request é processado inteiro antes do próximo, e não há locks.
+ * Modelo de execução: um único event loop, mas as consultas ao banco suspendem a Fiber que as
+ * faz — e nesse meio-tempo um timer ou o flush de fundo da mesma sessão pode rodar. Por isso a
+ * navegação, a sincronização dos formulários, o cálculo do estado e o alerta de erro passam por
+ * um lock da sessão. O evento em si não: um evento demorado (ex.: login lento) deixa o flush de
+ * fundo mandar ao cliente o estado intermediário ("aguarde...").
  */
 final class RemoteApplicationSupport
 {
@@ -57,6 +61,8 @@ final class RemoteApplicationSupport
 
     private float $expireMoment;
 
+    private readonly ReentrantLock $lock;
+
     private int $timeSpanSeconds;
 
     /** @internal usados pelo registry para não enfileirar nem acordar a mesma sessão duas vezes */
@@ -72,6 +78,7 @@ final class RemoteApplicationSupport
         private readonly RemoteApplicationRegistry $registry,
         private readonly LoggerInterface $logger,
     ) {
+        $this->lock = new ReentrantLock();
         $this->timeSpanSeconds = $registry->sessionTtlSeconds();
         $this->expireMoment = $this->now() + $this->timeSpanSeconds * 1000;
         $this->lastActiveViewsSentAt = $this->now();
@@ -230,12 +237,12 @@ final class RemoteApplicationSupport
                 $intent->setPlace($app->rootPlace());
             }
         }
-        $this->owner->performGo($intent);
+        $this->lock->run(fn () => $this->owner->performGo($intent));
     }
 
     public function alertUnexpectedError(string $message, Throwable $e): void
     {
-        $this->browser()->alertUnexpectedError($message, $e);
+        $this->lock->run(fn () => $this->browser()->alertUnexpectedError($message, $e));
     }
 
     // :: Requests
@@ -308,12 +315,14 @@ final class RemoteApplicationSupport
         $this->applySecret($request);
 
         // 1. campos sem prefixo de cada view sincronizam o estado
-        foreach ($request as $key => $formData) {
-            $view = $this->views[(string) $key] ?? null;
-            if ($view !== null && is_array($formData)) {
-                $view->syncClientToServer($formData);
+        $this->lock->run(function () use ($request): void {
+            foreach ($request as $key => $formData) {
+                $view = $this->views[(string) $key] ?? null;
+                if ($view !== null && is_array($formData)) {
+                    $view->syncClientToServer($formData);
+                }
             }
-        }
+        });
 
         // 2. eventos "<vsid>:<código>", repetidos viram contagem
         $events = $request['event'] ?? null;
@@ -419,7 +428,7 @@ final class RemoteApplicationSupport
         if ($dirtyViews !== []) {
             $states = [];
             foreach ($dirtyViews as $view) {
-                $view->presenter->commitComputedState();   // estado derivado, logo antes de serializar
+                $this->lock->run($view->presenter->commitComputedState(...));   // estado derivado, logo antes de serializar
                 $states[] = $view->serializeState();
             }
             $response['states'] = $states;

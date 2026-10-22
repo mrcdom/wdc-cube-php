@@ -16,7 +16,7 @@ enum ColumnType
     case Int;
     case Float;
     case Text;
-    /** Gravado como 'Y-m-d H:i:s' em UTC (TEXT no SQLite: ordena lexicograficamente). */
+    /** Gravado como 'Y-m-d H:i:s' em UTC (coluna TIMESTAMP; a sessão do banco também está em UTC). */
     case DateTime;
     case Blob;
 

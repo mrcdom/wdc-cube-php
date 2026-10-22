@@ -10,11 +10,8 @@ use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Domain\Security\PasswordUtil;
 
 /**
- * DDL e dados iniciais (seed), para SQLite e PostgreSQL.
- *
- * SQLite: sem SEQUENCE (emulada na tabela SQ), NAME do produto com COLLATE NOCASE, datas como
- * TEXT em UTC. PostgreSQL: sequências nativas; NAME é TEXT comum — a busca por igualdade
- * diferencia maiúsculas.
+ * DDL e dados iniciais (seed) no PostgreSQL: sequências nativas, imagem em BYTEA, datas em
+ * TIMESTAMP (UTC). NAME é TEXT comum — a busca por igualdade diferencia maiúsculas.
  */
 final class ShoppingSchema
 {
@@ -34,52 +31,8 @@ final class ShoppingSchema
     public const int ADMIN_SECOND_PURCHASE_ITEM0_ID = 1;
     public const int ADMIN_SECOND_PURCHASE_ITEM1_ID = 2;
 
-    private const string DDL_SQLITE = <<<'SQL'
-        CREATE TABLE SQ (
-            NAME TEXT NOT NULL PRIMARY KEY,
-            NEXT INTEGER NOT NULL
-        );
-
-        CREATE TABLE EN_USER (
-            ID INTEGER NOT NULL PRIMARY KEY,
-            USERNAME TEXT NOT NULL,
-            PASSWORD TEXT NOT NULL,
-            NAME TEXT NOT NULL,
-            ROLES TEXT
-        );
-        CREATE INDEX IX_USER_NAME ON EN_USER (NAME);
-        CREATE INDEX IX_USER_USERNAME ON EN_USER (USERNAME);
-
-        CREATE TABLE EN_PRODUCT (
-            ID INTEGER NOT NULL PRIMARY KEY,
-            NAME TEXT NOT NULL COLLATE NOCASE,
-            PRICE NUMERIC NOT NULL,
-            DESCRIPTION TEXT NOT NULL,
-            IMAGE BLOB
-        );
-        CREATE INDEX IX_PRODUCT_NAME ON EN_PRODUCT (NAME);
-        CREATE INDEX IX_PRODUCT_PRICE ON EN_PRODUCT (PRICE);
-
-        CREATE TABLE EN_PURCHASE (
-            ID INTEGER NOT NULL PRIMARY KEY,
-            USERID INTEGER NOT NULL REFERENCES EN_USER (ID),
-            BUYDATE TEXT NOT NULL
-        );
-        CREATE INDEX IX_PURCHASE_BUYDATE ON EN_PURCHASE (BUYDATE);
-
-        CREATE TABLE EN_PURCHASEITEM (
-            ID INTEGER NOT NULL PRIMARY KEY,
-            PURCHASEID INTEGER NOT NULL REFERENCES EN_PURCHASE (ID),
-            PRODUCTID INTEGER NOT NULL REFERENCES EN_PRODUCT (ID),
-            AMOUNT INTEGER NOT NULL,
-            PRICE NUMERIC NOT NULL
-        );
-        CREATE INDEX IX_PURCHASEITEM_PRICE ON EN_PURCHASEITEM (PRICE);
-        CREATE INDEX IX_PURCHASEITEM_AMOUNT ON EN_PURCHASEITEM (AMOUNT);
-        SQL;
-
-    /** O DDL para PostgreSQL (CHAR(32) na senha, BYTEA, sequências nativas). */
-    private const string DDL_POSTGRES = <<<'SQL'
+    /** CHAR(32) na senha (o hash tem tamanho fixo), BYTEA na imagem, sequências nativas. */
+    private const string DDL = <<<'SQL'
         CREATE TABLE EN_USER (
             ID BIGINT NOT NULL PRIMARY KEY,
             USERNAME VARCHAR(255) NOT NULL,
@@ -122,7 +75,7 @@ final class ShoppingSchema
         CREATE INDEX IX_PURCHASEITEM_AMOUNT ON EN_PURCHASEITEM (AMOUNT);
         SQL;
 
-    private const string DROP_POSTGRES = 'DROP TABLE IF EXISTS EN_PURCHASEITEM, EN_PURCHASE, EN_PRODUCT, EN_USER;'
+    private const string DROP = 'DROP TABLE IF EXISTS EN_PURCHASEITEM, EN_PURCHASE, EN_PRODUCT, EN_USER;'
         . ' DROP SEQUENCE IF EXISTS SQ_USER, SQ_PRODUCT, SQ_PURCHASE, SQ_PURCHASEITEM;';
 
     private function __construct()
@@ -139,18 +92,16 @@ final class ShoppingSchema
         if ($db->dialect()->tableExists($db, 'EN_USER')) {
             return false;
         }
-        $db->exec($db->dialect()->name() === 'pgsql' ? self::DDL_POSTGRES : self::DDL_SQLITE);
+        $db->exec(self::DDL);
         self::reset($db);
 
         return true;
     }
 
-    /** Remove as tabelas e as sequências (só PostgreSQL; no SQLite basta apagar o arquivo). */
+    /** Remove as tabelas e as sequências. */
     public static function drop(Database $db): void
     {
-        if ($db->dialect()->name() === 'pgsql') {
-            $db->exec(self::DROP_POSTGRES);
-        }
+        $db->exec(self::DROP);
     }
 
     /** Apaga tudo e semeia os dados de demonstração (senha = login). */

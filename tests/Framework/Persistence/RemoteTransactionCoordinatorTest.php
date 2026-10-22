@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Wdc\Framework\Domain\Exception\AccessDeniedException;
 use Wdc\Framework\Domain\Exception\TransactionConflictException;
 use Wdc\Framework\Domain\Exception\TransactionLimitExceededException;
-use Wdc\Framework\Persistence\Transaction\PdoRemoteTransactionCoordinator;
+use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
 use Wdc\Framework\Persistence\Transaction\RemoteTransactionOptions;
 use Wdc\Framework\Persistence\Transaction\TransactionSystemException;
 use Wdc\Shopping\Domain\Product\Product;
@@ -17,36 +17,39 @@ use Wdc\Shopping\Domain\Product\ProductCriteria;
 use Wdc\Shopping\Persistence\ShoppingRepositories;
 use Wdc\Tests\Support\TestDatabase;
 
+use function Amp\async;
+
 final class RemoteTransactionCoordinatorTest extends TestCase
 {
     private const string OWNER = 'user:1';
 
     private ShoppingRepositories $repos;
 
-    private ?string $file;
-
     private float $now = 1_000_000.0;
 
     protected function setUp(): void
     {
-        [$this->repos, $this->file] = TestDatabase::repositoriesWithConnections();
+        $this->repos = TestDatabase::repositories();
     }
 
     protected function tearDown(): void
     {
         $this->repos->db->bind(null);
-        if ($this->file !== null) {
-            @unlink($this->file);
+        foreach ($this->coordinators as $c) {
+            $c->close();   // transação esquecida aberta seguraria travas e o reset do próximo teste esperaria
         }
     }
 
-    private function coordinator(RemoteTransactionOptions $options = new RemoteTransactionOptions()): PdoRemoteTransactionCoordinator
+    /** @var list<SqlRemoteTransactionCoordinator> */
+    private array $coordinators = [];
+
+    private function coordinator(RemoteTransactionOptions $options = new RemoteTransactionOptions()): SqlRemoteTransactionCoordinator
     {
-        return new PdoRemoteTransactionCoordinator($this->repos->db, $options, fn (): float => $this->now);
+        return $this->coordinators[] = new SqlRemoteTransactionCoordinator($this->repos->db, $options, fn (): float => $this->now);
     }
 
     /** Uma "requisição" com o txId: liga a transação, grava, desliga. */
-    private function insertIn(PdoRemoteTransactionCoordinator $c, string $txId, string $name, string $owner = self::OWNER): void
+    private function insertIn(SqlRemoteTransactionCoordinator $c, string $txId, string $name, string $owner = self::OWNER): void
     {
         $c->resume($txId, $owner);
         try {
@@ -95,18 +98,38 @@ final class RemoteTransactionCoordinatorTest extends TestCase
     }
 
     #[Test]
-    public function suspend_givesTheMainConnectionBack(): void
+    public function suspend_unbindsTheTransactionFromTheFiber(): void
     {
         $c = $this->coordinator();
-        $main = $this->repos->db->pdo();
         $txId = $c->begin(self::OWNER);
 
         $c->resume($txId, self::OWNER);
-        self::assertNotSame($main, $this->repos->db->pdo());
+        self::assertTrue($this->repos->db->inTransaction());
         $c->suspend($txId);
 
-        self::assertSame($main, $this->repos->db->pdo());
+        self::assertFalse($this->repos->db->inTransaction());
         $c->rollback($txId, self::OWNER);
+    }
+
+    /** A transação é da Fiber que a retomou: as outras, ao mesmo tempo, seguem fora dela. */
+    #[Test]
+    public function otherFibers_doNotRunInsideTheTransaction(): void
+    {
+        $c = $this->coordinator();
+        $txId = $c->begin(self::OWNER);
+
+        $c->resume($txId, self::OWNER);
+        try {
+            $this->repos->products->insert((new Product())->withName('Só na tx')->withPrice(1.0)->withDescription('-'));
+            $outside = async(fn () => $this->productsNamed('Só na tx'))->await();
+            $inside = $this->productsNamed('Só na tx');
+        } finally {
+            $c->suspend($txId);
+        }
+
+        self::assertSame([1, 0], [$inside, $outside]);
+        $c->commit($txId, self::OWNER);
+        self::assertSame(1, $this->productsNamed('Só na tx'));
     }
 
     #[Test]

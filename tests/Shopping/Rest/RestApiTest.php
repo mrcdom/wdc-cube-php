@@ -16,10 +16,11 @@ use Wdc\Framework\Domain\Security\PasswordUtil;
 use Wdc\Shopping\Domain\ShoppingConfig;
 use Wdc\Shopping\Persistence\ShoppingSchema;
 use Wdc\Shopping\Server\ShoppingServer;
+use Wdc\Tests\Support\TestDatabase;
 
 /**
- * A API REST de ponta a ponta, por HTTP de verdade (servidor numa porta livre, SQLite em
- * arquivo — a transação remota precisa de uma segunda conexão).
+ * A API REST de ponta a ponta, por HTTP de verdade (servidor numa porta livre, sobre o banco
+ * de testes, com o seed refeito antes de cada teste).
  *
  * Seed: admin (ADMIN, `data:all`) tem as compras 0 e 1 (itens 0, 1, 2); fulano e beotrano
  * (CUSTOMER) não têm nenhuma. Senha = login.
@@ -39,14 +40,14 @@ final class RestApiTest extends TestCase
         $this->dir = sys_get_temp_dir() . '/wdc-rest-' . bin2hex(random_bytes(4));
         mkdir("{$this->dir}/config", 0o775, true);
         mkdir("{$this->dir}/frontend/meu.app", 0o775, true);
-        $config = ShoppingConfig::configure(AppConfig::fromArray([
+        $config = ShoppingConfig::configure(AppConfig::fromArray(TestDatabase::serverConfig() + [
             'app.basedir' => '..',
-            'database.path' => "{$this->dir}/shop.db",
             'security.jwt.secret' => 'segredo-rest',
             'database.remoteTransaction.maxOpenPerOwner' => '2',
         ], "{$this->dir}/config/application.toml"));
 
         $this->server = new ShoppingServer($config, new NullLogger());
+        ShoppingSchema::reset($this->server->repos->db);
         $this->server->start(0, '127.0.0.1');
         $this->base = 'http://127.0.0.1:' . $this->server->port();
         $this->http = HttpClientBuilder::buildDefault();

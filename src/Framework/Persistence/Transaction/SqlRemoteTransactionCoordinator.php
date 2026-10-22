@@ -15,16 +15,16 @@ use Wdc\Framework\Domain\Exception\TransactionLimitExceededException;
 use Wdc\Framework\Persistence\Database;
 
 /**
- * Coordenador de transação remota sobre PDO.
+ * Coordenador de transação remota sobre o {@see Database}.
  *
- * Cada txId guarda uma **conexão própria**, aberta com `beginTransaction()` e mantida viva entre
- * requisições. `resume()` a liga ao {@see Database} — todo SQL da requisição vai para ela — e
- * `suspend()` volta à conexão principal. Não há threads, mas o SQL é síncrono: entre resume e suspend nenhuma outra
- * Fiber roda, então nenhuma outra sessão escreve sem querer dentro desta transação.
+ * Cada txId guarda uma **conexão própria**, fora do pool, com a transação aberta e mantida viva
+ * entre requisições. `resume()` liga a transação à Fiber da requisição — o SQL dela vai para a
+ * transação — e `suspend()` a desliga. As outras requisições, nas suas Fibers, continuam no pool:
+ * nenhuma escreve sem querer dentro desta transação.
  *
  * Transações ociosas ou velhas demais são revertidas na varredura feita a cada `begin()`.
  */
-final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordinator
+final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordinator
 {
     /** @var array<string, RemoteTransactionEntry> txId → transação aberta */
     private array $open = [];
@@ -54,13 +54,13 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
         $this->reapExpired();   // libera as expiradas antes de avaliar os tetos
         $this->enforceLimits($ownerKey);
         try {
-            $pdo = $this->db->newConnection();
-            $pdo->beginTransaction();
+            $connection = $this->db->newConnection();
+            $transaction = $connection->beginTransaction();
         } catch (Throwable $e) {
             throw new TransactionSystemException('Falha ao abrir transação remota: ' . $e->getMessage(), 0, $e);
         }
         $txId = Uuid::v4();
-        $this->open[$txId] = new RemoteTransactionEntry($pdo, $ownerKey, $this->now());
+        $this->open[$txId] = new RemoteTransactionEntry($connection, $transaction, $ownerKey, $this->now());
         if ($ownerKey !== null) {
             $this->openByOwner[$ownerKey] = ($this->openByOwner[$ownerKey] ?? 0) + 1;
         }
@@ -78,7 +78,7 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
         }
         $entry->inUse = true;
         $entry->lastUsedAt = $this->now();
-        $this->db->bind($entry->pdo);
+        $this->db->bind($entry->transaction);
     }
 
     public function suspend(string $txId): void
@@ -87,7 +87,7 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
         if ($entry === null) {
             return;
         }
-        if ($this->db->pdo() === $entry->pdo) {
+        if ($this->db->boundTransaction() === $entry->transaction) {
             $this->db->bind(null);
         }
         $entry->lastUsedAt = $this->now();
@@ -132,6 +132,21 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
         return $ownerKey !== null && isset($this->openByOwner[$ownerKey]);
     }
 
+    /** Reverte e fecha todas as transações abertas (fim do servidor ou dos testes). */
+    public function close(): void
+    {
+        foreach ($this->open as $txId => $entry) {
+            $this->forget($txId, $entry);
+            try {
+                $entry->transaction->rollback();
+            } catch (Throwable) {
+                // melhor esforço
+            } finally {
+                $entry->connection->close();
+            }
+        }
+    }
+
     /** Quantas estão abertas (observabilidade e testes). */
     public function openCount(): int
     {
@@ -149,9 +164,11 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
         self::verifyOwner($entry->owner, $ownerKey);
         $this->forget($txId, $entry);
         try {
-            $rollback ? $entry->pdo->rollBack() : $entry->pdo->commit();
+            $rollback ? $entry->transaction->rollback() : $entry->transaction->commit();
         } catch (Throwable $e) {
             throw new TransactionSystemException("Falha ao finalizar transação remota {$txId}: " . $e->getMessage(), 0, $e);
+        } finally {
+            $entry->connection->close();
         }
         $this->outcomes[$txId] = ['committed' => !$rollback, 'owner' => $entry->owner, 'at' => $this->now()];
         $this->logger->debug('tx remota finalizada (' . ($rollback ? 'rollback' : 'commit') . "): {$txId}");
@@ -189,9 +206,11 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
             if (($idleExpired || $lifetimeExpired) && !$entry->inUse) {
                 $this->forget($txId, $entry);
                 try {
-                    $entry->pdo->rollBack();
+                    $entry->transaction->rollback();
                 } catch (Throwable) {
                     // melhor esforço: a transação foi abandonada
+                } finally {
+                    $entry->connection->close();
                 }
                 // revertida pela varredura = rolledback (desfaz a dúvida de um retry)
                 $this->outcomes[$txId] = ['committed' => false, 'owner' => $entry->owner, 'at' => $now];
@@ -208,7 +227,7 @@ final class PdoRemoteTransactionCoordinator implements RemoteTransactionCoordina
     private function forget(string $txId, RemoteTransactionEntry $entry): void
     {
         unset($this->open[$txId]);
-        if ($this->db->pdo() === $entry->pdo) {
+        if ($this->db->boundTransaction() === $entry->transaction) {
             $this->db->bind(null);
         }
         $owner = $entry->owner;

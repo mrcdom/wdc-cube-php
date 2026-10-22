@@ -4,119 +4,97 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Persistence;
 
+use Amp\Postgres\PostgresByteA;
+use Amp\Postgres\PostgresConfig;
+use Amp\Postgres\PostgresConnection;
+use Amp\Postgres\PostgresConnectionPool;
+use Amp\Postgres\PostgresExecutor;
+use Amp\Postgres\PostgresTransaction;
+use Amp\Sql\SqlConnectionException;
 use Closure;
-use PDO;
-use PDOStatement;
-use RuntimeException;
-use Wdc\Framework\Commons\Lang\Coerce;
+use Throwable;
+use Wdc\Framework\Commons\Concurrent\FiberValue;
 use Wdc\Framework\Persistence\Dialect\PostgresDialect;
 use Wdc\Framework\Persistence\Dialect\SqlDialect;
-use Wdc\Framework\Persistence\Dialect\SqliteDialect;
+
+use function Amp\Postgres\connect;
 
 /**
- * Fina camada sobre o PDO.
+ * Acesso ao PostgreSQL, assíncrono, sobre um pool de conexões (`amphp/postgres`).
  *
- * Uma conexão por processo: o servidor é um processo único de longa duração (event loop),
- * e as chamadas PDO são síncronas — enquanto uma query roda, nenhuma outra Fiber roda.
+ * Uma consulta suspende só a Fiber que a fez: enquanto o banco responde, o event loop segue
+ * atendendo as outras sessões, e várias consultas rodam ao mesmo tempo, cada uma numa conexão
+ * do pool. Para quem chama, nada muda: `fetchAll()` devolve as linhas, como uma chamada comum.
  *
- * A exceção é a transação remota (API REST): ela atravessa várias requisições HTTP e por isso
- * tem uma conexão só dela ({@see newConnection()}). Durante a requisição que a usa, essa conexão
- * é "ligada" ({@see bind()}) e todo SQL vai para ela. Como o SQL é síncrono, nenhuma outra Fiber roda no meio.
+ * **Transação = conexão exclusiva.** Fora de transação, cada comando pega qualquer conexão livre
+ * do pool. Dentro de uma, todos os comandos precisam ir para a mesma conexão — e só eles. Por
+ * isso a transação é "ligada" à Fiber corrente ({@see bind()}): o SQL daquela Fiber vai para a
+ * transação; o das outras continua indo para o pool.
  */
 final class Database
 {
+    public const int DEFAULT_MAX_CONNECTIONS = 16;
+
     /** @var (Closure(string, list<mixed>): void)|null */
     private ?Closure $listener = null;
 
     private readonly SqlDialect $dialect;
 
-    /** Conexão de uma transação remota, enquanto ligada; null = a conexão principal. */
-    private ?PDO $bound = null;
+    private readonly PostgresConnectionPool $pool;
 
-    /**
-     * @param (Closure(): PDO)|null $connector abre outra conexão ao mesmo banco (null = não dá)
-     */
+    /** @var FiberValue<PostgresTransaction> a transação ligada à Fiber corrente */
+    private readonly FiberValue $bound;
+
     public function __construct(
-        private readonly PDO $pdo,
-        private readonly ?Closure $connector = null,
+        private readonly PostgresConfig $config,
+        int $maxConnections = self::DEFAULT_MAX_CONNECTIONS,
     ) {
-        $this->dialect = match ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME)) {
-            'sqlite' => new SqliteDialect(),
-            'pgsql' => new PostgresDialect(),
-            default => throw new RuntimeException('Banco não suportado: ' . Coerce::asString($pdo->getAttribute(PDO::ATTR_DRIVER_NAME))),
-        };
-        $this->configure($pdo);
+        $this->dialect = new PostgresDialect();
+        // resetConnections: false — o projeto não guarda estado de sessão na conexão, e o
+        // DISCARD ALL antes de cada uso custaria uma ida ao banco por comando
+        $this->pool = new PostgresConnectionPool($config, max(1, $maxConnections), resetConnections: false);
+        $this->bound = new FiberValue(PostgresTransaction::class);
     }
 
     /**
-     * Abre pelo DSN do PDO: `sqlite:/caminho/arquivo.db`, `sqlite::memory:`,
-     * `pgsql:host=localhost;port=5432;dbname=...`.
+     * Abre pelo endereço do banco, no formato `host=localhost;port=5432;dbname=loja` (o prefixo
+     * `pgsql:` é aceito). Se o banco ainda não existe, tenta criá-lo.
+     *
+     * @param positive-int $maxConnections
      */
-    public static function open(string $dsn, ?string $user = null, ?string $password = null): self
-    {
-        return str_starts_with($dsn, 'sqlite:')
-            ? self::sqlite(substr($dsn, strlen('sqlite:')))
-            : new self(new PDO($dsn, $user, $password), static fn () => new PDO($dsn, $user, $password));
+    public static function open(
+        string $dsn,
+        ?string $user = null,
+        ?string $password = null,
+        int $maxConnections = self::DEFAULT_MAX_CONNECTIONS,
+    ): self {
+        $config = self::config($dsn, $user, $password);
+        self::createDatabaseIfMissing($config);
+
+        return new self($config, $maxConnections);
     }
 
-    /** Abre um SQLite em arquivo, ou em memória com ':memory:'. */
-    public static function sqlite(string $path): self
+    /**
+     * @throws \InvalidArgumentException endereço mal formado
+     */
+    public static function config(string $dsn, ?string $user = null, ?string $password = null): PostgresConfig
     {
-        if ($path !== ':memory:') {
-            $dir = dirname($path);
-            if (!is_dir($dir) && !mkdir($dir, 0o775, true) && !is_dir($dir)) {
-                throw new RuntimeException("Cannot create directory {$dir}");
-            }
+        $dsn = str_starts_with($dsn, 'pgsql:') ? substr($dsn, strlen('pgsql:')) : $dsn;
+        $config = PostgresConfig::fromString($dsn);
+        if ($user !== null && $user !== '') {
+            $config = $config->withUser($user);
+        }
+        if ($password !== null && $password !== '') {
+            $config = $config->withPassword($password);
         }
 
-        // um banco em memória só existe na própria conexão: não há como abrir uma segunda
-        $connector = $path === ':memory:' ? null : static fn () => new PDO('sqlite:' . $path);
-
-        return new self(new PDO('sqlite:' . $path), $connector);
+        // datas sempre em UTC, em toda conexão (vale como padrão da sessão, desde a abertura)
+        return $config->withOptions('-c TimeZone=UTC');
     }
 
     public function driver(): string
     {
-        $name = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-
-        return is_string($name) ? $name : '';
-    }
-
-    /** A conexão em uso agora: a da transação remota ligada, ou a principal. */
-    public function pdo(): PDO
-    {
-        return $this->bound ?? $this->pdo;
-    }
-
-    /** Se dá para abrir outra conexão ao mesmo banco (não dá num SQLite em memória). */
-    public function canOpenConnections(): bool
-    {
-        return $this->connector !== null;
-    }
-
-    /** Abre outra conexão ao mesmo banco, configurada como a principal. */
-    public function newConnection(): PDO
-    {
-        if ($this->connector === null) {
-            throw new RuntimeException('Este banco não aceita uma segunda conexão (SQLite em memória?)');
-        }
-        $pdo = ($this->connector)();
-        $this->configure($pdo);
-
-        return $pdo;
-    }
-
-    /**
-     * Liga uma conexão (de transação remota) como a corrente; null volta à principal.
-     *
-     * @return PDO|null a que estava ligada antes
-     */
-    public function bind(?PDO $connection): ?PDO
-    {
-        $previous = $this->bound;
-        $this->bound = $connection;
-
-        return $previous;
+        return $this->dialect->name();
     }
 
     /** O que muda de um banco para outro (sequências, paginação, JSON...). */
@@ -141,17 +119,10 @@ final class Database
      */
     public function fetchAll(string $sql, array $params = []): array
     {
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $this->run($sql, $params)->fetchAll();
-        foreach ($rows as &$row) {   // & = altera o próprio elemento, não uma cópia
-            foreach ($row as &$value) {
-                if (is_resource($value)) {   // o pdo_pgsql devolve BYTEA como stream
-                    $value = stream_get_contents($value);
-                }
-            }
-            unset($value);
+        $rows = [];
+        foreach ($this->run($sql, $params) as $row) {
+            $rows[] = $row;
         }
-        unset($row);
 
         return $rows;
     }
@@ -159,9 +130,11 @@ final class Database
     /** @param list<mixed> $params */
     public function fetchValue(string $sql, array $params = []): mixed
     {
-        $value = $this->run($sql, $params)->fetchColumn();
+        foreach ($this->run($sql, $params) as $row) {
+            return array_values($row)[0] ?? null;
+        }
 
-        return $value === false ? null : $value;
+        return null;
     }
 
     /**
@@ -170,13 +143,19 @@ final class Database
      */
     public function execute(string $sql, array $params = []): int
     {
-        return $this->run($sql, $params)->rowCount();
+        return $this->run($sql, $params)->getRowCount() ?? 0;
     }
 
     /** Executa vários comandos sem parâmetros (DDL). */
     public function exec(string $sql): void
     {
-        $this->pdo()->exec($sql);
+        if ($this->listener !== null) {
+            ($this->listener)($sql, []);
+        }
+        $result = $this->executor()->query($sql);
+        while ($result !== null) {   // um resultado por comando: consome todos
+            $result = $result->getNextResult();
+        }
     }
 
     public function nextval(string $sequence): int
@@ -189,34 +168,98 @@ final class Database
         $this->dialect->restartSequence($this, $sequence, $next);
     }
 
-    private function configure(PDO $pdo): void
+    /** Abre uma transação numa conexão do pool (ela fica presa à transação até o fim). */
+    public function beginTransaction(): PostgresTransaction
     {
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        // nomes de coluna sempre em minúsculas: o PostgreSQL já devolve assim, o SQLite não
-        $pdo->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
-        $this->dialect->configure($pdo);
+        return $this->pool->beginTransaction();
+    }
+
+    /**
+     * Uma conexão só para quem pediu, fora do pool — para a transação remota da API REST, que
+     * atravessa várias requisições e não deve ocupar uma conexão do pool por todo esse tempo.
+     */
+    public function newConnection(): PostgresConnection
+    {
+        return connect($this->config);
+    }
+
+    /**
+     * Liga uma transação à Fiber corrente; null desliga. Daí em diante, o SQL desta Fiber vai
+     * para a transação.
+     *
+     * @return PostgresTransaction|null a que estava ligada antes
+     */
+    public function bind(?PostgresTransaction $transaction): ?PostgresTransaction
+    {
+        $previous = $this->bound->get();
+        $this->bound->set($transaction);
+
+        return $previous;
+    }
+
+    /** A transação ligada à Fiber corrente, se houver. */
+    public function boundTransaction(): ?PostgresTransaction
+    {
+        return $this->bound->get();
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->bound->get() !== null;
+    }
+
+    /** Fecha o pool (fim do servidor ou dos testes). */
+    public function close(): void
+    {
+        $this->pool->close();
+    }
+
+    /** Para onde vai o SQL agora: a transação desta Fiber, ou qualquer conexão do pool. */
+    private function executor(): PostgresExecutor
+    {
+        return $this->bound->get() ?? $this->pool;
     }
 
     /** @param list<mixed> $params */
-    private function run(string $sql, array $params): PDOStatement
+    private function run(string $sql, array $params): \Amp\Postgres\PostgresResult
     {
         if ($this->listener !== null) {
             ($this->listener)($sql, $params);
         }
-        $stmt = $this->pdo()->prepare($sql);
-        foreach ($params as $i => $value) {
-            [$bound, $type] = match (true) {
-                $value === null => [null, PDO::PARAM_NULL],
-                is_int($value) => [$value, PDO::PARAM_INT],
-                is_bool($value) => [$value ? 1 : 0, PDO::PARAM_INT],
-                $value instanceof Blob => [$value->bytes, PDO::PARAM_LOB],
-                default => [$value, PDO::PARAM_STR],
-            };
-            $stmt->bindValue($i + 1, $bound, $type);   // PDO numera parâmetros a partir de 1
-        }
-        $stmt->execute();
+        $values = array_map(static fn (mixed $value): mixed => match (true) {
+            is_bool($value) => $value ? 1 : 0,
+            $value instanceof Blob => new PostgresByteA($value->bytes),
+            default => $value,
+        }, $params);
 
-        return $stmt;
+        return $this->executor()->execute($sql, $values);
+    }
+
+    /**
+     * Conveniência de desenvolvimento: se o banco não existe, cria-o pela base de manutenção
+     * `postgres`. Sem permissão para isso (comum em produção), a falha diz o que fazer.
+     */
+    private static function createDatabaseIfMissing(PostgresConfig $config): void
+    {
+        try {
+            connect($config)->close();
+
+            return;
+        } catch (SqlConnectionException $e) {
+            if (!str_contains($e->getMessage(), 'does not exist') || $config->getDatabase() === null) {
+                throw $e;
+            }
+        }
+        try {
+            $admin = connect($config->withDatabase('postgres'));
+            $admin->query('CREATE DATABASE ' . $admin->quoteIdentifier($config->getDatabase()));
+            $admin->close();
+        } catch (Throwable $e) {
+            throw new SqlConnectionException(
+                "O banco '{$config->getDatabase()}' não existe e não foi possível criá-lo: {$e->getMessage()}",
+                0,
+                $e,
+            );
+        }
     }
 }

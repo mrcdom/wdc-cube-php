@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Security;
 
 use Closure;
+use Wdc\Framework\Commons\Concurrent\FiberValue;
 
 /**
  * O contexto de segurança "da chamada corrente".
  *
- * Um estático simples basta aqui: o servidor roda num só processo e cada sessão é atendida
- * por vez. `runAs()` põe o contexto, executa e restaura — e como as chamadas de repositório são
- * síncronas (nenhuma Fiber cede a vez no meio delas), outra sessão nunca o enxerga.
+ * É guardado **por Fiber**: as consultas ao banco suspendem a Fiber que as fez, e nesse meio-tempo
+ * outras sessões rodam — cada uma precisa enxergar só o próprio contexto. `runAs()` põe o
+ * contexto, executa e restaura.
  */
 final class CurrentSecurityContext
 {
-    private static ?SecurityContext $current = null;
+    /** @var FiberValue<SecurityContext>|null */
+    private static ?FiberValue $current = null;
 
     private function __construct()
     {
@@ -23,12 +25,18 @@ final class CurrentSecurityContext
 
     public static function get(): ?SecurityContext
     {
-        return self::$current;
+        return self::local()->get();
     }
 
     public static function set(?SecurityContext $context): void
     {
-        self::$current = $context;
+        self::local()->set($context);
+    }
+
+    /** @return FiberValue<SecurityContext> */
+    private static function local(): FiberValue
+    {
+        return self::$current ??= new FiberValue(SecurityContext::class);
     }
 
     /**
@@ -38,14 +46,14 @@ final class CurrentSecurityContext
      */
     public static function runAs(?SecurityContext $context, Closure $work): mixed
     {
-        $previous = self::$current;
+        $previous = self::get();
         if ($context !== null) {
-            self::$current = $context;
+            self::set($context);
         }
         try {
             return $work();
         } finally {
-            self::$current = $previous;
+            self::set($previous);
         }
     }
 }
