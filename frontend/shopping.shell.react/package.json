@@ -5,7 +5,7 @@
   "source": "src/index.html",
   "targets": {
     "default": {
-      "distDir": "../../work/frontend/remote.shell.react"
+      "distDir": "../../work/frontend/shopping.shell.react"
     }
   },
   "alias": {
@@ -16,8 +16,8 @@
     "universal-cookie": "./node_modules/universal-cookie"
   },
   "scripts": {
-    "clean": "rm -rf .parcel-cache ../../work/frontend/remote.shell.react",
-    "copy-context": "mkdir -p ../../work/frontend/remote.shell.react && cp context.html ../../work/frontend/remote.shell.react/context.html",
+    "clean": "rm -rf .parcel-cache ../../work/frontend/shopping.shell.react",
+    "copy-context": "mkdir -p ../../work/frontend/shopping.shell.react && cp context.html ../../work/frontend/shopping.shell.react/context.html",
     "inject-externals": "node scripts/inject-externals.js",
     "start": "node scripts/watch.js",
     "watch": "node scripts/watch.js",

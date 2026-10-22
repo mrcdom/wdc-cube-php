@@ -30,7 +30,7 @@ tests in `tests/Framework/Cube/` (`CubeNavigationTest` documents the cycle case 
 - Database: PostgreSQL through `amphp/postgres` (asynchronous, pooled). See
   [persistence.md](persistence.md).
 - Heavy CPU (PBKDF2 of the handshake) runs in worker processes (`amphp/parallel`).
-- View: the React shell in `frontend/remote.shell.react` + the protocol client in
+- View: the React shell in `frontend/shopping.shell.react` + the protocol client in
   `frontend/remote.bridge.react`, built with `bin/build-frontend.sh` into `work/frontend/`.
 
 ## 2. Session: `CubeApplication`

@@ -41,7 +41,7 @@ final class ShoppingServerTest extends TestCase
 
     protected function setUp(): void
     {
-        if (!is_file(dirname(__DIR__, 3) . '/work/frontend/remote.shell.react/index.html')) {
+        if (!is_file(dirname(__DIR__, 3) . '/work/frontend/shopping.shell.react/index.html')) {
             self::markTestSkipped('shell React ausente: rode bin/build-frontend.sh');
         }
         $this->dir = sys_get_temp_dir() . '/wdc-server-' . bin2hex(random_bytes(4));
@@ -69,7 +69,7 @@ final class ShoppingServerTest extends TestCase
     /** @return array{string, string} app_id e app_skey, como o browser os recebe */
     private function loadIndex(): array
     {
-        $response = $this->http->request(new Request("http://{$this->base}/remote.shell.react/index.html"));
+        $response = $this->http->request(new Request("http://{$this->base}/shopping.shell.react/index.html"));
         self::assertSame(200, $response->getStatus());
         self::assertStringContainsString('<html', $response->getBody()->buffer());
         $cookies = [];
@@ -113,6 +113,25 @@ final class ShoppingServerTest extends TestCase
                 $views[$state['#']] = $state;
             }
         } while (($response['requestId'] ?? null) !== $message['requestId']);
+    }
+
+    /** O frontend é o primeiro segmento da URL, e só vale uma pasta com index.html - nunca fora dela. */
+    #[Test]
+    public function frontendContexts_areFoldersWithAnIndex_andNeverEscapeIt(): void
+    {
+        $client = (new HttpClientBuilder())->followRedirects(0)->build();   // ver o 302, não segui-lo
+        $status = function (string $path) use ($client): array {
+            $response = $client->request(new Request("http://{$this->base}{$path}"));
+
+            return [$response->getStatus(), $response->getHeader('location')];
+        };
+
+        self::assertSame([302, '/' . ShoppingServer::DEFAULT_SHELL . '/index.html'], $status('/'));
+        self::assertSame(200, $status('/' . ShoppingServer::DEFAULT_SHELL . '/index.html')[0]);
+        self::assertSame([302, '/' . ShoppingServer::DEFAULT_SHELL . '/index.html'], $status('/' . ShoppingServer::DEFAULT_SHELL . '/alguma/tela'), 'rota da SPA volta ao index');
+        self::assertSame(404, $status('/naoexiste/index.html')[0]);
+        self::assertSame(404, $status('/..%2F..%2Fcomposer.json/index.html')[0], 'não sai da pasta de frontends');
+        self::assertSame(404, $status('/.hidden/index.html')[0]);
     }
 
     #[Test]

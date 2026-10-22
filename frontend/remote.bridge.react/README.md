@@ -2,7 +2,7 @@
 
 Bridge TypeScript/React para o protocolo Host/Shell do **Cube MVP Remoto**. Implementa o lado cliente (shell) do protocolo no browser — conecta ao servidor via WebSocket (`/dispatcher/{appId}`, subprotocolo `wdc`), faz o handshake de segurança RSA/AES-GCM, gerencia ViewStates e disponibiliza hooks React para os componentes de UI renderizarem estados e emitirem eventos.
 
-Consumido por `remote.shell.react` (aplicação shopping) e qualquer outro shell React sobre o mesmo protocolo.
+Consumido por `shopping.shell.react` (aplicação shopping) e qualquer outro shell React sobre o mesmo protocolo.
 
 > Contém apenas código fonte TypeScript/React, sem build próprio: o shell o importa direto do fonte (alias `@wdc/remote-bridge-react` no `package.json` do shell).
 

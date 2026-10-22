@@ -25,6 +25,12 @@ use function Amp\File\read;
  */
 final readonly class IndexHtmlHandler implements RequestHandler
 {
+    /**
+     * O nome de um frontend (a pasta em `work/frontend/` e o primeiro segmento da URL). Começa
+     * por letra ou dígito: como vira parte de um caminho de arquivo, `..` nunca pode casar.
+     */
+    public const string CONTEXT_PATTERN = '[A-Za-z0-9][A-Za-z0-9._-]*';
+
     public function __construct(
         private RemoteAppSecurity $security,
         private string $frontendDir,
@@ -36,7 +42,7 @@ final readonly class IndexHtmlHandler implements RequestHandler
         $args = $request->getAttribute(Router::class);
         $context = is_array($args) && is_string($args['ctx'] ?? null) ? $args['ctx'] : '';
         $file = "{$this->frontendDir}/{$context}/index.html";
-        if (!str_starts_with($context, 'remote.') || !is_file($file)) {
+        if (preg_match('#^' . self::CONTEXT_PATTERN . '$#', $context) !== 1 || !is_file($file)) {
             return new Response(HttpStatus::NOT_FOUND, ['content-type' => 'text/plain'], 'Not found');
         }
 

@@ -329,7 +329,7 @@ final class ProductViewMock extends AbstractViewMock
 ## 3. The React view and its registration
 
 ```tsx
-// frontend/remote.shell.react/src/scripts/views/product/ProductView.tsx
+// frontend/shopping.shell.react/src/scripts/views/product/ProductView.tsx
 const ON_OPEN_PRODUCTS = 1          // the SAME codes as the skeleton
 const ON_ADD_TO_CART = 2
 
@@ -355,7 +355,7 @@ export default BaseViewClass.FC(ProductViewClass, "48b693f67410")   // the SAME 
 ```
 
 ```tsx
-// frontend/remote.shell.react/src/scripts/index.tsx
+// frontend/shopping.shell.react/src/scripts/index.tsx
 bridge.registerComponents(/* ... */, ProductView /* , ... */)
 ```
 

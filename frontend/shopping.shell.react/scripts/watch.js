@@ -9,7 +9,7 @@ const fs = require("fs")
 const path = require("path")
 
 const rootDir = path.resolve(__dirname, "..")
-const distDir = path.resolve(rootDir, "..", "..", "work", "frontend", "remote.shell.react")
+const distDir = path.resolve(rootDir, "..", "..", "work", "frontend", "shopping.shell.react")
 const indexPath = path.join(distDir, "index.html")
 const injectScript = path.join(__dirname, "inject-externals.js")
 

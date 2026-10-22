@@ -114,10 +114,10 @@ Configurado no `package.json` (Parcel) e `tsconfig.json` (TypeScript/IDE).
 Na raiz do repositório, `bin/build-frontend.sh` compila o shell junto com o `remote.bridge.react` (instala as dependências dos dois na primeira vez e roda `npm run build:clean`). Os assets compilados vão para:
 
 ```
-work/frontend/remote.shell.react/
+work/frontend/shopping.shell.react/
 ```
 
-De lá o servidor PHP (`php bin/server.php`) serve os arquivos estáticos; a aplicação abre em `/remote.shell.react/index.html`.
+De lá o servidor PHP (`php bin/server.php`) serve os arquivos estáticos; a aplicação abre em `/shopping.shell.react/index.html`.
 
 ## Comandos
 

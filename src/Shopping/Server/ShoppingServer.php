@@ -51,7 +51,7 @@ use Wdc\Shopping\RemoteHost\ShoppingRemoteHost;
  */
 final class ShoppingServer
 {
-    public const string DEFAULT_SHELL = 'remote.shell.react';
+    public const string DEFAULT_SHELL = 'shopping.shell.react';
 
     public readonly ShoppingRepositories $repos;
 
@@ -133,15 +133,15 @@ final class ShoppingServer
         $dispatcher = new RemoteDispatcher($this->host->registry, $this->host->security, $this->logger);
         $websocket = new Websocket($this->http, $this->logger, new WdcWebsocketAcceptor(), new DispatcherEndpoint($dispatcher, $this->logger));
         $router->addRoute('GET', '/dispatcher/{id}', $websocket);
-        $router->addRoute('GET', '/{ctx:remote\.[^/]+}/dispatcher/{id}', $websocket);
+        $router->addRoute('GET', '/{ctx:' . IndexHtmlHandler::CONTEXT_PATTERN . '}/dispatcher/{id}', $websocket);
 
         $index = new IndexHtmlHandler($this->host->security, $frontend);
-        $router->addRoute('GET', '/{ctx:remote\.[^/]+}/index.html', $index);
-        $router->addRoute('GET', '/{ctx:remote\.[^/]+}/', $index);
+        $router->addRoute('GET', '/{ctx:' . IndexHtmlHandler::CONTEXT_PATTERN . '}/index.html', $index);
+        $router->addRoute('GET', '/{ctx:' . IndexHtmlHandler::CONTEXT_PATTERN . '}/', $index);
 
         $init = new SessionInitHandler($this->host->security, $this->host->registry);
         $router->addRoute('GET', '/api/session/init', $init);
-        $router->addRoute('GET', '/{ctx:remote\.[^/]+}/api/session/init', $init);
+        $router->addRoute('GET', '/{ctx:' . IndexHtmlHandler::CONTEXT_PATTERN . '}/api/session/init', $init);
 
         $image = new ProductImageHandler($this->repos->products, $this->logger);
         $router->addRoute('GET', '/image/product/{id:\d+}.png', $image);

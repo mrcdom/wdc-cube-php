@@ -52,7 +52,7 @@ php bin/server.php        # sobe o servidor em http://localhost:8080 (Ctrl+C enc
 Abra http://localhost:8080/ (redireciona para o shell React) e entre com `admin`/`admin`.
 
 Para desenvolver o frontend com recompilação automática:
-`(cd frontend/remote.shell.react && npm run watch)`.
+`(cd frontend/shopping.shell.react && npm run watch)`.
 
 ## Testes
 
@@ -125,7 +125,7 @@ curl -X POST localhost:8080/api/repo/product/count \
 
 - `src/Framework/` — o framework Cube: motor, protocolo remoto, persistência, API REST
 - `src/Shopping/` — a aplicação de demonstração: domínio, persistência, apresentação, servidor
-- `frontend/remote.shell.react/` — o shell React (React, TypeScript, MUI)
+- `frontend/shopping.shell.react/` — o shell React (React, TypeScript, MUI)
 - `frontend/remote.bridge.react/` — o bridge: o protocolo do Cube no lado do cliente
 - `tests/` — PHPUnit
 - `bin/` — servidor e build do frontend

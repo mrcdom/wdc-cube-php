@@ -24,8 +24,8 @@ final readonly class SpaFallbackHandler implements RequestHandler
     public function handleRequest(Request $request): Response
     {
         $path = $request->getUri()->getPath();
-        if (preg_match('#^/(remote\.[^/]+)(/.*)?$#', $path, $m) === 1
-            && is_dir("{$this->frontendDir}/{$m[1]}")
+        if (preg_match('#^/(' . IndexHtmlHandler::CONTEXT_PATTERN . ')(/.*)?$#', $path, $m) === 1
+            && is_file("{$this->frontendDir}/{$m[1]}/index.html")
             && preg_match(self::STATIC, $path) !== 1
             && !str_contains($path, '/api/')) {
             return new Response(HttpStatus::FOUND, ['location' => "/{$m[1]}/index.html"]);

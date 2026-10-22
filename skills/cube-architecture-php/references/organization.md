@@ -21,7 +21,7 @@ place tree** - opening a folder shows where the screen is in the cube.
 ```
 bin/            server.php (start), build-frontend.sh (React shell)
 docs/           architecture and operations
-frontend/       remote.shell.react (the views), remote.bridge.react (the protocol client)
+frontend/       shopping.shell.react (the views), remote.bridge.react (the protocol client)
 skills/         this skill
 src/Framework/  the framework (no application code)
 src/Shopping/   the demo application
@@ -91,7 +91,7 @@ others import from there.
 ## 5. The view (React shell)
 
 ```
-frontend/remote.shell.react/src/scripts/
+frontend/shopping.shell.react/src/scripts/
   index.tsx                 registerComponents(...) - every view must be listed
   views/<screen>/XxxView.tsx   BaseViewClass.FC(XxxViewClass, "<classId>")
   views/<screen>/xxx-sel.ts    style selectors
@@ -99,8 +99,8 @@ frontend/remote.shell.react/src/scripts/
 frontend/remote.bridge.react/   the protocol client (connection, storage, view registry)
 ```
 
-Build with `bin/build-frontend.sh` (output in `work/frontend/remote.shell.react/`); during
-development `cd frontend/remote.shell.react && npm run watch`.
+Build with `bin/build-frontend.sh` (output in `work/frontend/shopping.shell.react/`); during
+development `cd frontend/shopping.shell.react && npm run watch`.
 
 ## 6. Tests
 

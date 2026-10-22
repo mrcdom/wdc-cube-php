@@ -10,9 +10,9 @@ if [ ! -d "../remote.bridge.react/node_modules" ]; then
     (cd ../remote.bridge.react && npm install)
 fi
 
-DEPLOY_DIR="../../work/frontend/remote.shell.react"
+DEPLOY_DIR="../../work/frontend/shopping.shell.react"
 
-# Build React SPA (output goes to work/frontend/remote.shell.react via distDir in package.json)
+# Build React SPA (output goes to work/frontend/shopping.shell.react via distDir in package.json)
 # context.html is copied automatically by the build:clean script
 npm run build:clean
 
