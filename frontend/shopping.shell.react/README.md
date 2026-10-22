@@ -1,149 +1,79 @@
-# WDC Shopping — React Client
+# Shopping — shell React
 
-Frontend SPA do sistema Shopping, construído com **React 19**, **TypeScript** e **MUI 9**. Comunica-se com o servidor PHP via **WebSocket bidirecional**, recebendo estados serializados dos presenters e enviando eventos de volta.
+A view da loja de demonstração: uma SPA em **React 19** + **TypeScript** que desenha os estados
+que os presenters do servidor PHP mandam por **WebSocket** e devolve os cliques como eventos. Toda
+a lógica de tela está no servidor; aqui só se desenha.
 
-## Stack
+O protocolo (conexão, handshake, estados, formulários, armazenamento) fica no bridge,
+[`../remote.bridge.react`](../remote.bridge.react/README.md), reexportado em `@root/bridge`.
 
-| Tecnologia        | Versão | Finalidade                |
-| ----------------- | ------ | ------------------------- |
-| React             | 19     | UI reativa                |
-| TypeScript        | ES2024 | Tipagem estática          |
-| MUI (Material UI) | 9      | Componentes visuais       |
-| Emotion           | 11     | CSS-in-JS (engine do MUI) |
-| Parcel            | 2.13.3 | Bundler                   |
-| Prettier          | 3.8.2  | Formatação de código      |
-| history           | 5.3.0  | Navegação hash-based      |
-| universal-cookie  | 7.2.2  | Gerenciamento de cookies  |
+> Para escrever uma view nova, leia o guia [docs/dev/react-views.md](../../docs/dev/react-views.md).
 
-## Estrutura do Projeto
+## Pilha
+
+| Tecnologia | Para quê |
+|---|---|
+| React 19 + TypeScript | as views (classes sobre `BaseViewClass`) |
+| Spectrum Web Components (`@swc-react/*`) | botões, campos, divisores, tema (`src/scripts/swc.ts`) |
+| Sass + seletores (`*-sel.ts` + `.scss`) | estilos por view, com utilitários globais em `src/scss/` |
+| Bootstrap Icons, fonte Inter | ícones e tipografia, servidos pelo cache local do servidor (`/web-cache/...`) |
+| Parcel 2 | bundler (o build não checa tipos TypeScript) |
+| Prettier 3 | formatação |
+
+## Estrutura
 
 ```mermaid
-graph TD
-    src["src/"]
-    src --> indexHtml["index.html"]
+flowchart TD
+    src["src/"] --> html["index.html"]
     src --> scripts["scripts/"]
-
-    scripts --> indexTsx["index.tsx<br/><small>Bootstrap: tema, registro, render</small>"]
-    scripts --> AppTsx["App.tsx<br/><small>Fachada da Application</small>"]
-
-    scripts --> bridge["bridge/ — Infraestrutura"]
-    bridge --> VSCoord["ViewStateCoordinator.ts<br/><small>Views, formulários, WebSocket</small>"]
-    bridge --> Flush["FlushRequestContext.ts<br/><small>Comunicação WS</small>"]
-    bridge --> Reconnect["ReconnectController.ts<br/><small>Backoff progressivo</small>"]
-    bridge --> DataSec["DataSecurity.ts<br/><small>RSA + AES-GCM</small>"]
-    bridge --> ViewScope["ViewScope.ts<br/><small>Estado reativo</small>"]
-    bridge --> ViewGC["ViewGarbageCollector.ts"]
-    bridge --> constants["constants.ts + types.ts"]
-
-    scripts --> utils["utils/ — Utilitários"]
-    utils --> ViewUtils["ViewUtils.tsx<br/><small>Base classes</small>"]
-    utils --> CryptoUtils["RSA.ts, Base64.ts, BigIntUtils.ts"]
-    utils --> FormatUtils["DateUtils.ts, NumberUtils.ts"]
-    utils --> OtherUtils["LangUtils.ts, EndpointUtils.ts, UTF8.ts"]
-
-    scripts --> views["views/ — Componentes"]
-    views --> BrowserView["BrowserView.tsx<br/><small>Conexão, alertas, loading</small>"]
-    views --> RootView["RootView.tsx<br/><small>Container auth</small>"]
-    views --> SlotView["SlotView.tsx<br/><small>Slot genérico</small>"]
-    views --> LoginView["LoginView.tsx"]
-    views --> HomeView["HomeView.tsx"]
-    views --> ProductView["ProductView.tsx"]
-    views --> CartView["CartView.tsx"]
-    views --> ReceiptView["ReceiptView.tsx"]
-    views --> home["home/<br/><small>HeaderPanel, ContentPanel,<br/>ProductsPanel, PurchasesPanel</small>"]
+    src --> scss["scss/ (app, utilitários, tema)"]
+    scripts --> index["index.tsx<br/>registra as views e desenha a BrowserView"]
+    scripts --> bridge["bridge/index.tsx<br/>reexporta o remote.bridge.react"]
+    scripts --> utils["utils/<br/>ViewUtils (BaseViewClass, BasePanelClass),<br/>NumberUtils, DateUtils, EndpointUtils"]
+    scripts --> views["views/"]
+    views --> browser["browser/ (conexão, alertas, 'enviando')"]
+    views --> root["RootView, SlotView"]
+    views --> telas["login/, home/, product/, cart/, receipt/"]
 ```
 
-## Como Funciona
+Cada view é uma classe que estende `BaseViewClass` e se registra pelo **classId** do presenter
+(o mesmo do `Skeleton` no PHP):
 
-### Ciclo de Vida
+```tsx
+class ProductViewClass extends BaseViewClass<ViewProps, ProductViewState> {
+  override render() { /* desenha this.state, que veio do servidor */ }
 
-1. **Bootstrap** (`index.tsx`): Cria o tema MUI, registra todas as views e renderiza a `BrowserView`
-2. **Conexão** (`BrowserView`): Ao montar, chama `app.onStart()` que abre o WebSocket
-3. **Recebimento de estado**: O backend envia `ViewStates` serializados via WebSocket → `Application.applyViewStates()` atualiza os `ViewScope`s → React re-renderiza
-4. **Envio de eventos**: Ações do usuário chamam `app.submit(vsid, eventId)` que envia o evento ao presenter correspondente no backend via WebSocket
-
-### Padrão de Views
-
-Cada view é uma classe que estende `BaseViewClass<Props, State>` e é convertida em Functional Component via `BaseViewClass.FC()`:
-
-```typescript
-class LoginViewClass extends BaseViewClass<ViewProps, LoginViewState> {
-  override render({ className }: ViewProps): React.ReactNode {
-    const { state } = this
-    // ... renderização baseada no state recebido do backend
+  readonly emitAddToCart = () => {
+    bridge.setFormField(this.vsid, "p.quantity", 2)   // argumento do evento: prefixo "p."
+    bridge.submit(this.vsid, ON_ADD_TO_CART)          // o código do evento no skeleton
   }
 }
-
-export default BaseViewClass.FC(LoginViewClass, "c677cda52d14")
+export default BaseViewClass.FC(ProductViewClass, "48b693f67410")
 ```
 
-- O **estado** (`state`) vem do backend (presenter), não é gerenciado localmente
-- **Eventos** são enviados ao backend via `app.submit(vsid, eventId)`
-- **Dados de formulário** são anexados via `app.setFormField(vsid, field, value)` antes do submit
-- Cada view é identificada por um **VIEW_ID** único (hash) que mapeia ao presenter no backend
+Toda view nova entra em `bridge.registerComponents(...)`, no `index.tsx`. Um `classId` sem view
+registrada faz o bridge lançar `Nenhuma view registrada para a viewId` no console.
 
-### Comunicação WebSocket
+## Build e desenvolvimento
 
-- **Protocolo**: WebSocket com subprotocolo `wdc`
-- **Keep-alive**: Automático a cada 15 segundos para manter a conexão ativa
-- **Reconexão**: Backoff progressivo (2s, 4s, 6s, ... até 120s) com opção de reconectar imediatamente
-- **Segurança**: Dados sensíveis cifrados com AES-GCM; chave trocada via RSA no handshake
-
-### Indicador de Atividade
-
-Um `LinearProgress` (MUI) aparece no topo da página durante submits do usuário. Características:
-
-- `position: fixed` — não afeta o layout
-- Debounce de 50ms — não pisca em operações rápidas
-- Timeout de 15s — auto-limpa se a resposta não chegar
-- Apenas para ações do usuário — keep-alive e ping são silenciosos
-
-## Alias de Importação
-
-O alias `@root/*` mapeia para `./src/scripts/*`:
-
-```typescript
-import app from "@root/App"
-import { BaseViewClass } from "@root/utils/ViewUtils"
-```
-
-Configurado no `package.json` (Parcel) e `tsconfig.json` (TypeScript/IDE).
-
-## Saída do Build
-
-Na raiz do repositório, `bin/build-frontend.sh` compila o shell junto com o `remote.bridge.react` (instala as dependências dos dois na primeira vez e roda `npm run build:clean`). Os assets compilados vão para:
-
-```
-work/frontend/shopping.shell.react/
-```
-
-De lá o servidor PHP (`php bin/server.php`) serve os arquivos estáticos; a aplicação abre em `/shopping.shell.react/index.html`.
-
-## Comandos
+Pela raiz do repositório:
 
 ```bash
-# Instalar dependências
-npm install
+bin/build-frontend.sh    # instala as dependências na primeira vez e compila
+```
 
-# Desenvolvimento (watch mode com hot reload)
-npm run watch
+A saída vai para `work/frontend/shopping.shell.react/`, de onde o servidor PHP a serve:
+http://localhost:8080/shopping.shell.react/index.html (a raiz `/` redireciona para lá).
 
-# Build de produção
-npm run build
+Nesta pasta:
 
-# Formatar código
-npm run format
-
-# Verificar formatação
+```bash
+npm run watch          # recompila a cada alteração
+npm run build          # build de produção
+npm run format         # Prettier
 npm run format:check
 ```
 
 ## Formatação (Prettier)
 
-| Regra           | Valor       |
-| --------------- | ----------- |
-| Ponto-e-vírgula | Não         |
-| Aspas           | Simples     |
-| Trailing comma  | Todas       |
-| Largura         | 120 colunas |
-| Indentação      | 2 espaços   |
+Sem ponto-e-vírgula, aspas duplas, vírgula final em tudo, 120 colunas, indentação de 2 espaços.

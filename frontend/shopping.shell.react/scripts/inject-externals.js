@@ -3,10 +3,8 @@
  * Post-build script: injects external resources (SWC importmap, SWC bundle, etc.)
  * into the Parcel-generated index.html.
  *
- * NOTE: Bootstrap Icons and Google Fonts are now declared directly in src/index.html
- * so they survive every parcel watch rebuild automatically. This script is kept for
- * any future resources that cannot be referenced from source (e.g. runtime-generated
- * importmaps). It exits early without modifying the file if nothing needs injection.
+ * It also injects Bootstrap Icons and the Inter font (both served through the server's
+ * /web-cache/ proxy). It exits early without modifying the file if nothing needs injection.
  */
 const fs = require("fs")
 const path = require("path")

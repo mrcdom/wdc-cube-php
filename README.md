@@ -9,6 +9,8 @@ O repositório traz o framework e uma aplicação de demonstração completa, o 
 - [docs/guia-para-quem-vem-do-php.md](docs/guia-para-quem-vem-do-php.md) — comece por aqui se você
   programa em PHP com frameworks de template (Laravel, Symfony, Twig): a proposta explicada a
   partir do que você já conhece, com um exercício guiado.
+- [docs/dev/](docs/dev/README.md) — guias passo a passo para desenvolver: setup local, criar uma
+  funcionalidade do banco à tela, repositórios, consultas, serviços, transações, presenters e views.
 - [docs/arquitetura.md](docs/arquitetura.md) — como o Cube funciona: places, presenters, navegação,
   protocolo, persistência sem N+1, segurança.
 - [docs/escalando.md](docs/escalando.md) — várias instâncias atrás de um balanceador.

@@ -205,7 +205,8 @@ view, wiring, tests) are in [references/patterns.md](references/patterns.md).
 3. **The `classId` and the event codes are a contract between two files.** The PHP
    `Skeleton('48b693f67410', ...)` and the React `BaseViewClass.FC(ProductViewClass,
    "48b693f67410")` must carry the same id, and every `bridge.submit(vsid, CODE)` in the view
-   must have a `match` arm. A wrong id draws nothing in that area; a missing arm reaches
+   must have a `match` arm. A wrong id makes the bridge throw `Nenhuma view registrada para a
+   viewId` (browser console) and the area is not drawn; a missing arm reaches
    `Skeleton::unknownEvent`, which throws `eventCode(N) not handled` - the session logs it
    and shows the unexpected-error alert. Keep the codes as named constants on both sides.
 4. **Event arguments come in the form as `p.<name>`; plain fields sync the state.**
@@ -340,8 +341,9 @@ Report each finding with the symptom it produces, not only the rule.
 
 Start with [references/diagnosis.md](references/diagnosis.md). The most common:
 
-- **Area of the screen stays empty**: `classId` mismatch between skeleton and React view,
-  the view not registered in `registerComponents`, or the shell not rebuilt.
+- **Area of the screen stays empty** (often with `Nenhuma view registrada para a viewId` in the
+  console): `classId` mismatch between skeleton and React view, the view not registered in
+  `registerComponents`, or the shell not rebuilt.
 - **Screen does not change after an action**: `update()` missing.
 - **Field always empty in the view**: it is private/protected, null/blank (omitted), or an
   object without public properties.

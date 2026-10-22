@@ -62,8 +62,11 @@ final class ShoppingServerTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->server->stop();
-        exec('rm -rf ' . escapeshellarg($this->dir));
+        // sem o frontend compilado, o setUp pula o teste antes de criar o servidor
+        if (isset($this->server)) {
+            $this->server->stop();
+            exec('rm -rf ' . escapeshellarg($this->dir));
+        }
     }
 
     /** @return array{string, string} app_id e app_skey, como o browser os recebe */

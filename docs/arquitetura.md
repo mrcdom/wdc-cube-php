@@ -257,7 +257,9 @@ no retorno normal ou rollback na exceção. A compra do carrinho (compra + itens
   `data:all`, que libera os dados de todos os usuários. Sem `data:all`, cada usuário só vê e altera
   os próprios dados.
 - Na apresentação, os repositórios são embrulhados em decoradores (`Secured*Repository`) que
-  conferem as permissões do usuário da sessão antes de cada operação.
+  põem o contexto de segurança da sessão como o corrente em cada chamada. As permissões por
+  papel são conferidas na API REST (`SecurityEnforcer`), que também restringe cada usuário aos
+  próprios dados.
 
 ## 5. API REST (`src/Framework/Rest/`, `src/Shopping/Persistence/Rest/`)
 

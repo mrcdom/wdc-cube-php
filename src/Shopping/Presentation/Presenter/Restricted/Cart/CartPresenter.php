@@ -73,11 +73,11 @@ final class CartPresenter extends AbstractCubePresenter
             if ($productId === null) {
                 $this->alert(5, 'Código do produto mal formado.');
             } elseif ($quantity === null) {
-                $this->alert(6, 'Valor da quantiade está mal formado.');
+                $this->alert(6, 'Valor da quantidade está mal formado.');
             } elseif ($quantity < 1) {
-                $this->alert(1, 'Deve existir pelo menos um item no carrinhro para se efetivar uma compra');
+                $this->alert(1, 'Deve existir pelo menos um item no carrinho para se efetivar uma compra');
             } elseif (!$this->cart->modifyProductQuantity($productId, $quantity)) {
-                $this->alert(2, 'Produdo não localizado na base dados.');
+                $this->alert(2, 'Produto não localizado na base de dados.');
             } else {
                 $this->state->errorCode = 0;
                 $this->state->errorMessage = null;
@@ -126,7 +126,7 @@ final class CartPresenter extends AbstractCubePresenter
             $receipt->purchaseMade = true;
             $receipt->go();
         } catch (InvalidCartItemException $caught) {
-            $this->alert(1, 'Deve existir pelo menos um item no carrinhro para se efetivar uma compra');
+            $this->alert(1, 'Deve existir pelo menos um item no carrinho para se efetivar uma compra');
             $this->app->logger()->error('onBuy', ['exception' => $caught]);
         } catch (OfflineException $caught) {
             $this->alert(4, 'O banco de dados encontra-se fora do ar no momento. Aguarde alguns instantes e tente novamente.');
