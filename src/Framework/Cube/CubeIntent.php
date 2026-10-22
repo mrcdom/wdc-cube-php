@@ -27,7 +27,7 @@ final class CubeIntent implements Stringable
     /** @var array<string, mixed> */
     private array $attributes = [];
 
-    /** "product?productId=3" → intent com GenericPlace('product') e o parâmetro (como string). */
+    /** "product?pr-id=3" → intent com GenericPlace('product') e o parâmetro (como string). */
     public static function parse(?string $uri): self
     {
         $intent = new self();
@@ -173,7 +173,7 @@ final class CubeIntent implements Stringable
         return QueryString::build($this->parameters);
     }
 
-    /** "product" ou "product?productId=3" — sem barra inicial, como o protocolo espera. */
+    /** "product" ou "product?pr-id=3" — sem barra inicial, como o protocolo espera. */
     public function __toString(): string
     {
         $name = $this->place?->name() ?? '';

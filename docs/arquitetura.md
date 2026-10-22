@@ -88,11 +88,25 @@ $app->navigate()->step(Place::ROOT)->step(Place::RESTRICTED)->step(Place::HOME)-
     ->execute($intent);
 ```
 
+Os presenters não chamam as rotas diretamente: navegam pelas **keys** do destino (abaixo), cujo
+`go()` chama a rota do place.
+
 ### Keys: a leitura tipada do intent
 
-Os nomes de parâmetros e atributos não aparecem nos presenters. Cada place que lê ou publica
-algo tem uma classe de **keys** (`ProductKeys`, `ReceiptKeys`...), que herda das keys do place
-acima e expõe os valores como propriedades tipadas, já validadas na leitura:
+Os nomes de parâmetros e atributos não aparecem nos presenters. Cada place tem a sua classe de
+**keys**, que herda das keys do place acima - a hierarquia das classes espelha a árvore:
+
+```mermaid
+flowchart LR
+    RootKeys --> OpenKeys --> LoginKeys
+    RootKeys --> RestrictedKeys --> HomeKeys
+    HomeKeys --> CartKeys
+    HomeKeys --> ProductKeys
+    HomeKeys --> ReceiptKeys
+```
+
+As keys expõem os valores como propriedades tipadas, já validadas na leitura, e navegam para o
+seu place:
 
 ```php
 $keys = new ProductKeys($this->app, $intent);       // dentro de applyParameters
@@ -101,18 +115,31 @@ $productId = $keys->productId;                      // inteiro >= 0, ou null se 
 $receipt = ReceiptKeys::of($this->app);             // uma viagem que parte do estado atual
 $receipt->purchaseId = 7;
 $receipt->go();
+
+(new LoginKeys($this->app, $intent))->go();         // redirecionar DENTRO de applyParameters,
+                                                    // levando o intent em trânsito
 ```
+
+Herdar das keys de cima permite que um place mais fundo LEIA o que um ancestral publica (o
+recibo enxerga o usuário publicado pela raiz). Keys sem nomes próprios (`CartKeys`) só dizem
+qual é o seu place.
 
 Cada arquivo de keys declara um prefixo de duas letras, único na aplicação, e todos os seus
 nomes começam por ele (`pr-id`, `rc-id`). Como uma navegação passa o mesmo intent por todos os
 presenters do caminho, dois donos do mesmo nome se sobrescreveriam em silêncio; um teste
-(`KeysNamesTest`) varre as keys e garante a regra.
+(`KeysNamesTest`) varre as keys e garante a regra - e também que todo place tem exatamente uma
+classe de keys.
 
 ### Slots: telas dentro de telas
 
 Um presenter pai oferece um *slot* — um lugar na sua tela onde cabe a view de um filho — e o passa
-no intent. O filho se encaixa nele (`$slot->setView($this->view)`). Assim a `HOME` tem o carrinho,
-o produto ou o recibo no painel central, sem que um conheça a implementação do outro.
+no intent (`$keys->ownerSlot = $this->contentSlot`). O filho se encaixa nele
+(`$keys->ownerSlot->setView($this->view)`). Assim a `HOME` tem o carrinho, o produto ou o recibo
+no painel central, sem que um conheça a implementação do outro.
+
+O slot é decidido por quem está acima, a cada navegação: por isso o dono o oferece em toda
+navegação que passa por ele, e o filho o lê em todo `applyParameters` - não só na criação. Um
+presenter que sobrevive a uma viagem não tem como saber se a composição acima mudou.
 
 ## 2. A view remota e o protocolo (`src/Framework/Cube/Remote/`)
 
@@ -264,6 +291,6 @@ Para mais de um núcleo ou mais usuários, roda-se várias instâncias atrás de
 | `src/Framework/Commons/` | utilitários: agendador, Base62, RSA, JSON, log |
 | `src/Shopping/Domain/` | entidades, critérios, ordenações e codecs do Shopping |
 | `src/Shopping/Persistence/` | repositórios, schema e seed, autenticação, API REST |
-| `src/Shopping/Presentation/` | places, rotas e presenters do Shopping |
+| `src/Shopping/Presentation/` | places, rotas, keys e presenters do Shopping |
 | `src/Shopping/RemoteHost/`, `src/Shopping/Server/` | a sessão remota e o servidor do Shopping |
 | `frontend/` | o shell React e o bridge que implementa o protocolo no cliente |
