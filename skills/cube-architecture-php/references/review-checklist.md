@@ -78,6 +78,9 @@ rest is a suggestion.
 - [ ] Projection on every screen query; relations inside the projection, not in a loop.
       *Symptom: N+1, slow lists.*
 - [ ] ORDER BY with an id tie-break; default order is by id.
+- [ ] Table, sequence and column names as public constants of the owning repository
+      (`self::TABLE`, `self::ID`, `Sql::alias($a)` for aliased columns); no column name as a
+      string literal. *Symptom: a typo caught only when the query runs, not by PHPStan.*
 - [ ] Multi-write operations in `tx()->required(...)`.
 - [ ] REST: owner scope enforced for users without `data:all`.
 - See [persistence.md](persistence.md), section 12.

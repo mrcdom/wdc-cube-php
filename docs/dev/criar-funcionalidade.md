@@ -314,15 +314,28 @@ interface, e não a implementação, que as camadas de cima conhecem.
 
 `src/Shopping/Persistence/Repository/ReviewRepositoryImpl.php`, `extends AbstractRepository
 implements ReviewRepository`. No construtor, o mapeamento campo ↔ coluna (`Table`) e a
-consulta por projeção (`JsonQuery`, alias `rv`), com as duas relações N:1:
+consulta por projeção (`JsonQuery`, alias `rv`), com as duas relações N:1. Os nomes da
+tabela, da sequência e das colunas são constantes públicas da classe, usadas em todo lugar no
+lugar do texto solto (o porquê está em
+[repository.md](repository.md#5a-constantes-de-tabela-e-colunas)):
 
 ```php
+public const string TABLE = 'EN_REVIEW';
+public const string SEQUENCE = 'SQ_REVIEW';
+public const string ID = 'ID';
+public const string PRODUCTID = 'PRODUCTID';
+public const string USERID = 'USERID';
+public const string RATING = 'RATING';
+public const string REVIEWCOMMENT = 'REVIEWCOMMENT';
+public const string CREATEDAT = 'CREATEDAT';
+
+// ... no construtor:
 // a ordem importa: a primeira coluna é a chave primária (insertBean/updateBean contam com isso)
-$table = new Table('EN_REVIEW', static fn (): Review => new Review(), [
-    new Column('id', 'ID', ColumnType::Int, static fn (Review $r) => $r->id(), static fn (Review $r, mixed $v) => $r->withId($v)),
-    new Column('rating', 'RATING', ColumnType::Int, static fn (Review $r) => $r->rating(), static fn (Review $r, mixed $v) => $r->withRating($v)),
-    new Column('comment', 'REVIEWCOMMENT', ColumnType::Text, /* ... */),
-    new Column('createdAt', 'CREATEDAT', ColumnType::DateTime, /* ... */),
+$table = new Table(self::TABLE, static fn (): Review => new Review(), [
+    new Column('id', self::ID, ColumnType::Int, static fn (Review $r) => $r->id(), static fn (Review $r, mixed $v) => $r->withId($v)),
+    new Column('rating', self::RATING, ColumnType::Int, static fn (Review $r) => $r->rating(), static fn (Review $r, mixed $v) => $r->withRating($v)),
+    new Column('comment', self::REVIEWCOMMENT, ColumnType::Text, /* ... */),
+    new Column('createdAt', self::CREATEDAT, ColumnType::DateTime, /* ... */),
 ]);
 $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect())
     ->withConditions($this->conditions(...))
@@ -332,25 +345,29 @@ $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect()
         static fn (Review $r) => $r->product(),
         static fn (Review $r, ?Product $p) => $r->withProduct($p),
         fn () => $this->repos->products->query(),   // closure: o outro repositório pode ainda não existir
-        'PRODUCTID',
+        self::PRODUCTID,
     )
-    ->addToOne('user', /* idem, com $this->repos->users->query() e 'USERID' */);
+    ->addToOne('user', /* idem, com $this->repos->users->query() e self::USERID */);
 ```
 
 O resto da classe:
 
 - **FKs não são colunas da `Table`**: vão como colunas extras nas escritas, lidas das relações
-  (`insertBean($bean, ['PRODUCTID' => $bean->productId(), 'USERID' => $bean->userId()])`, e o
-  equivalente com getter + tipo em `updateBean`).
-- **`conditions()`** traduz cada criterion com `CriterionTranslator::translate("{$a}.PRODUCTID",
-  $criteria->productId())`, tudo dentro de `Sql::and([...])`.
+  (`insertBean($bean, [self::PRODUCTID => $bean->productId(), self::USERID => $bean->userId()])`,
+  e o equivalente com getter + tipo em `updateBean`).
+- **`conditions()`** prefixa as colunas com o alias (`$c = Sql::alias($a);`) e traduz cada
+  criterion com `CT::translate($c(self::PRODUCTID), $criteria->productId())` (`CT` é o alias de
+  `CriterionTranslator`), tudo dentro de `Sql::and([...])`.
 - **`orderBy()`** é um `match` sobre `ReviewOrderBy` e **toda ordenação termina no id**
-  (`"{$a}.CREATEDAT DESC, {$a}.ID DESC"`), para que duas avaliações no mesmo segundo não
-  troquem de lugar entre páginas.
+  (`"{$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC"` - o PHP não interpola constantes numa
+  string, mas interpola a chamada da closure `$c`), para que duas avaliações no mesmo segundo
+  não troquem de lugar entre páginas.
+- **`delete()`** recusa um critério sem `reviewId` nem `productId` (`LogicException`): sem
+  filtro, `deleteWhere` viraria um `DELETE` sem `WHERE`.
 - **`newProjection()`** é a projeção padrão: campos simples + `new Product()->withId(PV::INT)`
   e `new User()->withId(PV::INT)`. Só o id da relação sai direto da coluna da FK, sem
   subconsulta.
-- `sequence()` devolve `'SQ_REVIEW'`; `projectionOf()` e `criteriaForIds()` completam o
+- `sequence()` devolve `self::SEQUENCE`; `projectionOf()` e `criteriaForIds()` completam o
   contrato de `AbstractRepository`.
 
 Com isso, "as avaliações do produto com o nome de quem escreveu" é **um único SELECT**: o
@@ -875,6 +892,7 @@ Banco e domínio:
 
 Persistência e aplicação:
 
+- [ ] Nomes de tabela, sequência e colunas como constantes públicas do repositório; nenhum nome de coluna como texto solto
 - [ ] `Table` com a chave primária como **primeira** coluna
 - [ ] `JsonQuery` com alias próprio, condições, ordenação (terminando no id) e relações em closures
 - [ ] FKs como colunas extras em `insert` e `update`

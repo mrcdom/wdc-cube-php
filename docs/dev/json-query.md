@@ -79,11 +79,11 @@ WHERE), a **ordenação** (OrderBy → lista de ordenação) e as **relações**
 repositório:
 
 ```php
-$table = new Table('EN_REVIEW', static fn (): Review => new Review(), [
-    new Column('id', 'ID', ColumnType::Int, static fn (Review $r) => $r->id(), static fn (Review $r, mixed $v) => $r->withId($v)),
-    new Column('rating', 'RATING', ColumnType::Int, static fn (Review $r) => $r->rating(), static fn (Review $r, mixed $v) => $r->withRating($v)),
-    new Column('comment', 'REVIEWCOMMENT', ColumnType::Text, static fn (Review $r) => $r->comment(), static fn (Review $r, mixed $v) => $r->withComment($v)),
-    new Column('createdAt', 'CREATEDAT', ColumnType::DateTime, static fn (Review $r) => $r->createdAt(), static fn (Review $r, mixed $v) => $r->withCreatedAt($v)),
+$table = new Table(self::TABLE, static fn (): Review => new Review(), [
+    new Column('id', self::ID, ColumnType::Int, static fn (Review $r) => $r->id(), static fn (Review $r, mixed $v) => $r->withId($v)),
+    new Column('rating', self::RATING, ColumnType::Int, static fn (Review $r) => $r->rating(), static fn (Review $r, mixed $v) => $r->withRating($v)),
+    new Column('comment', self::REVIEWCOMMENT, ColumnType::Text, static fn (Review $r) => $r->comment(), static fn (Review $r, mixed $v) => $r->withComment($v)),
+    new Column('createdAt', self::CREATEDAT, ColumnType::DateTime, static fn (Review $r) => $r->createdAt(), static fn (Review $r, mixed $v) => $r->withCreatedAt($v)),
 ]);
 
 $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect())
@@ -92,6 +92,11 @@ $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect()
     ->addToOne(/* product */)
     ->addToOne(/* user */);
 ```
+
+`self::TABLE`, `self::ID`, `self::RATING`... são constantes públicas do próprio repositório
+(`public const string TABLE = 'EN_REVIEW';` etc.): nenhum nome de tabela ou coluna aparece como
+texto solto. A convenção e o porquê estão em
+[repository.md](repository.md#5a-constantes-de-tabela-e-colunas).
 
 | Peça                               | Papel                                                                         |
 |------------------------------------|-------------------------------------------------------------------------------|
@@ -106,7 +111,7 @@ $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect()
 Por que tudo recebe um **alias**? Porque a mesma entidade aparece várias vezes numa consulta — como
 raiz, dentro da subconsulta de outra entidade, dentro do recorte de uma coleção. Cada aparição
 ganha um alias novo do `QueryContext`, e as condições/ordenações são escritas contra ele
-(`"{$a}.PRODUCTID"`), nunca contra o nome da tabela.
+(`$c = Sql::alias($a); $c(self::PRODUCTID)` vale `rv1.PRODUCTID`), nunca contra o nome da tabela.
 
 Tipos de coluna (`ColumnType`):
 
@@ -234,11 +239,13 @@ O repositório só diz qual coluna corresponde a cada campo; a tradução para S
 ```php
 protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
 {
+    $c = Sql::alias($a);
+
     return Sql::and([
-        CT::translate("{$a}.ID", $criteria->reviewId()),
-        CT::translate("{$a}.PRODUCTID", $criteria->productId()),
-        CT::translate("{$a}.USERID", $criteria->userId()),
-        CT::translate("{$a}.RATING", $criteria->rating()),
+        CT::translate($c(self::ID), $criteria->reviewId()),
+        CT::translate($c(self::PRODUCTID), $criteria->productId()),
+        CT::translate($c(self::USERID), $criteria->userId()),
+        CT::translate($c(self::RATING), $criteria->rating()),
     ]);
 }
 ```
@@ -248,7 +255,7 @@ nenhuma condição, o resultado é `null` (sem `WHERE`). Os valores vão como pa
 concatenados. Para colunas de data, passe o conversor:
 
 ```php
-CT::translate("{$a}.BUYDATE", $criteria->buyDate(), ColumnType::formatDate(...)),
+CT::translate($c(self::BUYDATE), $criteria->buyDate(), ColumnType::formatDate(...)),
 ```
 
 ### 5.3 Campos virtuais com `EXISTS`
@@ -261,21 +268,26 @@ Um critério pode ter campos que não são colunas da tabela. `PurchaseCriteria:
 private function existsItemMatching(PurchaseCriteria $criteria, string $a, QueryContext $ctx): ?Sql
 {
     $pi = $ctx->alias('pi');                       // alias novo: não colide com nenhum outro
-    $onProduct = CT::translate("{$pi}.PRODUCTID", $criteria->productId());
+    $c = Sql::alias($a);
+    $i = Sql::alias($pi);
+    $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId());
     if ($onProduct === null) {
         return null;                               // campo não pedido ⇒ nenhuma condição
     }
 
     return new Sql(
-        "EXISTS (SELECT 1 FROM EN_PURCHASEITEM {$pi} WHERE {$pi}.PURCHASEID = {$a}.ID AND {$onProduct->sql})",
+        'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE
+            . " {$pi} WHERE {$i(PurchaseItemRepositoryImpl::PURCHASEID)} = {$c(self::ID)} AND {$onProduct->sql})",
         $onProduct->params,
     );
 }
 ```
 
 Ele entra em `conditions()` como mais uma parcela do `Sql::and([...])`. O alias da subconsulta vem
-do `$ctx` — é para isso que `conditions` recebe o `QueryContext`. `PurchaseItemRepositoryImpl` faz o
-inverso (`userId` do item = dono da compra).
+do `$ctx` — é para isso que `conditions` recebe o `QueryContext`. A tabela e as colunas do item
+vêm das constantes públicas de `PurchaseItemRepositoryImpl` (concatenadas, porque o PHP não
+interpola constantes em strings). `PurchaseItemRepositoryImpl` faz o inverso (`userId` do item =
+dono da compra).
 
 ---
 
@@ -286,11 +298,13 @@ O `OrderBy` é um enum neutro no domínio; o repositório traduz cada caso num `
 ```php
 protected function orderBy(?object $criteria, string $a): string
 {
+    $c = Sql::alias($a);
+
     return match ($criteria?->orderBy()) {
         null => '',
-        ReviewOrderBy::NEWEST_FIRST => "{$a}.CREATEDAT DESC, {$a}.ID DESC",
-        ReviewOrderBy::OLDEST_FIRST => "{$a}.CREATEDAT ASC, {$a}.ID ASC",
-        ReviewOrderBy::BEST_RATED_FIRST => "{$a}.RATING DESC, {$a}.CREATEDAT DESC, {$a}.ID DESC",
+        ReviewOrderBy::NEWEST_FIRST => "{$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC",
+        ReviewOrderBy::OLDEST_FIRST => "{$c(self::CREATEDAT)} ASC, {$c(self::ID)} ASC",
+        ReviewOrderBy::BEST_RATED_FIRST => "{$c(self::RATING)} DESC, {$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC",
     };
 }
 ```
@@ -331,7 +345,7 @@ Na `JsonQuery`:
     static fn (Review $r) => $r->user(),                      // lê a máscara da projeção
     static fn (Review $r, ?User $u) => $r->withUser($u),      // grava o bean hidratado
     fn () => $this->repos->users->query(),                    // JsonQuery do alvo (closure!)
-    'USERID',                                                 // coluna de FK NESTA tabela
+    self::USERID,                                             // coluna de FK NESTA tabela
 )
 ```
 
@@ -400,7 +414,7 @@ Em `PurchaseRepositoryImpl`:
     static fn (Purchase $p) => $p->items(),
     static fn (Purchase $p, array $items) => $p->withItems($items),   // recebe list<PurchaseItem>
     fn () => $this->repos->purchaseItems->query(),
-    'PURCHASEID',                                                     // coluna de FK NO FILHO
+    PurchaseItemRepositoryImpl::PURCHASEID,                           // coluna de FK NO FILHO
 )
 ```
 

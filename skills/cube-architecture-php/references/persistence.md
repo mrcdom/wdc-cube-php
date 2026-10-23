@@ -105,45 +105,58 @@ $projection = (new Purchase())
 /** @extends AbstractRepository<Purchase, PurchaseCriteria> */
 final class PurchaseRepositoryImpl extends AbstractRepository implements PurchaseRepository
 {
+    // The repository owns its table, sequence and column names; public because other
+    // repositories use them too (EXISTS, cascade DELETE).
+    public const string TABLE = 'EN_PURCHASE';
+    public const string SEQUENCE = 'SQ_PURCHASE';
+    public const string ID = 'ID';
+    public const string USERID = 'USERID';
+    public const string BUYDATE = 'BUYDATE';
+
     /** @var JsonQuery<Purchase, PurchaseCriteria> */
     private readonly JsonQuery $query;
 
     public function __construct(Database $db, private readonly ShoppingRepositories $repos)
     {
         parent::__construct($db);
-        $table = new Table('EN_PURCHASE', static fn (): Purchase => new Purchase(), [
-            new Column('id', 'ID', ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
-            new Column('buyDate', 'BUYDATE', ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
+        $table = new Table(self::TABLE, static fn (): Purchase => new Purchase(), [
+            new Column('id', self::ID, ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
+            new Column('buyDate', self::BUYDATE, ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
         ]);
         // targets in closures: purchase → item → purchase is a cycle
         $this->query = new JsonQuery($table, PurchaseCriteria::class, 'pu', $db->dialect())
             ->withConditions($this->conditions(...))
             ->withOrdering($this->orderBy(...))
             ->addToOne('user', static fn (Purchase $p) => $p->user(), static fn (Purchase $p, ?User $u) => $p->withUser($u),
-                fn () => $this->repos->users->query(), 'USERID')
+                fn () => $this->repos->users->query(), self::USERID)
             ->addToMany('items', static fn (Purchase $p) => $p->items(), static fn (Purchase $p, array $items) => $p->withItems($items),
-                fn () => $this->repos->purchaseItems->query(), 'PURCHASEID');
+                fn () => $this->repos->purchaseItems->query(), PurchaseItemRepositoryImpl::PURCHASEID);   // FK column of the CHILD table
     }
 
     public function query(): JsonQuery { return $this->query; }
 
-    protected function sequence(): string { return 'SQ_PURCHASE'; }
+    protected function sequence(): string { return self::SEQUENCE; }
 
     protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        $c = Sql::alias($a);                                          // $c(self::ID) → "pu1.ID"
+
         return Sql::and([
-            CriterionTranslator::translate("{$a}.ID", $criteria->purchaseId()),
-            CriterionTranslator::translate("{$a}.USERID", $criteria->userId()),
-            CriterionTranslator::translate("{$a}.BUYDATE", $criteria->buyDate(), ColumnType::formatDate(...)),
+            CriterionTranslator::translate($c(self::ID), $criteria->purchaseId()),
+            CriterionTranslator::translate($c(self::USERID), $criteria->userId()),
+            CriterionTranslator::translate($c(self::BUYDATE), $criteria->buyDate(), ColumnType::formatDate(...)),
+            // ...
         ]);
     }
 
     protected function orderBy(?object $criteria, string $a): string
     {
+        $c = Sql::alias($a);
+
         return match ($criteria?->orderBy()) {
             null => '',                                               // ⇒ by id
-            PurchaseOrderBy::NEWEST_FIRST => "{$a}.ID DESC",
-            PurchaseOrderBy::MOST_RECENT_PURCHASE_FIRST => "{$a}.BUYDATE DESC, {$a}.ID DESC",   // tie-break by id
+            PurchaseOrderBy::NEWEST_FIRST => "{$c(self::ID)} DESC",
+            PurchaseOrderBy::MOST_RECENT_PURCHASE_FIRST => "{$c(self::BUYDATE)} DESC, {$c(self::ID)} DESC",   // tie-break by id
             // ...
         };
     }
@@ -157,8 +170,15 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
 }
 ```
 
-- Columns that are FKs and not fields (`USERID`) are written by `insertBean($bean, ['USERID'
-  => ...])` / `updateBean(..., ['USERID' => [getter, ColumnType]])`.
+- Table, sequence and column names are public class constants of the repository that owns the
+  table, used everywhere instead of string literals: a typo is an undefined constant that PHPStan
+  reports in `composer check` (instead of an SQL error when that query first runs), and the
+  `Table` and the queries cannot diverge. PHP does not interpolate constants in strings, so
+  `Sql::alias($a)` returns a closure (`$c`) whose call does interpolate: `"{$c(self::ID)} DESC"`.
+  Hand-written SQL concatenates: `'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE . " {$pi} WHERE ...)"`.
+  The DDL in `ShoppingSchema` stays plain SQL (repository tests catch divergence).
+- Columns that are FKs and not fields (`USERID`) are written by `insertBean($bean, [self::USERID
+  => ...])` / `updateBean(..., [self::USERID => [getter, ColumnType]])`.
 - SQL identifiers never use quotes (PostgreSQL lowercases unquoted names).
 - Every ORDER BY ends with a unique tie-break (the id): pagination needs a total order.
 - Wire the repository in the composition root (`ShoppingRepositories`).
@@ -242,6 +262,9 @@ criteria, translator and codec criteria field.
       *Symptom: N+1 - one query per row, latency growing with the list.*
 - [ ] Each 1:N projection that can be large carries a limit and an order.
 - [ ] ORDER BY ends with the id. *Symptom: a row appears twice or never across pages.*
+- [ ] Table, sequence and column names only through the owning repository's public constants
+      (`self::RATING`, `PurchaseItemRepositoryImpl::PURCHASEID`), never as string literals.
+      *Symptom: a typo surfaces as an SQL error only when that query runs, not in PHPStan.*
 - [ ] Several writes in one `required()`. *Symptom: half an operation saved after an error.*
 - [ ] No `async()` expecting to be inside the transaction.
 - [ ] Criteria built from screen input: `null` means "no filter" - an id that must restrict

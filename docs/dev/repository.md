@@ -318,12 +318,54 @@ Nesse caminho a tabela nasce **vazia** (o seed só roda em banco novo).
 `fetchById` e `insertOrUpdate`, e oferece `insertBean`, `updateBean` e `deleteWhere`. A subclasse
 descreve **a tabela, as relações, as condições e a ordenação**.
 
-### 5a. Construtor: `Table` + `JsonQuery`
+### 5a. Constantes de tabela e colunas
+
+Cada repositório declara, como **constantes públicas da classe**, o nome da sua tabela, da sua
+sequência e de cada coluna — e usa essas constantes em todo lugar, nunca o texto solto:
+
+```php
+final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRepository
+{
+    /*
+     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
+     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     */
+    public const string TABLE = 'EN_REVIEW';
+    public const string SEQUENCE = 'SQ_REVIEW';
+    public const string ID = 'ID';
+    public const string PRODUCTID = 'PRODUCTID';
+    public const string USERID = 'USERID';
+    public const string RATING = 'RATING';
+    public const string REVIEWCOMMENT = 'REVIEWCOMMENT';
+    public const string CREATEDAT = 'CREATEDAT';
+    // ...
+```
+
+- **Por que constantes.** Um erro de digitação em `self::RATNG` é uma constante indefinida, que o
+  PHPStan acusa no `composer check`; em `'RATNG'` seria um erro de SQL que só aparece quando aquela
+  consulta roda. E há um lugar só para renomear: a `Table` e as consultas não têm como divergir.
+- **Por que públicas.** Outros repositórios escrevem SQL sobre esta tabela: o `EXISTS` de
+  `PurchaseRepositoryImpl::existsItemMatching` e o `DELETE` em cascata de
+  `PurchaseRepositoryImpl::delete` usam `PurchaseItemRepositoryImpl::TABLE` e
+  `PurchaseItemRepositoryImpl::PURCHASEID`.
+- **Alias + coluna numa string.** O PHP não interpola constantes dentro de `"..."`, mas interpola a
+  chamada de uma closure guardada numa variável. `Sql::alias($a)`
+  (`src/Framework/Persistence/Sql.php`) devolve essa closure, que prefixa a coluna com o alias:
+  `$c = Sql::alias($a);` e então `$c(self::RATING)` vale `rv1.RATING`, inclusive dentro de
+  `"{$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC"`.
+- **SQL escrito à mão concatena** as constantes de tabela:
+  `'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE . " {$pi} WHERE ...)"`.
+- O DDL em `ShoppingSchema` continua texto SQL puro; uma divergência entre ele e as constantes é
+  pega pelos testes de repositório.
+
+### 5b. Construtor: `Table` + `JsonQuery`
 
 ```php
 /** @extends AbstractRepository<Review, ReviewCriteria> */
 final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRepository
 {
+    // ... as constantes da seção anterior
+
     /** @var JsonQuery<Review, ReviewCriteria> */
     private readonly JsonQuery $query;
 
@@ -331,11 +373,11 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
     {
         parent::__construct($db);
         // a ordem importa: a primeira coluna é a chave primária (insertBean/updateBean contam com isso)
-        $table = new Table('EN_REVIEW', static fn (): Review => new Review(), [
-            new Column('id', 'ID', ColumnType::Int, static fn (Review $r) => $r->id(), static fn (Review $r, mixed $v) => $r->withId($v)),
-            new Column('rating', 'RATING', ColumnType::Int, static fn (Review $r) => $r->rating(), static fn (Review $r, mixed $v) => $r->withRating($v)),
-            new Column('comment', 'REVIEWCOMMENT', ColumnType::Text, static fn (Review $r) => $r->comment(), static fn (Review $r, mixed $v) => $r->withComment($v)),
-            new Column('createdAt', 'CREATEDAT', ColumnType::DateTime, static fn (Review $r) => $r->createdAt(), static fn (Review $r, mixed $v) => $r->withCreatedAt($v)),
+        $table = new Table(self::TABLE, static fn (): Review => new Review(), [
+            new Column('id', self::ID, ColumnType::Int, static fn (Review $r) => $r->id(), static fn (Review $r, mixed $v) => $r->withId($v)),
+            new Column('rating', self::RATING, ColumnType::Int, static fn (Review $r) => $r->rating(), static fn (Review $r, mixed $v) => $r->withRating($v)),
+            new Column('comment', self::REVIEWCOMMENT, ColumnType::Text, static fn (Review $r) => $r->comment(), static fn (Review $r, mixed $v) => $r->withComment($v)),
+            new Column('createdAt', self::CREATEDAT, ColumnType::DateTime, static fn (Review $r) => $r->createdAt(), static fn (Review $r, mixed $v) => $r->withCreatedAt($v)),
         ]);
         // consultas-alvo em closures: quando este construtor roda, os outros repositórios
         // do agregado podem ainda não existir
@@ -347,14 +389,14 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
                 static fn (Review $r) => $r->product(),
                 static fn (Review $r, ?Product $p) => $r->withProduct($p),
                 fn () => $this->repos->products->query(),
-                'PRODUCTID',
+                self::PRODUCTID,
             )
             ->addToOne(
                 'user',
                 static fn (Review $r) => $r->user(),
                 static fn (Review $r, ?User $u) => $r->withUser($u),
                 fn () => $this->repos->users->query(),
-                'USERID',
+                self::USERID,
             );
     }
 
@@ -372,7 +414,8 @@ O que cada peça faz:
 - **`Table`**: nome, fábrica do bean e colunas. **A primeira coluna é a chave primária** —
   `Table::id()` devolve `columns[0]`, e `insertBean`/`updateBean` dependem disso.
 - **As FKs não são colunas da `Table`.** `PRODUCTID` e `USERID` são relações; aparecem em
-  `addToOne` (leitura) e como colunas extras em `insertBean`/`updateBean` (escrita).
+  `addToOne` (leitura) e como colunas extras em `insertBean`/`updateBean` (escrita) — sempre pelas
+  constantes `self::PRODUCTID` e `self::USERID`.
 - **`'rv'`** é o prefixo de alias: as consultas usam `rv1`, `rv2`... gerados pelo `QueryContext`.
 - **`$this->conditions(...)`** é a sintaxe *first-class callable* do PHP: transforma o método numa
   `Closure`. A `JsonQuery` a chama sempre que precisar do WHERE desta entidade, inclusive dentro de
@@ -381,7 +424,7 @@ O que cada peça faz:
   quando este construtor roda, o repositório-alvo pode ainda não existir — e porque relações podem
   formar ciclos. Detalhes em [json-query.md](json-query.md).
 
-### 5b. Projeção padrão
+### 5c. Projeção padrão
 
 ```php
 public function newProjection(): object
@@ -399,28 +442,32 @@ public function newProjection(): object
 É o que `fetch`/`fetchById` usam quando o critério não traz projeção: os campos rasos e, das
 relações, só o id (que sai direto da coluna de FK, sem subconsulta).
 
-### 5c. Escrita: `insert`, `update`, `delete`
+### 5d. Escrita: `insert`, `update`, `delete`
 
 ```php
 /** As FKs não são colunas da Table: vão como colunas extras, lidas das relações. */
 public function insert(object $bean): bool
 {
     return $this->insertBean($bean, [
-        'PRODUCTID' => $bean->productId(),
-        'USERID' => $bean->userId(),
+        self::PRODUCTID => $bean->productId(),
+        self::USERID => $bean->userId(),
     ]);
 }
 
 public function update(object $newBean, ?object $oldBean = null, ?object $projection = null): bool
 {
     return $this->updateBean($newBean, $oldBean, $projection, [
-        'PRODUCTID' => [static fn (Review $r) => $r->productId(), ColumnType::Int],
-        'USERID' => [static fn (Review $r) => $r->userId(), ColumnType::Int],
+        self::PRODUCTID => [static fn (Review $r) => $r->productId(), ColumnType::Int],
+        self::USERID => [static fn (Review $r) => $r->userId(), ColumnType::Int],
     ]);
 }
 
 public function delete(object $criteria): int
 {
+    if (!$criteria->hasReviewId() && !$criteria->hasProductId()) {
+        throw new LogicException('Review delete requires reviewId or productId (proteção contra DELETE sem WHERE)');
+    }
+
     return $this->deleteWhere($criteria);
 }
 ```
@@ -429,53 +476,59 @@ public function delete(object $criteria): int
   campos não-null.
 - `updateBean` escreve só os campos **projetados e alterados** em relação a `$oldBean`
   (`$oldBean = null` ⇒ todos os projetados). Sem mudança, devolve `false` e não envia SQL.
-- `deleteWhere` apaga pelo critério. Um critério vazio vira `DELETE` sem `WHERE`: os repositórios
-  de produto e usuário recusam isso explicitamente (`if (!$criteria->hasProductId()) throw new
-  LogicException(...)`); faça o mesmo se apagar tudo nunca for uma operação legítima.
+- `deleteWhere` apaga pelo critério. Um critério vazio vira `DELETE` sem `WHERE`: por isso o
+  `delete` acima recusa um critério sem `reviewId` nem `productId` com `LogicException` (o teste
+  `delete_withoutReviewOrProduct_isRefused` cobre isso). Os repositórios de produto e usuário fazem
+  o mesmo (com `hasProductId()` e `hasUserId()`); proteja o seu sempre
+  que apagar tudo não for uma operação legítima.
 - Se a entidade tem filhos sem `ON DELETE CASCADE`, apague-os antes — veja
   `PurchaseRepositoryImpl::delete`.
 
-### 5d. Sequência, condições, ordenação
+### 5e. Sequência, condições, ordenação
 
 ```php
 protected function sequence(): string
 {
-    return 'SQ_REVIEW';
+    return self::SEQUENCE;
 }
 
 protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
 {
+    $c = Sql::alias($a);
+
     return Sql::and([
-        CT::translate("{$a}.ID", $criteria->reviewId()),
-        CT::translate("{$a}.PRODUCTID", $criteria->productId()),
-        CT::translate("{$a}.USERID", $criteria->userId()),
-        CT::translate("{$a}.RATING", $criteria->rating()),
+        CT::translate($c(self::ID), $criteria->reviewId()),
+        CT::translate($c(self::PRODUCTID), $criteria->productId()),
+        CT::translate($c(self::USERID), $criteria->userId()),
+        CT::translate($c(self::RATING), $criteria->rating()),
     ]);
 }
 
 /** Toda ordenação termina no id: duas avaliações no mesmo instante não trocam de lugar entre páginas. */
 protected function orderBy(?object $criteria, string $a): string
 {
+    $c = Sql::alias($a);
+
     return match ($criteria?->orderBy()) {
         null => '',
-        ReviewOrderBy::NEWEST_FIRST => "{$a}.CREATEDAT DESC, {$a}.ID DESC",
-        ReviewOrderBy::OLDEST_FIRST => "{$a}.CREATEDAT ASC, {$a}.ID ASC",
-        ReviewOrderBy::BEST_RATED_FIRST => "{$a}.RATING DESC, {$a}.CREATEDAT DESC, {$a}.ID DESC",
+        ReviewOrderBy::NEWEST_FIRST => "{$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC",
+        ReviewOrderBy::OLDEST_FIRST => "{$c(self::CREATEDAT)} ASC, {$c(self::ID)} ASC",
+        ReviewOrderBy::BEST_RATED_FIRST => "{$c(self::RATING)} DESC, {$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC",
     };
 }
 ```
 
 - `CT` é o alias de `CriterionTranslator`: ele converte cada `Criterion` em SQL com parâmetros `?`.
   Campo sem pedido devolve `null`, e `Sql::and` descarta os nulls.
-- **Sempre contra o alias `$a`**, nunca contra o nome da tabela: a mesma entidade pode aparecer
-  várias vezes numa consulta (raiz e subconsultas).
+- **Sempre contra o alias `$a`** (via `$c = Sql::alias($a)`), nunca contra o nome da tabela: a
+  mesma entidade pode aparecer várias vezes numa consulta (raiz e subconsultas).
 - `orderBy` devolve a lista de ordenação **sem** o `ORDER BY`; `''` ⇒ a `JsonQuery` ordena pelo id.
   O `match` sem `default` faz o PHP lançar `UnhandledMatchError` se alguém acrescentar um caso ao
   enum e esquecer daqui — o que é bom.
-- Para filtros por coluna de data, passe o conversor: `CT::translate("{$a}.BUYDATE",
+- Para filtros por coluna de data, passe o conversor: `CT::translate($c(self::BUYDATE),
   $criteria->buyDate(), ColumnType::formatDate(...))` (como em `PurchaseRepositoryImpl`).
 
-### 5e. Os dois ganchos de leitura
+### 5f. Os dois ganchos de leitura
 
 ```php
 protected function projectionOf(object $criteria): ?object
@@ -686,7 +739,8 @@ final class ReviewRepositoryTest extends RepositoryTestCase
 
 Os outros casos do exemplo: ordens (`OLDEST_FIRST`, `BEST_RATED_FIRST`), projeção padrão (só os
 ids das relações, `user()?->name()` null), `count` por produto e por nota, e `update` parcial
-(`clone` do bean lido, muda a nota, confere que o comentário ficou).
+(`clone` do bean lido, muda a nota, confere que o comentário ficou) e
+`delete_withoutReviewOrProduct_isRefused` (`delete(new ReviewCriteria())` lança `LogicException`).
 
 - `insert` deve gerar o id da sequência (`2`, porque o seed reiniciou `SQ_REVIEW` em 2).
 - Teste as datas com `assertEquals` (instante igual), não `assertSame` (identidade do objeto).
@@ -741,6 +795,8 @@ Schema (`ShoppingSchema`)
 
 Implementação (`XxxRepositoryImpl`)
 
+- [ ] Nomes de tabela, sequência e colunas como constantes públicas do repositório; nenhum nome
+      de coluna como texto solto.
 - [ ] `Table` com a chave como **primeira** coluna; FKs fora da `Table`.
 - [ ] `JsonQuery` com prefixo de alias curto, `withConditions`, `withOrdering`, relações com alvo em closure.
 - [ ] `newProjection()` com campos rasos e só o id das relações.

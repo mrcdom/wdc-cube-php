@@ -356,7 +356,7 @@ seguida, chama o repositório de itens para cada um:
 /** Insere a compra e, junto, os itens (cada item passa a apontar para ela). */
 public function insert(object $bean): bool
 {
-    $inserted = $this->insertBean($bean, ['USERID' => $bean->userId()]);
+    $inserted = $this->insertBean($bean, [self::USERID => $bean->userId()]);
     if ($inserted) {
         foreach ($bean->items() ?? [] as $item) {
             $this->repos->purchaseItems->insert($item->withPurchase($bean));
