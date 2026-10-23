@@ -18,8 +18,9 @@ use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
 use Wdc\Shopping\Domain\Purchase\PurchaseOrderBy;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
 use Wdc\Shopping\Domain\User\User;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
+use Wdc\Shopping\Domain\User\UserRepository;
 
 /**
  * Relações: `user` (N:1 via EN_PURCHASE.USERID) e `items` (1:N via EN_PURCHASEITEM.PURCHASEID),
@@ -42,7 +43,15 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     /** @var JsonQuery<Purchase, PurchaseCriteria> */
     private readonly JsonQuery $query;
 
-    public function __construct(Database $db, private readonly ShoppingRepositories $repos)
+    /*
+     * Os repositórios de que este precisa: achados no Beans na primeira vez (na construção eles
+     * podem ainda não estar registrados) e guardados.
+     */
+    private ?UserRepositoryImpl $userRepository = null;
+
+    private ?PurchaseItemRepositoryImpl $purchaseItemRepository = null;
+
+    public function __construct(Database $db)
     {
         parent::__construct($db);
         $table = new Table(self::TABLE, static fn (): Purchase => new Purchase(), [
@@ -58,16 +67,28 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
                 'user',
                 static fn (Purchase $p) => $p->user(),
                 static fn (Purchase $p, ?User $u) => $p->withUser($u),
-                fn () => $this->repos->users->query(),
+                fn () => $this->userRepository()->query(),
                 self::USERID,
             )
             ->addToMany(
                 'items',
                 static fn (Purchase $p) => $p->items(),
                 static fn (Purchase $p, array $items) => $p->withItems($items),
-                fn () => $this->repos->purchaseItems->query(),
+                fn () => $this->purchaseItemRepository()->query(),
                 PurchaseItemRepositoryImpl::PURCHASEID,
             );
+    }
+
+    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    private function userRepository(): UserRepositoryImpl
+    {
+        return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
+    }
+
+    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    private function purchaseItemRepository(): PurchaseItemRepositoryImpl
+    {
+        return $this->purchaseItemRepository ??= self::repositoryOf(PurchaseItemRepository::class, PurchaseItemRepositoryImpl::class);
     }
 
     public function query(): JsonQuery
@@ -89,7 +110,7 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
         $inserted = $this->insertBean($bean, [self::USERID => $bean->userId()]);
         if ($inserted) {
             foreach ($bean->items() ?? [] as $item) {
-                $this->repos->purchaseItems->insert($item->withPurchase($bean));
+                $this->purchaseItemRepository()->insert($item->withPurchase($bean));
             }
         }
 

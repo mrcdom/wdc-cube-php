@@ -6,20 +6,21 @@ namespace Wdc\Tests\Shopping\Persistence;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\BusinessException;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
 use Wdc\Shopping\Domain\Product\ProductOrderBy;
-use Wdc\Shopping\Persistence\Repository\ProductRepositoryImpl;
+use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
 /** Repositório de produtos: consultas, critérios, projeções e escrita sobre o seed. */
 final class ProductRepositoryTest extends RepositoryTestCase
 {
-    private function repo(): ProductRepositoryImpl
+    private function repo(): ProductRepository
     {
-        return $this->repos->products;
+        return Beans::of(ProductRepository::class);
     }
 
     /** @return list<?string> */

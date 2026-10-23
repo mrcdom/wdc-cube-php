@@ -8,8 +8,9 @@ use PHPUnit\Framework\TestCase;
 use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Concurrent\ManualScheduler;
 use Wdc\Framework\Domain\Security\AuthenticationService;
+use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
+use Wdc\Framework\Persistence\Database;
 use Wdc\Shopping\Presentation\Routes;
 use Wdc\Shopping\Presentation\ShoppingContext;
 use Wdc\Tests\Shopping\Presentation\Mock\HomeViewMock;
@@ -26,8 +27,6 @@ use Wdc\Tests\Support\TestDatabase;
  */
 abstract class PresentationTestCase extends TestCase
 {
-    protected ShoppingRepositories $repos;
-
     protected ManualScheduler $scheduler;
 
     protected AuthenticationServiceImpl $auth;
@@ -38,9 +37,9 @@ abstract class PresentationTestCase extends TestCase
 
     protected function setUp(): void
     {
-        $this->repos = TestDatabase::repositories()->register();
+        TestDatabase::open();
         $this->scheduler = new ManualScheduler();
-        $this->auth = new AuthenticationServiceImpl($this->repos->users, 'test-jwt-secret');
+        $this->auth = new AuthenticationServiceImpl('test-jwt-secret');
         Beans::set(AuthenticationService::class, $this->auth);
         $this->context = new ShoppingContext($this->scheduler);
         $this->app = new ShoppingApplicationMock($this->context);

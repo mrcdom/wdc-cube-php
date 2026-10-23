@@ -41,13 +41,13 @@ do banco, que é confirmada no fim ou desfeita inteira.
 ## 2. Como acessar
 
 A interface é `Wdc\Framework\Domain\Transaction\TransactionService`; a implementação é
-`Wdc\Framework\Persistence\SqlTransactionService`. Há uma instância por servidor, criada pelo
-`ShoppingRepositories`:
+`Wdc\Framework\Persistence\SqlTransactionService`. Há uma instância por servidor, criada e registrada no
+`Beans` pelo `ShoppingRepositories::register()`:
 
 | Onde você está | Como obter |
 |---|---|
-| Presenter ou serviço da apresentação | `Beans::of(TransactionService::class)` (registrado pelo `ShoppingRepositories::register()`) |
-| Persistência, API REST, testes | `$repos->transactions` (campo público de `ShoppingRepositories`) |
+| Presenter, serviço da apresentação, API REST, testes | `Beans::of(TransactionService::class)` (no construtor, ou direto no teste) |
+| Opcional (ex.: rotas REST montadas sem banco) | `Beans::find(TransactionService::class)` (devolve `null` sem registro) |
 
 O serviço de aplicação busca o `TransactionService` no construtor, como busca os repositórios:
 
@@ -165,7 +165,7 @@ Quando o trabalho descobre, no meio, que não deve gravar — mas não é um err
 exceção —, marque a transação:
 
 ```php
-$this->repos->transactions->required(function (TransactionContext $tx): void {
+Beans::of(TransactionService::class)->required(function (TransactionContext $tx): void {
     $this->insertProduct('A');
     $tx->setRollbackOnly();
 });

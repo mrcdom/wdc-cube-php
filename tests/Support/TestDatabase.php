@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Tests\Support;
 
 use RuntimeException;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Config\AppConfig;
 use Wdc\Framework\Persistence\Database;
 use Wdc\Shopping\Persistence\ShoppingRepositories;
@@ -25,7 +26,8 @@ final class TestDatabase
     /** @var array{url: string, username: ?string, password: ?string}|null */
     private static ?array $settings = null;
 
-    public static function repositories(): ShoppingRepositories
+    /** O banco de testes no seed, com o registro do Beans limpo e os repositórios registrados. */
+    public static function open(): Database
     {
         if (self::$shared === null) {
             $s = self::settings();
@@ -37,7 +39,10 @@ final class TestDatabase
             ShoppingSchema::reset(self::$shared);
         }
 
-        return new ShoppingRepositories(self::$shared);
+        Beans::clear();
+        ShoppingRepositories::register(self::$shared);
+
+        return self::$shared;
     }
 
     /**

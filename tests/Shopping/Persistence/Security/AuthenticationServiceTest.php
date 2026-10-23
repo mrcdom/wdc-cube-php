@@ -6,7 +6,9 @@ namespace Wdc\Tests\Shopping\Persistence\Security;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Security\PasswordUtil;
+use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
 use Wdc\Shopping\Persistence\Security\JwtUtil;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
@@ -24,7 +26,7 @@ final class AuthenticationServiceTest extends RepositoryTestCase
     {
         parent::setUp();
         $this->now = new DateTimeImmutable('2026-10-22 12:00:00');
-        $this->auth = new AuthenticationServiceImpl($this->repos->users, self::SECRET, clock: fn () => $this->now);
+        $this->auth = new AuthenticationServiceImpl(self::SECRET, clock: fn () => $this->now);
     }
 
     /** O que um cliente faz: hash da senha + HMAC sobre (login + nonce). */

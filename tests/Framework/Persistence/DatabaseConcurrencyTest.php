@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Wdc\Tests\Framework\Persistence;
 
+
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use Wdc\Framework\Commons\Beans;
+use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
+use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
-
-use function Amp\async;
 use function Amp\Future\await;
+use function Amp\async;
 
 /**
  * O acesso ao banco não bloqueia o event loop: uma consulta lenta suspende só a Fiber que a fez,
@@ -22,10 +25,10 @@ final class DatabaseConcurrencyTest extends RepositoryTestCase
     #[Test]
     public function aSlowQuery_doesNotDelayTheOthers(): void
     {
-        $slow = async(fn () => $this->repos->db->fetchValue('SELECT pg_sleep(0.6)'));
+        $slow = async(fn () => $this->db->fetchValue('SELECT pg_sleep(0.6)'));
 
         $start = microtime(true);
-        $count = $this->repos->products->count(new ProductCriteria());
+        $count = Beans::of(ProductRepository::class)->count(new ProductCriteria());
         $quick = microtime(true) - $start;
         $slow->await();
 
@@ -38,9 +41,9 @@ final class DatabaseConcurrencyTest extends RepositoryTestCase
     {
         $start = microtime(true);
         await([
-            async(fn () => $this->repos->db->fetchValue('SELECT pg_sleep(0.4)')),
-            async(fn () => $this->repos->db->fetchValue('SELECT pg_sleep(0.4)')),
-            async(fn () => $this->repos->db->fetchValue('SELECT pg_sleep(0.4)')),
+            async(fn () => $this->db->fetchValue('SELECT pg_sleep(0.4)')),
+            async(fn () => $this->db->fetchValue('SELECT pg_sleep(0.4)')),
+            async(fn () => $this->db->fetchValue('SELECT pg_sleep(0.4)')),
         ]);
 
         self::assertLessThan(0.9, microtime(true) - $start, 'três de 0,4 s ao mesmo tempo, não 1,2 s em fila');
@@ -52,9 +55,9 @@ final class DatabaseConcurrencyTest extends RepositoryTestCase
     {
         $inside = async(function (): void {
             try {
-                $this->repos->transactions->required(function (): void {
+                Beans::of(TransactionService::class)->required(function (): void {
                     $this->insert('Dentro');
-                    $this->repos->db->fetchValue('SELECT pg_sleep(0.3)');   // cede a vez no meio da transação
+                    $this->db->fetchValue('SELECT pg_sleep(0.3)');   // cede a vez no meio da transação
                     throw new RuntimeException('desfaz');
                 });
             } catch (RuntimeException) {
@@ -70,11 +73,11 @@ final class DatabaseConcurrencyTest extends RepositoryTestCase
 
     private function insert(string $name): void
     {
-        $this->repos->products->insert((new Product())->withName($name)->withPrice(1.0)->withDescription('-'));
+        Beans::of(ProductRepository::class)->insert((new Product())->withName($name)->withPrice(1.0)->withDescription('-'));
     }
 
     private function named(string $name): int
     {
-        return $this->repos->products->count((new ProductCriteria())->withName($name));
+        return Beans::of(ProductRepository::class)->count((new ProductCriteria())->withName($name));
     }
 }

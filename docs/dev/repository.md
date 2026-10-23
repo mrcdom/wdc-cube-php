@@ -36,7 +36,7 @@ Uma entidade nova toca em vários arquivos, mas cada um tem uma única responsab
 src/Shopping/Domain/Review/                     ← contrato: entidade, critério, OrderBy, interface
 src/Shopping/Persistence/ShoppingSchema.php     ← DDL e seed (não há ferramenta de migração)
 src/Shopping/Persistence/Repository/            ← implementação SQL (JsonQuery + Table)
-src/Shopping/Persistence/ShoppingRepositories   ← agregado que cria os repositórios e os registra no Beans
+src/Shopping/Persistence/ShoppingRepositories   ← montagem: cria os repositórios e os registra no Beans
 tests/Shopping/Persistence/                     ← testes contra um PostgreSQL de verdade
 ```
 
@@ -46,7 +46,7 @@ flowchart LR
     I -->|JsonQuery: 1 SELECT| DB[(PostgreSQL)]
     I -.->|insertBean / updateBean| DB
     R[ShoppingRepositories] -->|cria| I
-    R -->|"register(): Beans::set"| B[Beans]
+    R -->|"register($db): Beans::set"| B[Beans]
     P -->|"Beans::of(ReviewRepository::class)"| B
 ```
 
@@ -364,7 +364,11 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
     /** @var JsonQuery<Review, ReviewCriteria> */
     private readonly JsonQuery $query;
 
-    public function __construct(Database $db, private readonly ShoppingRepositories $repos)
+    private ?ProductRepositoryImpl $productRepository = null;
+
+    private ?UserRepositoryImpl $userRepository = null;
+
+    public function __construct(Database $db)
     {
         parent::__construct($db);
         // a ordem importa: a primeira coluna é a chave primária (insertBean/updateBean contam com isso)
@@ -375,7 +379,7 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
             new Column('createdAt', self::CREATEDAT, ColumnType::DateTime, static fn (Review $r) => $r->createdAt(), static fn (Review $r, mixed $v) => $r->withCreatedAt($v)),
         ]);
         // consultas-alvo em closures: quando este construtor roda, os outros repositórios
-        // do agregado podem ainda não existir
+        // podem ainda não estar registrados no Beans
         $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect())
             ->withConditions($this->conditions(...))
             ->withOrdering($this->orderBy(...))
@@ -383,14 +387,14 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
                 'product',
                 static fn (Review $r) => $r->product(),
                 static fn (Review $r, ?Product $p) => $r->withProduct($p),
-                fn () => $this->repos->products->query(),
+                fn () => $this->productRepository()->query(),
                 self::PRODUCTID,
             )
             ->addToOne(
                 'user',
                 static fn (Review $r) => $r->user(),
                 static fn (Review $r, ?User $u) => $r->withUser($u),
-                fn () => $this->repos->users->query(),
+                fn () => $this->userRepository()->query(),
                 self::USERID,
             );
     }
@@ -398,6 +402,17 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
     public function query(): JsonQuery
     {
         return $this->query;
+    }
+
+    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    private function productRepository(): ProductRepositoryImpl
+    {
+        return $this->productRepository ??= self::repositoryOf(ProductRepository::class, ProductRepositoryImpl::class);
+    }
+
+    private function userRepository(): UserRepositoryImpl
+    {
+        return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
     }
 ```
 
@@ -559,42 +574,21 @@ partir do usuário logado na sessão, e o navegador só recebe o que a tela dese
 
 ## Passo 7 — Ligar tudo (composition root)
 
-Não há contêiner de injeção de dependências: os objetos são criados à mão no `ShoppingRepositories` e registrados, pela interface, no `Beans` (`src/Framework/Commons/Beans.php`).
+Não há contêiner de injeção de dependências: os objetos são criados à mão no `ShoppingRepositories` e registrados, pela interface, no `Beans` (`src/Framework/Commons/Beans.php`). A classe não guarda nada: não há um campo por repositório, e um repositório novo é **uma linha**.
 
-### 7a. `ShoppingRepositories` — cria a implementação
+### 7a. `register()` — cria e registra pela interface
 
 ```php
-public readonly ReviewRepositoryImpl $reviews;
-
-public function __construct(public readonly Database $db)
+public static function register(Database $db): void
 {
-    // ... users, products ...
-    // compra ⇄ item se referenciam: recebem o agregado e o consultam quando precisam
-    $this->purchases = new PurchaseRepositoryImpl($db, $this);
-    $this->purchaseItems = new PurchaseItemRepositoryImpl($db, $this);
-    // avaliação → produto/usuário: consulta os outros repositórios pelo agregado
-    $this->reviews = new ReviewRepositoryImpl($db, $this);
-    $this->transactions = new SqlTransactionService($db);
+    // ... users, products, purchases, purchaseItems ...
+    Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db));
+    Beans::set(TransactionService::class, new SqlTransactionService($db));
 }
 ```
 
-O agregado passa `$this` para os repositórios com relações; é por isso que os alvos de
-`addToOne` são closures (`fn () => $this->repos->products->query()`): eles só são resolvidos na
-hora da consulta, quando todos já existem.
-
-### 7b. `register()` — registra pela interface
-
-```php
-public function register(): self
-{
-    // ... users, products, purchases, purchaseItems, transactions ...
-    Beans::set(ReviewRepository::class, $this->reviews);
-
-    return $this;
-}
-```
-
-O servidor chama `ShoppingRepositories::open(...)->register()` uma vez, na subida. Daí em
+O servidor chama `ShoppingRepositories::open(...)` uma vez, na subida: ele abre o banco, cria o
+schema e o seed se preciso, chama `register($db)` e devolve o `Database`. Daí em
 diante, presenters e serviços acham o repositório pela interface:
 
 ```php
@@ -604,6 +598,34 @@ $this->reviews = Beans::of(ReviewRepository::class);   // no construtor do Revie
 `Beans::of` é tipado: o PHPStan sabe que o retorno é um `ReviewRepository`. Sem registro, a
 chamada lança `LogicException` com o nome da interface - um erro de montagem, visto na primeira
 tela que usa o repositório.
+
+### 7b. Um repositório que usa outro
+
+Cada repositório que precisa de outro declara um campo anulável do tipo **concreto** e um método
+privado que o acha no `Beans` uma vez e o guarda (o 5b mostra `productRepository()` e
+`userRepository()`):
+
+```php
+private ?UserRepositoryImpl $userRepository = null;
+
+/** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+private function userRepository(): UserRepositoryImpl
+{
+    return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
+}
+```
+
+- **`repositoryOf`** (de `AbstractRepository`) procura pela interface (`Beans::of`) e confere que a
+  implementação registrada é a classe concreta esperada; senão, lança `LogicException`. A
+  interface de domínio não expõe `query()` — o domínio não sabe nada de SQL —, por isso o campo é
+  do tipo concreto: é ele que tem a `JsonQuery`, e o PHPStan confere que a entidade do alvo bate
+  com a da relação.
+- **O alvo da relação é uma closure** (`fn () => $this->userRepository()->query()`) porque,
+  quando um construtor roda, o outro repositório pode ainda não estar registrado (compra ⇄ item é
+  um ciclo; a ordem das linhas em `register()` não importa). Ela não é `static`: usa `$this`.
+- **O lookup acontece uma vez**: na primeira chamada do método; depois ele devolve o campo.
+- **Para escrever** em outro repositório, use o mesmo método: a compra grava seus itens com
+  `$this->purchaseItemRepository()->insert($item->withPurchase($bean))`.
 
 O repositório é o mesmo para todas as sessões: ele não guarda estado de usuário, e cada consulta
 recebe tudo o que precisa no critério. O `Beans` só é escrito na subida e depois apenas lido, por
@@ -688,8 +710,8 @@ Regras de uso:
 
 Os testes de repositório rodam contra um **PostgreSQL de verdade**, configurado em
 `[test.database]` (ver [setup-local.md](setup-local.md) e `tests/Support/TestDatabase.php`). A base
-`RepositoryTestCase` entrega `$this->repos` (um `ShoppingRepositories`) com o banco **no seed** no
-início de cada teste.
+`RepositoryTestCase` entrega `$this->db` (o `Database`) com o banco **no seed** e os repositórios
+registrados no `Beans` no início de cada teste (`TestDatabase::open()`).
 
 `tests/Shopping/Persistence/ReviewRepositoryTest.php` cobre leitura com relação, ordens, projeção
 padrão, inserção, contagem e atualização. O teste mais importante prova que **não há N+1**:
@@ -701,11 +723,11 @@ final class ReviewRepositoryTest extends RepositoryTestCase
     public function fetchByProduct_withAuthorName_inASingleStatement(): void
     {
         $statements = [];
-        $this->repos->db->onQuery(static function (string $sql) use (&$statements): void {
+        $this->db->onQuery(static function (string $sql) use (&$statements): void {
             $statements[] = $sql;   // &$statements: a closure altera o array de fora
         });
 
-        $reviews = $this->repos->reviews->fetch(new ReviewCriteria()
+        $reviews = Beans::of(ReviewRepository::class)->fetch(new ReviewCriteria()
             ->withProductId(Seed::CAFETEIRA_ID)
             ->withProjection(self::withAuthorName())
             ->withOrderBy(ReviewOrderBy::NEWEST_FIRST));
@@ -747,8 +769,8 @@ Problemas reais encontrados ao implementar o exemplo:
   errada.
 - **FKs que não são campos do bean** vão como colunas extras em `insertBean`/`updateBean`. Esqueça
   uma e ela chega `NULL` no banco (ou viola `NOT NULL`).
-- **Repositório não registrado**: criado no `ShoppingRepositories`, mas sem o `Beans::set` no
-  `register()`, o `Beans::of` lança "Nenhuma implementação registrada".
+- **Repositório não registrado**: sem a linha `Beans::set` em `ShoppingRepositories::register()`,
+  o `Beans::of` (e o `repositoryOf` de quem o usa) lança "Nenhuma implementação registrada".
 - **`create()` retorna cedo** quando `EN_USER` existe: tabela nova precisa do próprio passo.
 - **Critério com `null` não filtra** — um id obrigatório não pode chegar null.
 - **Identificadores sem aspas**: `"EN_REVIEW"` com aspas seria outra tabela para o PostgreSQL.
@@ -778,7 +800,7 @@ Implementação (`XxxRepositoryImpl`)
 - [ ] Nomes de tabela, sequência e colunas como constantes públicas do repositório; nenhum nome
       de coluna como texto solto.
 - [ ] `Table` com a chave como **primeira** coluna; FKs fora da `Table`.
-- [ ] `JsonQuery` com prefixo de alias curto, `withConditions`, `withOrdering`, relações com alvo em closure.
+- [ ] `JsonQuery` com prefixo de alias curto, `withConditions`, `withOrdering`, relações com alvo em closure (`fn () => $this->xxxRepository()->query()`), cada repositório usado num campo concreto achado por `repositoryOf`.
 - [ ] `newProjection()` com campos rasos e só o id das relações.
 - [ ] `insert`/`update` passam as FKs como colunas extras; `delete` protegido se precisar.
 - [ ] `conditions` contra o alias; `orderBy` termina sempre no id.
@@ -787,8 +809,7 @@ Implementação (`XxxRepositoryImpl`)
 Ligação e segurança
 
 - [ ] Permissões em `Role`.
-- [ ] `ShoppingRepositories::$xxx`.
-- [ ] `Beans::set(XxxRepository::class, $this->xxx)` no `register()`.
+- [ ] `Beans::set(XxxRepository::class, new XxxRepositoryImpl($db))` em `ShoppingRepositories::register()`.
 
 Testes
 

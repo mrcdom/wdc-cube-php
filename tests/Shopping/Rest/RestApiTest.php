@@ -10,13 +10,15 @@ use Amp\Http\Client\Request;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use stdClass;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Config\AppConfig;
 use Wdc\Framework\Domain\Security\PasswordUtil;
 use Wdc\Shopping\Domain\ShoppingConfig;
+use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\ShoppingSchema;
 use Wdc\Shopping\Server\ShoppingServer;
 use Wdc\Tests\Support\TestDatabase;
+use stdClass;
 
 /**
  * A API REST de ponta a ponta, por HTTP de verdade (servidor numa porta livre, sobre o banco
@@ -47,7 +49,7 @@ final class RestApiTest extends TestCase
         ], "{$this->dir}/config/application.toml"));
 
         $this->server = new ShoppingServer($config, new NullLogger());
-        ShoppingSchema::reset($this->server->repos->db);
+        ShoppingSchema::reset($this->server->db);
         $this->server->start(0, '127.0.0.1');
         $this->base = 'http://127.0.0.1:' . $this->server->port();
         $this->http = HttpClientBuilder::buildDefault();
@@ -301,7 +303,7 @@ final class RestApiTest extends TestCase
         [$status] = $this->call('POST', '/api/repo/user/update', ['id' => ShoppingSchema::FULANO_ID, 'password' => base64_encode($cipher)], self::bearer($tokens->accessToken));
 
         self::assertSame(200, $status);
-        self::assertSame('nova-senha', $this->server->repos->users->fetchById(ShoppingSchema::FULANO_ID)?->password());
+        self::assertSame('nova-senha', Beans::of(UserRepository::class)->fetchById(ShoppingSchema::FULANO_ID)?->password());
     }
 
     // :: Escopo por usuário (sem data:all)

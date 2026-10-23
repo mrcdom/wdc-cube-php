@@ -11,11 +11,14 @@ use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
+use Wdc\Shopping\Domain\Product\ProductRepository;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemCriteria;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
 use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
 use Wdc\Shopping\Domain\Purchase\PurchaseOrderBy;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemCriteria;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\LoginService;
@@ -28,14 +31,7 @@ use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
 /** Serviço de compras testado diretamente, sem presenters. */
 final class ShoppingServiceTest extends RepositoryTestCase
 {
-    /** Os serviços acham os repositórios no Beans; sem autenticação registrada, o login confere a senha direto. */
-    protected function setUp(): void
-    {
-        parent::setUp();
-        Beans::clear();
-        $this->repos->register();
-    }
-
+    /** Os serviços acham os repositórios no Beans (o TestDatabase os registra); sem autenticação registrada, o login confere a senha direto. */
     protected function tearDown(): void
     {
         Beans::clear();
@@ -49,7 +45,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
             ->withUser(new User()->withId(Seed::ADMIN_ID))
             ->withBuyDate(new DateTimeImmutable('2009-05-20 10:00:00', new DateTimeZone('UTC')))
             ->withItems([new PurchaseItem()->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1)]);
-        $this->repos->purchases->insert($late);
+        Beans::of(PurchaseRepository::class)->insert($late);
 
         $statement = new PurchasesPanelService()->loadPurchasesOfUser(Seed::ADMIN_ID);
         $ids = array_map(static fn ($p) => $p->id, $statement);
@@ -69,7 +65,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
             ->withPurchase(new Purchase()->withId(PV::INT)->withBuyDate(PV::dateTime())
                 ->withUser(new User()->withId(PV::INT)->withUserName(PV::STR)));
 
-        $items = $this->repos->purchaseItems->fetch(new PurchaseItemCriteria()->withUserId(Seed::ADMIN_ID)->withProjection($projection));
+        $items = Beans::of(PurchaseItemRepository::class)->fetch(new PurchaseItemCriteria()->withUserId(Seed::ADMIN_ID)->withProjection($projection));
 
         self::assertCount(3, $items);
         self::assertSame('admin', $items[0]->purchase()?->user()?->userName(), 'três níveis de grafo');
@@ -98,7 +94,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
 
         $products = array_values(array_filter(array_map(
             ProductInfo::create(...),
-            $this->repos->products->fetch(new ProductCriteria()),
+            Beans::of(ProductRepository::class)->fetch(new ProductCriteria()),
         )));
         self::assertSame([0, 1, 2, 3], array_map(static fn (ProductInfo $p) => $p->id, $products));
         $service = new ProductService();
@@ -123,7 +119,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
                 new PurchaseItem()->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1),
                 new PurchaseItem()->withProduct(new Product()->withId(Seed::FITA_VEDA_ROSCA_ID))->withPrice(5.0)->withAmount(2),
             ]);
-        $this->repos->purchases->insert($purchase);
+        Beans::of(PurchaseRepository::class)->insert($purchase);
         self::assertSame(Seed::ADMIN_SECOND_PURCHASE_ID + 1, $purchase->id());
 
         $statement = $purchasesService->loadPurchasesOfUser($result->subject->id);

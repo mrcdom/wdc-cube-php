@@ -9,8 +9,8 @@ use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Persistence\SqlTransactionService;
 use Wdc\Shopping\Domain\Product\ProductRepository;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
 use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\Repository\ProductRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\PurchaseItemRepositoryImpl;
@@ -18,54 +18,40 @@ use Wdc\Shopping\Persistence\Repository\PurchaseRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\UserRepositoryImpl;
 
 /**
- * Composition root da persistência: cria os repositórios e o serviço de transação
- * sobre uma mesma conexão.
+ * Montagem da persistência: cria os repositórios e o serviço de transação sobre o mesmo
+ * `Database` e os registra no `Beans`, pela interface. Não guarda nada: daí em diante, qualquer
+ * ponto (inclusive um repositório que precisa de outro) os acha com
+ * `Beans::of(ProductRepository::class)`.
  *
- * É um objeto comum passado adiante, sem estado global (nada de holders estáticos), o que deixa cada teste com o seu banco isolado.
+ * Um repositório novo é uma linha aqui.
  */
 final class ShoppingRepositories
 {
-    public readonly UserRepositoryImpl $users;
-    public readonly ProductRepositoryImpl $products;
-    public readonly PurchaseRepositoryImpl $purchases;
-    public readonly PurchaseItemRepositoryImpl $purchaseItems;
-    public readonly TransactionService $transactions;
-
-    public function __construct(public readonly Database $db)
+    private function __construct()
     {
-        $this->users = new UserRepositoryImpl($db);
-        $this->products = new ProductRepositoryImpl($db);
-        // compra ⇄ item se referenciam: recebem o agregado e o consultam quando precisam
-        $this->purchases = new PurchaseRepositoryImpl($db, $this);
-        $this->purchaseItems = new PurchaseItemRepositoryImpl($db, $this);
-        $this->transactions = new SqlTransactionService($db);
+    }
+
+    public static function register(Database $db): void
+    {
+        Beans::set(UserRepository::class, new UserRepositoryImpl($db));
+        Beans::set(ProductRepository::class, new ProductRepositoryImpl($db));
+        Beans::set(PurchaseRepository::class, new PurchaseRepositoryImpl($db));
+        Beans::set(PurchaseItemRepository::class, new PurchaseItemRepositoryImpl($db));
+        Beans::set(TransactionService::class, new SqlTransactionService($db));
     }
 
     /**
-     * Registra os repositórios e o serviço de transação no `Beans`, pela interface: a partir daí
-     * qualquer ponto os acha com `Beans::of(ProductRepository::class)`.
-     */
-    public function register(): self
-    {
-        Beans::set(UserRepository::class, $this->users);
-        Beans::set(ProductRepository::class, $this->products);
-        Beans::set(PurchaseRepository::class, $this->purchases);
-        Beans::set(PurchaseItemRepository::class, $this->purchaseItems);
-        Beans::set(TransactionService::class, $this->transactions);
-
-        return $this;
-    }
-
-    /**
-     * Abre o banco (criando-o, se preciso) e cria o schema e o seed se ainda não existirem.
+     * Abre o banco (criando-o, se preciso), cria o schema e o seed se ainda não existirem e
+     * registra os repositórios.
      *
      * @param positive-int $maxConnections
      */
-    public static function open(string $dsn, ?string $user = null, ?string $password = null, int $maxConnections = Database::DEFAULT_MAX_CONNECTIONS): self
+    public static function open(string $dsn, ?string $user = null, ?string $password = null, int $maxConnections = Database::DEFAULT_MAX_CONNECTIONS): Database
     {
         $db = Database::open($dsn, $user, $password, $maxConnections);
         ShoppingSchema::create($db);
+        self::register($db);
 
-        return new self($db);
+        return $db;
     }
 }

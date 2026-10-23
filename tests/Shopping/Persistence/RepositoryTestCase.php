@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Tests\Shopping\Persistence;
 
 use PHPUnit\Framework\TestCase;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
+use Wdc\Framework\Persistence\Database;
 use Wdc\Tests\Support\TestDatabase;
 
 /**
@@ -13,10 +13,10 @@ use Wdc\Tests\Support\TestDatabase;
  */
 abstract class RepositoryTestCase extends TestCase
 {
-    protected ShoppingRepositories $repos;
+    protected Database $db;
 
     protected function setUp(): void
     {
-        $this->repos = TestDatabase::repositories();
+        $this->db = TestDatabase::open();
     }
 }

@@ -4,37 +4,40 @@ declare(strict_types=1);
 
 namespace Wdc\Tests\Framework\Persistence;
 
+
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\AccessDeniedException;
 use Wdc\Framework\Domain\Exception\TransactionConflictException;
 use Wdc\Framework\Domain\Exception\TransactionLimitExceededException;
-use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
+use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Framework\Persistence\Transaction\RemoteTransactionOptions;
+use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
 use Wdc\Framework\Persistence\Transaction\TransactionSystemException;
 use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
+use Wdc\Shopping\Domain\Product\ProductRepository;
+use Wdc\Framework\Persistence\Database;
 use Wdc\Tests\Support\TestDatabase;
-
 use function Amp\async;
 
 final class RemoteTransactionCoordinatorTest extends TestCase
 {
     private const string OWNER = 'user:1';
 
-    private ShoppingRepositories $repos;
+    private Database $db;
 
     private float $now = 1_000_000.0;
 
     protected function setUp(): void
     {
-        $this->repos = TestDatabase::repositories();
+        $this->db = TestDatabase::open();
     }
 
     protected function tearDown(): void
     {
-        $this->repos->db->bind(null);
+        $this->db->bind(null);
         foreach ($this->coordinators as $c) {
             $c->close();   // transação esquecida aberta seguraria travas e o reset do próximo teste esperaria
         }
@@ -45,7 +48,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
 
     private function coordinator(RemoteTransactionOptions $options = new RemoteTransactionOptions()): SqlRemoteTransactionCoordinator
     {
-        return $this->coordinators[] = new SqlRemoteTransactionCoordinator($this->repos->db, $options, fn (): float => $this->now);
+        return $this->coordinators[] = new SqlRemoteTransactionCoordinator($this->db, $options, fn (): float => $this->now);
     }
 
     /** Uma "requisição" com o txId: liga a transação, grava, desliga. */
@@ -53,7 +56,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
     {
         $c->resume($txId, $owner);
         try {
-            $this->repos->products->insert((new Product())->withName($name)->withPrice(1.0)->withDescription('-'));
+            Beans::of(ProductRepository::class)->insert((new Product())->withName($name)->withPrice(1.0)->withDescription('-'));
         } finally {
             $c->suspend($txId);
         }
@@ -61,7 +64,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
 
     private function productsNamed(string $name): int
     {
-        return $this->repos->products->count((new ProductCriteria())->withName($name));
+        return Beans::of(ProductRepository::class)->count((new ProductCriteria())->withName($name));
     }
 
     #[Test]
@@ -104,10 +107,10 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $txId = $c->begin(self::OWNER);
 
         $c->resume($txId, self::OWNER);
-        self::assertTrue($this->repos->db->inTransaction());
+        self::assertTrue($this->db->inTransaction());
         $c->suspend($txId);
 
-        self::assertFalse($this->repos->db->inTransaction());
+        self::assertFalse($this->db->inTransaction());
         $c->rollback($txId, self::OWNER);
     }
 
@@ -120,7 +123,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
 
         $c->resume($txId, self::OWNER);
         try {
-            $this->repos->products->insert((new Product())->withName('Só na tx')->withPrice(1.0)->withDescription('-'));
+            Beans::of(ProductRepository::class)->insert((new Product())->withName('Só na tx')->withPrice(1.0)->withDescription('-'));
             $outside = async(fn () => $this->productsNamed('Só na tx'))->await();
             $inside = $this->productsNamed('Só na tx');
         } finally {
@@ -138,8 +141,8 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $c = $this->coordinator();
         $txId = $c->begin(self::OWNER);
         $c->resume($txId, self::OWNER);
-        $this->repos->transactions->required(function (): void {
-            $this->repos->products->insert((new Product())->withName('Aninhado')->withPrice(1.0)->withDescription('-'));
+        Beans::of(TransactionService::class)->required(function (): void {
+            Beans::of(ProductRepository::class)->insert((new Product())->withName('Aninhado')->withPrice(1.0)->withDescription('-'));
         });
         $c->suspend($txId);
 

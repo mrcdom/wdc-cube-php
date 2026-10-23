@@ -11,16 +11,18 @@ use Amp\Http\Server\Response;
 use Amp\Http\Server\Router;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\BusinessException;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 
 /** `GET /image/product/{id}.png` — a única chamada HTTP de dados que o shell React faz. */
 final readonly class ProductImageHandler implements RequestHandler
 {
-    public function __construct(
-        private ProductRepository $products,
-        private LoggerInterface $logger,
-    ) {
+    private ProductRepository $products;
+
+    public function __construct(private LoggerInterface $logger)
+    {
+        $this->products = Beans::of(ProductRepository::class);
     }
 
     public function handleRequest(Request $request): Response

@@ -5,20 +5,21 @@ declare(strict_types=1);
 namespace Wdc\Tests\Shopping\Persistence;
 
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Framework\Domain\Security\PasswordUtil;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Domain\User\UserCriteria;
 use Wdc\Shopping\Domain\User\UserOrderBy;
-use Wdc\Shopping\Persistence\Repository\UserRepositoryImpl;
+use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
 /** Repositório de usuários: consultas, critérios, inserção, atualização e remoção sobre o seed. */
 final class UserRepositoryTest extends RepositoryTestCase
 {
-    private function repo(): UserRepositoryImpl
+    private function repo(): UserRepository
     {
-        return $this->repos->users;
+        return Beans::of(UserRepository::class);
     }
 
     private function found(UserCriteria $criteria): int

@@ -13,7 +13,7 @@ use Wdc\Framework\Cube\Remote\RemoteAppSecurity;
 use Wdc\Framework\Cube\Remote\RemoteDispatcher;
 use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
+use Wdc\Framework\Persistence\Database;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartPresenter;
 use Wdc\Shopping\Presentation\ShoppingContext;
@@ -54,9 +54,9 @@ final class RemoteProtocolTest extends TestCase
             $keys = RemoteAppSecurity::generateDevKeys();
             self::$security = new RemoteAppSecurity(Rsa::fromBase36($keys['rsaPublicKey'], $keys['rsaPrivateKey']), $keys['signPublicKey'], $keys['signPrivateKey']);
         }
-        $repos = TestDatabase::repositories()->register();
+        TestDatabase::open();
         $this->scheduler = new ManualScheduler();
-        Beans::set(AuthenticationService::class, new AuthenticationServiceImpl($repos->users, 'jwt-secret'));
+        Beans::set(AuthenticationService::class, new AuthenticationServiceImpl('jwt-secret'));
         $this->context = new ShoppingContext($this->scheduler);
         $this->host = new ShoppingRemoteHost($this->context, self::$security, maxSessions: 2, clock: fn (): float => $this->nowMs);
         $this->host->registry->init($this->scheduler);

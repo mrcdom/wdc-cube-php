@@ -5,21 +5,22 @@ declare(strict_types=1);
 namespace Wdc\Tests\Shopping\Persistence;
 
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
-use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemCriteria;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemOrderBy;
-use Wdc\Shopping\Persistence\Repository\PurchaseItemRepositoryImpl;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
+use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
 /** Repositório de itens de compra: consultas, critérios e escrita sobre o seed. */
 final class PurchaseItemRepositoryTest extends RepositoryTestCase
 {
-    private function repo(): PurchaseItemRepositoryImpl
+    private function repo(): PurchaseItemRepository
     {
-        return $this->repos->purchaseItems;
+        return Beans::of(PurchaseItemRepository::class);
     }
 
     #[Test]

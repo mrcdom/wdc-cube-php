@@ -7,25 +7,27 @@ namespace Wdc\Tests\Shopping\Persistence;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionList;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
-use Wdc\Shopping\Domain\Purchase\Purchase;
-use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
-use Wdc\Shopping\Domain\Purchase\PurchaseOrderBy;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemCriteria;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemOrderBy;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
+use Wdc\Shopping\Domain\Purchase\Purchase;
+use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
+use Wdc\Shopping\Domain\Purchase\PurchaseOrderBy;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Domain\User\User;
-use Wdc\Shopping\Persistence\Repository\PurchaseRepositoryImpl;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
 /** Repositório de compras: consultas, critérios, projeções, fusos e escrita sobre o seed. */
 final class PurchaseRepositoryTest extends RepositoryTestCase
 {
-    private function repo(): PurchaseRepositoryImpl
+    private function repo(): PurchaseRepository
     {
-        return $this->repos->purchases;
+        return Beans::of(PurchaseRepository::class);
     }
 
     private static function projectionWithUser(): Purchase
@@ -184,7 +186,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
             ]);
         self::assertTrue($this->repo()->insert($purchase));
 
-        $items = $this->repos->purchaseItems->fetch(new PurchaseItemCriteria()->withPurchaseId($purchase->id()));
+        $items = Beans::of(PurchaseItemRepository::class)->fetch(new PurchaseItemCriteria()->withPurchaseId($purchase->id()));
         self::assertCount(2, $items);
         self::assertSame([3, 4], self::ids($items), 'ids gerados pela sequência de itens');
     }
@@ -216,7 +218,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     {
         self::assertSame(1, $this->repo()->delete(new PurchaseCriteria()->withPurchaseId(Seed::ADMIN_FIRST_PURCHASE_ID)));
         self::assertSame(1, $this->repo()->count(new PurchaseCriteria()));
-        self::assertSame(2, $this->repos->purchaseItems->count(new PurchaseItemCriteria()));
+        self::assertSame(2, Beans::of(PurchaseItemRepository::class)->count(new PurchaseItemCriteria()));
     }
 
     #[Test]

@@ -8,6 +8,7 @@ use Amp\Http\Server\Response;
 use Amp\Http\Server\Router;
 use Closure;
 use Psr\Log\LoggerInterface;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\TransactionConflictException;
 use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Framework\Domain\Transaction\TransactionService;
@@ -17,7 +18,6 @@ use Wdc\Framework\Rest\RestHandler;
 use Wdc\Framework\Rest\RestRequest;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityFilter;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
 
 /**
  * A API REST de repositório: clientes que não usam o WebSocket (apps nativos, SPAs) acessam
@@ -42,20 +42,23 @@ final class RepositoryApiRoutes
     /** @var list<ApiController> */
     private readonly array $controllers;
 
+    private readonly ?AuthenticationService $auth;
+
+    private readonly ?TransactionService $transactions;
+
     public function __construct(
-        ShoppingRepositories $repos,
-        private readonly ?AuthenticationService $auth,
         private readonly ?RemoteTransactionCoordinator $coordinator,
-        private readonly ?TransactionService $transactions,
         private readonly LoggerInterface $logger,
     ) {
+        $auth = $this->auth = Beans::find(AuthenticationService::class);
+        $this->transactions = Beans::find(TransactionService::class);
         $this->security = new SecurityEnforcer($auth);
         $this->filter = $auth === null ? null : new SecurityFilter($auth);
         $this->controllers = [
-            new UserApiController($this->security, $repos->users, $logger),
-            new ProductApiController($this->security, $repos->products, $logger),
-            new PurchaseApiController($this->security, $repos->purchases),
-            new PurchaseItemApiController($this->security, $repos->purchaseItems, $repos->purchases),
+            new UserApiController($this->security, $logger),
+            new ProductApiController($this->security, $logger),
+            new PurchaseApiController($this->security),
+            new PurchaseItemApiController($this->security),
         ];
     }
 

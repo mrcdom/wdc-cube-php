@@ -9,6 +9,7 @@ use Amp\Http\Server\Response;
 use Closure;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\BusinessException;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Framework\Rest\RestRequest;
@@ -24,12 +25,14 @@ final class ProductApiController extends ApiController
 {
     private readonly ProductCodec $codec;
 
+    private readonly ProductRepository $repo;
+
     public function __construct(
         SecurityEnforcer $security,
-        private readonly ProductRepository $repo,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct($security);
+        $this->repo = Beans::of(ProductRepository::class);
         $this->codec = new ProductCodec();
     }
 

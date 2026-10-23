@@ -7,6 +7,7 @@ namespace Wdc\Shopping\Persistence\Rest;
 use Amp\Http\Server\Response;
 use Closure;
 use Psr\Log\LoggerInterface;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\AccessDeniedException;
 use Wdc\Framework\Domain\Security\CurrentSecurityContext;
 use Wdc\Framework\Domain\Security\SecurityContext;
@@ -26,12 +27,14 @@ final class UserApiController extends ApiController
 {
     private readonly UserCodec $codec;
 
+    private readonly UserRepository $repo;
+
     public function __construct(
         SecurityEnforcer $security,
-        private readonly UserRepository $repo,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct($security);
+        $this->repo = Beans::of(UserRepository::class);
         $this->codec = new UserCodec();
     }
 

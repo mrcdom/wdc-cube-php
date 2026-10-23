@@ -99,15 +99,22 @@ $projection = (new Purchase())
   (`$old = null` ⇒ every projected field).
 - Domain interfaces (`ProductRepository`) add specific operations (`fetchImage`).
 - **Getting one**: `Beans::of(ProductRepository::class)` (`Wdc\Framework\Commons\Beans`,
-  typed by PHPStan). `ShoppingRepositories::register()` puts every repository and the
+  typed by PHPStan). `ShoppingRepositories::register($db)` (stateless, no fields) puts every repository and the
   `TransactionService` there by interface, once at startup; the server registers the optional
   `AuthenticationService` (read with `Beans::find`, which may return `null`). One instance per
   process serves every session: repositories hold no per-call state. A service looks up its own
   dependencies in its constructor (`$this->products = Beans::of(ProductRepository::class)`,
   `readonly` fields); whoever creates it just does `new ProductService()`. Tests swap an
   implementation with `Beans::set` before creating the service. A new
-  repository = create it in `ShoppingRepositories` + one `Beans::set` line in `register()`;
-  there is no getter in the session and no constructor argument anywhere else.
+  repository = its Impl + one line in `register()`
+  (`Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db))`); no field per repository,
+  no getter in the session and no constructor argument anywhere else.
+- **A repository that uses another** keeps a nullable field of the *concrete* type and a private
+  factory that looks it up once: `return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);`.
+  `AbstractRepository::repositoryOf` does `Beans::of($interface)` and checks `instanceof $impl`
+  (the domain interface has no `query()`: the domain knows nothing of SQL). Relations use it in a
+  closure (`fn () => $this->userRepository()->query()`, not `static`), writes call it directly
+  (`$this->purchaseItemRepository()->insert(...)`).
 
 ## 5. A repository implementation
 
@@ -126,24 +133,40 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     /** @var JsonQuery<Purchase, PurchaseCriteria> */
     private readonly JsonQuery $query;
 
-    public function __construct(Database $db, private readonly ShoppingRepositories $repos)
+    private ?UserRepositoryImpl $userRepository = null;
+
+    private ?PurchaseItemRepositoryImpl $purchaseItemRepository = null;
+
+    public function __construct(Database $db)
     {
         parent::__construct($db);
         $table = new Table(self::TABLE, static fn (): Purchase => new Purchase(), [
             new Column('id', self::ID, ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
             new Column('buyDate', self::BUYDATE, ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
         ]);
-        // targets in closures: purchase → item → purchase is a cycle
+        // targets in closures: purchase → item → purchase is a cycle, and the other repository
+        // may not be registered in Beans yet when this constructor runs
         $this->query = new JsonQuery($table, PurchaseCriteria::class, 'pu', $db->dialect())
             ->withConditions($this->conditions(...))
             ->withOrdering($this->orderBy(...))
             ->addToOne('user', static fn (Purchase $p) => $p->user(), static fn (Purchase $p, ?User $u) => $p->withUser($u),
-                fn () => $this->repos->users->query(), self::USERID)
+                fn () => $this->userRepository()->query(), self::USERID)
             ->addToMany('items', static fn (Purchase $p) => $p->items(), static fn (Purchase $p, array $items) => $p->withItems($items),
-                fn () => $this->repos->purchaseItems->query(), PurchaseItemRepositoryImpl::PURCHASEID);   // FK column of the CHILD table
+                fn () => $this->purchaseItemRepository()->query(), PurchaseItemRepositoryImpl::PURCHASEID);   // FK column of the CHILD table
     }
 
     public function query(): JsonQuery { return $this->query; }
+
+    /** Looked up in Beans on the first call and kept; later calls return the field. */
+    private function userRepository(): UserRepositoryImpl
+    {
+        return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
+    }
+
+    private function purchaseItemRepository(): PurchaseItemRepositoryImpl   // also used by insert() to write the items
+    {
+        return $this->purchaseItemRepository ??= self::repositoryOf(PurchaseItemRepository::class, PurchaseItemRepositoryImpl::class);
+    }
 
     protected function sequence(): string { return self::SEQUENCE; }
 
@@ -191,7 +214,7 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
   => ...])` / `updateBean(..., [self::USERID => [getter, ColumnType]])`.
 - SQL identifiers never use quotes (PostgreSQL lowercases unquoted names).
 - Every ORDER BY ends with a unique tie-break (the id): pagination needs a total order.
-- Wire the repository in the composition root (`ShoppingRepositories`).
+- Register the repository with one `Beans::set` line in `ShoppingRepositories::register($db)`.
 
 ## 6. JsonQuery: what it generates
 

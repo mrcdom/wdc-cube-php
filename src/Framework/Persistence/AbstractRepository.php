@@ -7,6 +7,7 @@ namespace Wdc\Framework\Persistence;
 use Closure;
 use DateTimeInterface;
 use LogicException;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Pagination\Page;
 use Wdc\Framework\Domain\Repository\Repository;
 use Wdc\Framework\Persistence\Json\JsonQuery;
@@ -30,6 +31,33 @@ abstract class AbstractRepository implements Repository
 
     /** @return JsonQuery<E, C> */
     abstract public function query(): JsonQuery;
+
+    /**
+     * Outro repositório, achado no `Beans` pela interface e devolvido com o tipo concreto - para
+     * o método factory de quem precisa dele (relações da `JsonQuery`, escritas em cascata):
+     *
+     *     private function userRepository(): UserRepositoryImpl
+     *     {
+     *         return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
+     *     }
+     *
+     * A interface do domínio não expõe a `JsonQuery` (o domínio não sabe de SQL); o tipo concreto,
+     * sim, e com ele o PHPStan confere a entidade do alvo de cada relação.
+     *
+     * @template R of object
+     * @param class-string    $type interface do repositório (ex.: `UserRepository::class`)
+     * @param class-string<R> $impl implementação esperada (ex.: `UserRepositoryImpl::class`)
+     * @return R
+     */
+    protected static function repositoryOf(string $type, string $impl): object
+    {
+        $repository = Beans::of($type);
+        if (!$repository instanceof $impl) {
+            throw new LogicException(get_class($repository) . " (registrado para {$type}) não é um {$impl}");
+        }
+
+        return $repository;
+    }
 
     abstract protected function sequence(): string;
 

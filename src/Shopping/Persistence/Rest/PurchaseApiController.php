@@ -6,6 +6,7 @@ namespace Wdc\Shopping\Persistence\Rest;
 
 use Amp\Http\Server\Response;
 use Closure;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Serialization\InputCoerce;
 use Wdc\Framework\Domain\Exception\AccessDeniedException;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
@@ -13,11 +14,11 @@ use Wdc\Framework\Domain\Security\SecurityContext;
 use Wdc\Framework\Rest\RestRequest;
 use Wdc\Framework\Rest\RestResponse;
 use Wdc\Shopping\Domain\Product\Product;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseCodec;
 use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
@@ -31,11 +32,12 @@ final class PurchaseApiController extends ApiController
 {
     private readonly PurchaseCodec $codec;
 
-    public function __construct(
-        SecurityEnforcer $security,
-        private readonly PurchaseRepository $repo,
-    ) {
+    private readonly PurchaseRepository $repo;
+
+    public function __construct(SecurityEnforcer $security)
+    {
         parent::__construct($security);
+        $this->repo = Beans::of(PurchaseRepository::class);
         $this->codec = new PurchaseCodec();
     }
 

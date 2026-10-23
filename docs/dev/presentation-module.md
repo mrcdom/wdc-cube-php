@@ -933,7 +933,7 @@ public function invalidRating_setsTheError_andKeepsTheList(): void
 ```
 
 Os outros testes do arquivo cobrem o caminho feliz, o produto sem avaliações, a passagem pelo
-mesmo produto **sem nenhuma consulta** (`$this->repos->db->onQuery(...)` conta as instruções) e a
+mesmo produto **sem nenhuma consulta** (`onQuery(...)` no `Database` devolvido por `TestDatabase::open()` conta as instruções) e a
 liberação do painel ao sair do produto (`$panel->released`). `::cast($view)` confere o tipo do
 mock com uma mensagem útil ("Esperava X, veio null") e o devolve já tipado.
 

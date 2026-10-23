@@ -93,7 +93,7 @@ flowchart TB
   end
   subgraph per["Persistência - src/Shopping/Persistence"]
     IMP["Repository/ReviewRepositoryImpl<br/>Table + JsonQuery 'rv'"]
-    AGG["ShoppingRepositories::$reviews<br/>+ Beans::set no register()"]
+    AGG["ShoppingRepositories::register()<br/>+1 linha Beans::set"]
   end
   subgraph app["Aplicação - src/Shopping/Presentation"]
   subgraph pres["Apresentação - Presenter/Restricted/Products"]
@@ -156,7 +156,7 @@ sequenceDiagram
 | 3 | Critério + ordenações | `Domain/Review/ReviewCriteria.php`, `ReviewOrderBy.php` | [repository.md](repository.md) |
 | 4 | Interface do repositório | `Domain/Review/ReviewRepository.php` | [repository.md](repository.md) |
 | 5 | Implementação (`Table` + `JsonQuery`) | `Persistence/Repository/ReviewRepositoryImpl.php` | [repository.md](repository.md), [json-query.md](json-query.md) |
-| 6 | Criar no agregado e registrar no `Beans` | `Persistence/ShoppingRepositories.php` | [repository.md](repository.md) |
+| 6 | Registrar no `Beans` (uma linha) | `Persistence/ShoppingRepositories.php` | [repository.md](repository.md) |
 | 7 | Permissões dos papéis | `Domain/Security/Role.php` | [repository.md](repository.md) |
 | 8 | Serviço de aplicação + DTO de tela | `Presenter/Restricted/Products/Reviews/ReviewService.php`, `ReviewInfo.php` | [application-service.md](application-service.md), [transaction-service.md](transaction-service.md) |
 | 9 | ViewState + presenter (filho) + exceção esperada | `Reviews/ReviewsPanelViewState.php`, `ReviewsPanelPresenter.php`, `Exception/InvalidReviewException.php` | [presentation-module.md](presentation-module.md) |
@@ -336,10 +336,19 @@ $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect()
         'product',
         static fn (Review $r) => $r->product(),
         static fn (Review $r, ?Product $p) => $r->withProduct($p),
-        fn () => $this->repos->products->query(),   // closure: o outro repositório pode ainda não existir
+        fn () => $this->productRepository()->query(),   // closure: o outro repositório pode ainda não estar registrado
         self::PRODUCTID,
     )
-    ->addToOne('user', /* idem, com $this->repos->users->query() e self::USERID */);
+    ->addToOne('user', /* idem, com $this->userRepository()->query() e self::USERID */);
+
+// fora do construtor: cada repositório usado é achado no Beans uma vez e guardado num campo
+private ?ProductRepositoryImpl $productRepository = null;
+
+private function productRepository(): ProductRepositoryImpl
+{
+    return $this->productRepository ??= self::repositoryOf(ProductRepository::class, ProductRepositoryImpl::class);
+}
+// ... e o mesmo para userRepository()
 ```
 
 O resto da classe:
@@ -366,23 +375,19 @@ Com isso, "as avaliações do produto com o nome de quem escreveu" é **um únic
 `ReviewRepositoryTest` conta os comandos e cobra exatamente um. Detalhes:
 [repository.md](repository.md) e, para projeções e relações, [json-query.md](json-query.md).
 
-### Passo 6 - Criar no agregado e registrar no `Beans`
+### Passo 6 - Registrar no `Beans`
 
-`ShoppingRepositories` cria todos os repositórios sobre o mesmo `Database`. O de avaliações
-recebe o próprio agregado, para consultar `products` e `users` pelas closures do passo 5:
+`ShoppingRepositories::register(Database $db)` cria todos os repositórios sobre o mesmo
+`Database` e os registra pela interface. O de avaliações é uma linha a mais; ele acha `products`
+e `users` sozinho, pelos métodos `productRepository()`/`userRepository()` do passo 5:
 
 ```php
-public readonly ReviewRepositoryImpl $reviews;
-
-// no construtor:
-// avaliação → produto/usuário: consulta os outros repositórios pelo agregado
-$this->reviews = new ReviewRepositoryImpl($db, $this);
-
-// no register(): a partir daqui, qualquer ponto acha o repositório pela interface
-Beans::set(ReviewRepository::class, $this->reviews);
+// em ShoppingRepositories::register(): a partir daqui, qualquer ponto acha o repositório pela interface
+Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db));
 ```
 
-O `register()` roda uma vez, na subida do servidor (e no `setUp` dos testes de apresentação).
+O `ShoppingRepositories` não tem campo por repositório. O `register()` roda uma vez, na subida do servidor
+(dentro de `ShoppingRepositories::open(...)`), e no `TestDatabase::open()` dos testes.
 Depois disso, quem precisa do repositório pede pela **interface**:
 `Beans::of(ReviewRepository::class)`. O PHPStan sabe que o retorno é um `ReviewRepository`. Não
 há getter na sessão nem argumento novo em construtor nenhum.
@@ -713,7 +718,7 @@ Dois arquivos, cada um sobre a sua camada, ambos contra o banco de testes:
 
 **`tests/Shopping/Persistence/ReviewRepositoryTest.php`** (`extends RepositoryTestCase`):
 lista por produto com o nome do autor **num único comando SQL** (conta com
-`$this->repos->db->onQuery(...)`), as três ordenações, a projeção padrão (só os ids das FKs),
+`$this->db->onQuery(...)`), as três ordenações, a projeção padrão (só os ids das FKs),
 `insert` gerando o id pela sequência e gravando as FKs, `count` por produto e por nota
 (`rating()->ge(5)`), e `update` mudando só o que mudou.
 
@@ -776,7 +781,7 @@ assim **nada funciona em runtime**. Confira um a um:
 | **View do filho no dono** | `ProductViewState::$reviewsPanelView` (PHP) → `reviewsPanelViewId` (JSON) → `bridge.createView(state.reviewsPanelViewId)` (React) | o painel existe no servidor, mas nunca aparece |
 | **Campos do ViewState** | propriedades **públicas** no PHP **=** campos do tipo TypeScript, opcionais quando podem ser omitidos | campo sempre vazio no React, ou `{}` no lugar de um objeto |
 | **Schema completo** | `REVIEW_DDL` **+** `create()` para banco antigo **+** `DROP` **+** `reset()` **+** `restartSequence` | servidor quebra num banco antigo, ou o `insert` colide com o id do seed |
-| **Repositório registrado** | `ShoppingRepositories::$reviews` **+** `Beans::set(ReviewRepository::class, ...)` no `register()` | `LogicException` "Nenhuma implementação registrada para ...ReviewRepository" na primeira tela que o usa |
+| **Repositório registrado** | `Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db))` em `ShoppingRepositories::register()` | `LogicException` "Nenhuma implementação registrada para ...ReviewRepository" na primeira tela que o usa |
 | **Rebuild do front** | `bin/build-frontend.sh` (ou `npm run watch`) depois de mexer no React | o servidor serve o shell antigo de `work/frontend/` |
 
 ---
@@ -806,11 +811,11 @@ se você não souber que existem.
 5. **As datas são gravadas sem fração de segundo.** `ColumnType::DateTime` grava no formato
    `Y-m-d H:i:s`, em UTC. Duas avaliações enviadas no mesmo segundo têm o mesmo `CREATEDAT`;
    o desempate pelo id, no fim de toda ordenação, é o que mantém a lista estável.
-6. **Repositório criado mas não registrado.** O `ShoppingRepositories` cria o
-   `ReviewRepositoryImpl`, mas sem a linha `Beans::set(ReviewRepository::class, ...)` no
-   `register()` a primeira chamada a `Beans::of(ReviewRepository::class)` lança "Nenhuma
-   implementação registrada". Os testes de repositório não pegam isso (usam `$repos->reviews`
-   direto); os de apresentação, sim.
+6. **Repositório escrito mas não registrado.** Sem a linha
+   `Beans::set(ReviewRepository::class, ...)` em `ShoppingRepositories::register()`, a primeira
+   chamada a `Beans::of(ReviewRepository::class)` (ou ao `repositoryOf` de quem o usa) lança
+   "Nenhuma implementação registrada". Os testes pegam isso logo: tanto os de repositório quanto
+   os de apresentação acham o repositório pelo `Beans`.
 7. **A primeira coluna da `Table` é a chave primária.** `insertBean` e `updateBean` contam com
    isso. Pôr `rating` antes de `id` produz escritas erradas sem nenhum erro de compilação.
 8. **O `classId` precisa ser idêntico nos dois lados.** Um caractere trocado entre o
@@ -847,7 +852,7 @@ Persistência e aplicação:
 - [ ] `JsonQuery` com alias próprio, condições, ordenação (terminando no id) e relações em closures
 - [ ] FKs como colunas extras em `insert` e `update`
 - [ ] `newProjection()` com só os ids das relações
-- [ ] Criado em `ShoppingRepositories` e registrado no `Beans` (`register()`)
+- [ ] Registrado no `Beans` (uma linha em `ShoppingRepositories::register()`)
 - [ ] Permissões em `Role`
 
 Apresentação:

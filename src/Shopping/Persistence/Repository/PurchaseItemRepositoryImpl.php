@@ -15,12 +15,13 @@ use Wdc\Framework\Persistence\Json\QueryContext;
 use Wdc\Framework\Persistence\Sql;
 use Wdc\Framework\Persistence\Table;
 use Wdc\Shopping\Domain\Product\Product;
+use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Domain\Purchase\Purchase;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemCriteria;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemOrderBy;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
 
 /**
  * Relações: `purchase` (via PURCHASEID) e `product` (via PRODUCTID), ambas N:1.
@@ -44,7 +45,15 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
     /** @var JsonQuery<PurchaseItem, PurchaseItemCriteria> */
     private readonly JsonQuery $query;
 
-    public function __construct(Database $db, private readonly ShoppingRepositories $repos)
+    /*
+     * Os repositórios de que este precisa: achados no Beans na primeira vez (na construção eles
+     * podem ainda não estar registrados) e guardados.
+     */
+    private ?PurchaseRepositoryImpl $purchaseRepository = null;
+
+    private ?ProductRepositoryImpl $productRepository = null;
+
+    public function __construct(Database $db)
     {
         parent::__construct($db);
         $table = new Table(self::TABLE, static fn (): PurchaseItem => new PurchaseItem(), [
@@ -59,16 +68,28 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
                 'purchase',
                 static fn (PurchaseItem $i) => $i->purchase(),
                 static fn (PurchaseItem $i, ?Purchase $p) => $i->withPurchase($p),
-                fn () => $this->repos->purchases->query(),
+                fn () => $this->purchaseRepository()->query(),
                 self::PURCHASEID,
             )
             ->addToOne(
                 'product',
                 static fn (PurchaseItem $i) => $i->product(),
                 static fn (PurchaseItem $i, ?Product $p) => $i->withProduct($p),
-                fn () => $this->repos->products->query(),
+                fn () => $this->productRepository()->query(),
                 self::PRODUCTID,
             );
+    }
+
+    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    private function purchaseRepository(): PurchaseRepositoryImpl
+    {
+        return $this->purchaseRepository ??= self::repositoryOf(PurchaseRepository::class, PurchaseRepositoryImpl::class);
+    }
+
+    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    private function productRepository(): ProductRepositoryImpl
+    {
+        return $this->productRepository ??= self::repositoryOf(ProductRepository::class, ProductRepositoryImpl::class);
     }
 
     public function query(): JsonQuery

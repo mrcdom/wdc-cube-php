@@ -360,7 +360,9 @@ private function doPurchase(int $userId): int
 ```
 
 Onde estão os "dois repositórios"? O `PurchaseRepositoryImpl::insert()` grava a compra e, em
-seguida, chama o repositório de itens para cada um:
+seguida, chama o repositório de itens para cada um. `purchaseItemRepository()` o acha no `Beans` na
+primeira chamada (`self::repositoryOf(...)`) e o guarda num campo, porque na construção o
+repositório de itens pode ainda não estar registrado:
 
 ```php
 /** Insere a compra e, junto, os itens (cada item passa a apontar para ela). */
@@ -369,7 +371,7 @@ public function insert(object $bean): bool
     $inserted = $this->insertBean($bean, [self::USERID => $bean->userId()]);
     if ($inserted) {
         foreach ($bean->items() ?? [] as $item) {
-            $this->repos->purchaseItems->insert($item->withPurchase($bean));
+            $this->purchaseItemRepository()->insert($item->withPurchase($bean));
         }
     }
 

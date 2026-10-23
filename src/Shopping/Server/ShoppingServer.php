@@ -24,6 +24,7 @@ use Wdc\Framework\Cube\Remote\Http\WebCacheHandler;
 use Wdc\Framework\Cube\Remote\ParallelKeyDerivation;
 use Wdc\Framework\Cube\Remote\RemoteDispatcher;
 use Wdc\Framework\Domain\Security\AuthenticationService;
+use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Persistence\Transaction\RemoteTransactionOptions;
 use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
 use Wdc\Shopping\Domain\ShoppingConfig;
@@ -55,7 +56,7 @@ final class ShoppingServer
 {
     public const string DEFAULT_SHELL = 'shopping.shell.react';
 
-    public readonly ShoppingRepositories $repos;
+    public readonly Database $db;
 
     public readonly ShoppingRemoteHost $host;
 
@@ -65,25 +66,23 @@ final class ShoppingServer
 
     public readonly SqlRemoteTransactionCoordinator $remoteTransactions;
 
-    private readonly ?AuthenticationServiceImpl $auth;
-
     public function __construct(
         private readonly ShoppingConfig $config,
         private readonly LoggerInterface $logger,
     ) {
         $scheduler = new EventLoopScheduler($logger);
-        $this->repos = ShoppingRepositories::open(
+        $this->db = ShoppingRepositories::open(
             $config->databaseDsn(),
             $config->databaseUser(),
             $config->databasePassword(),
             $config->databaseMaxConnections(),
-        )->register();
+        );
         $jwtSecret = $config->jwtSecret;
-        $auth = $this->auth = $jwtSecret === null || $jwtSecret === ''
+        $auth = $jwtSecret === null || $jwtSecret === ''
             ? null
-            : new AuthenticationServiceImpl($this->repos->users, $jwtSecret, $scheduler, logger: $logger);
+            : new AuthenticationServiceImpl($jwtSecret, $scheduler, logger: $logger);
         Beans::set(AuthenticationService::class, $auth);
-        $this->remoteTransactions = new SqlRemoteTransactionCoordinator($this->repos->db, RemoteTransactionOptions::fromConfig($config->config), logger: $logger);
+        $this->remoteTransactions = new SqlRemoteTransactionCoordinator($this->db, RemoteTransactionOptions::fromConfig($config->config), logger: $logger);
         $context = new ShoppingContext(
             $scheduler,
             $logger,
@@ -118,7 +117,7 @@ final class ShoppingServer
         $this->host->registry->stop();
         $this->http->stop();
         $this->remoteTransactions->close();
-        $this->repos->db->close();
+        $this->db->close();
     }
 
     private function buildRouter(): Router
@@ -140,12 +139,12 @@ final class ShoppingServer
         $router->addRoute('GET', '/api/session/init', $init);
         $router->addRoute('GET', '/{ctx:' . IndexHtmlHandler::CONTEXT_PATTERN . '}/api/session/init', $init);
 
-        $image = new ProductImageHandler($this->repos->products, $this->logger);
+        $image = new ProductImageHandler($this->logger);
         $router->addRoute('GET', '/image/product/{id:\d+}.png', $image);
         $router->addRoute('GET', '/{ctx:[^/]+}/image/product/{id:\d+}.png', $image);
 
         // API REST na raiz (apps nativos) e sob cada frontend (SPA sem CORS)
-        $api = new RepositoryApiRoutes($this->repos, $this->auth, $this->remoteTransactions, $this->repos->transactions, $this->logger);
+        $api = new RepositoryApiRoutes($this->remoteTransactions, $this->logger);
         $api->configure($router);
         foreach (is_dir($frontend) ? (scandir($frontend) ?: []) : [] as $name) {
             if ($name[0] !== '.' && is_dir("{$frontend}/{$name}")) {
@@ -163,7 +162,7 @@ final class ShoppingServer
         ));
         if ($this->config->config->getBoolean('server.devMode', false)) {
             $router->addRoute('POST', '/__dev/db-reset', new ClosureRequestHandler(function () {
-                ShoppingSchema::reset($this->repos->db);
+                ShoppingSchema::reset($this->db);
                 $this->logger->warning('Database reset to seed (dev mode)');
 
                 return new Response(HttpStatus::OK, ['content-type' => 'application/json'], '{"reset":true}');

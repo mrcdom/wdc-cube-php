@@ -8,10 +8,11 @@ use Closure;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Concurrent\Scheduler;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
-use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Framework\Domain\Security\AuthResult;
+use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Framework\Domain\Security\ChallengeResult;
 use Wdc\Framework\Domain\Security\PasswordUtil;
 use Wdc\Framework\Domain\Security\SecurityContext;
@@ -37,13 +38,15 @@ final class AuthenticationServiceImpl implements AuthenticationService
     /**
      * @param (Closure(): DateTimeImmutable)|null $clock relógio injetável (testes de expiração)
      */
+    private readonly UserRepository $users;
+
     public function __construct(
-        private readonly UserRepository $users,
         string $jwtSecret,
         ?Scheduler $scheduler = null,
         ?Closure $clock = null,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
+        $this->users = Beans::of(UserRepository::class);
         $this->cache = new AccessContextCache($jwtSecret);
         $this->nonces = new NonceStore();
         $this->clock = $clock ?? static fn (): DateTimeImmutable => new DateTimeImmutable();

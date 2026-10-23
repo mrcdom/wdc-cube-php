@@ -55,7 +55,7 @@ final class ShoppingServerTest extends TestCase
         ], "{$this->dir}/config/application.toml"));
 
         $this->server = new ShoppingServer($config, new NullLogger());
-        ShoppingSchema::reset($this->server->repos->db);
+        ShoppingSchema::reset($this->server->db);
         $this->server->start(0, '127.0.0.1');   // porta 0: o sistema escolhe uma livre
         $this->base = '127.0.0.1:' . $this->server->port();
         $this->http = HttpClientBuilder::buildDefault();
@@ -207,10 +207,10 @@ final class ShoppingServerTest extends TestCase
     #[Test]
     public function devReset_restoresTheSeed(): void
     {
-        $this->server->repos->db->execute('DELETE FROM EN_PURCHASEITEM');
+        $this->server->db->execute('DELETE FROM EN_PURCHASEITEM');
         $response = $this->http->request(new Request("http://{$this->base}/__dev/db-reset", 'POST'));
 
         self::assertSame(200, $response->getStatus());
-        self::assertSame(3, (int) $this->server->repos->db->fetchValue('SELECT COUNT(*) FROM EN_PURCHASEITEM'));
+        self::assertSame(3, (int) $this->server->db->fetchValue('SELECT COUNT(*) FROM EN_PURCHASEITEM'));
     }
 }

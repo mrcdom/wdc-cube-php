@@ -344,7 +344,7 @@ Na `JsonQuery`:
     'user',                                                   // chave no JSON
     static fn (Review $r) => $r->user(),                      // lê a máscara da projeção
     static fn (Review $r, ?User $u) => $r->withUser($u),      // grava o bean hidratado
-    fn () => $this->repos->users->query(),                    // JsonQuery do alvo (closure!)
+    fn () => $this->userRepository()->query(),                // JsonQuery do alvo (closure!)
     self::USERID,                                             // coluna de FK NESTA tabela
 )
 ```
@@ -413,7 +413,7 @@ Em `PurchaseRepositoryImpl`:
     'items',
     static fn (Purchase $p) => $p->items(),
     static fn (Purchase $p, array $items) => $p->withItems($items),   // recebe list<PurchaseItem>
-    fn () => $this->repos->purchaseItems->query(),
+    fn () => $this->purchaseItemRepository()->query(),
     PurchaseItemRepositoryImpl::PURCHASEID,                           // coluna de FK NO FILHO
 )
 ```
@@ -457,7 +457,7 @@ $items = PV::singletonList(
     new PurchaseItemCriteria()->withOrderBy(PurchaseItemOrderBy::MOST_EXPENSIVE_FIRST),
 )->withLimit(3);
 
-$purchases = $this->repos->purchases->fetch(new PurchaseCriteria()
+$purchases = Beans::of(PurchaseRepository::class)->fetch(new PurchaseCriteria()
     ->withUserId($userId)
     ->withProjection(new Purchase()->withId(PV::INT)->withItems($items))
     ->withOrderBy(PurchaseOrderBy::OLDEST_FIRST));
@@ -503,14 +503,25 @@ A solução é o alvo ser uma **closure**, resolvida só na hora de montar a con
 
 ```php
 // em PurchaseRepositoryImpl
-fn () => $this->repos->purchaseItems->query(),
+fn () => $this->purchaseItemRepository()->query(),
 
 // em PurchaseItemRepositoryImpl
-fn () => $this->repos->purchases->query(),
+fn () => $this->purchaseRepository()->query(),
+
+// o método acha o outro repositório no Beans na primeira chamada e o guarda no campo
+private ?PurchaseItemRepositoryImpl $purchaseItemRepository = null;
+
+private function purchaseItemRepository(): PurchaseItemRepositoryImpl
+{
+    return $this->purchaseItemRepository ??= self::repositoryOf(PurchaseItemRepository::class, PurchaseItemRepositoryImpl::class);
+}
 ```
 
-Os repositórios recebem o agregado `ShoppingRepositories` (que passa `$this` ao criá-los) e só o
-consultam quando precisam. Note `fn` (não `static fn`) nessas closures: elas usam `$this->repos`.
+`repositoryOf` (de `AbstractRepository`) acha o outro repositório no `Beans`, pela interface, e
+confere que é a classe concreta esperada (é ela que tem `query()`). Quando um construtor roda, o
+outro repositório pode ainda não estar registrado; na primeira consulta, todos já estão. O lookup
+acontece uma vez: depois, o método devolve o campo. Note `fn` (não `static fn`) nessas closures:
+elas usam `$this`.
 Quem para a recursão é a projeção — a consulta só desce pelas relações cujas máscaras não são null.
 
 ---
@@ -521,11 +532,11 @@ Quem para a recursão é a projeção — a consulta só desce pelas relações 
 
 ```php
 $statements = [];
-$this->repos->db->onQuery(static function (string $sql, array $params) use (&$statements): void {
+$this->db->onQuery(static function (string $sql, array $params) use (&$statements): void {
     $statements[] = $sql;
 });
 
-$this->repos->reviews->fetch(/* ... */);
+Beans::of(ReviewRepository::class)->fetch(/* ... */);
 
 self::assertCount(1, $statements, 'sem N+1');
 self::assertMatchesRegularExpression('/FROM EN_USER u\d+ WHERE u\d+\.ID = rv1\.USERID/', $statements[0]);
@@ -547,8 +558,8 @@ self::assertMatchesRegularExpression('/FROM EN_USER u\d+ WHERE u\d+\.ID = rv1\.U
 new JsonQuery($table, XxxCriteria::class, 'xx', $db->dialect())
     ->withConditions($this->conditions(...))   // (C, alias, QueryContext): ?Sql
     ->withOrdering($this->orderBy(...))        // (?C, alias): string
-    ->addToOne('campo', $get, $set, fn () => $this->repos->alvo->query(), 'FK_NESTA_TABELA')
-    ->addToMany('campos', $get, $set, fn () => $this->repos->filho->query(), 'FK_NO_FILHO');
+    ->addToOne('campo', $get, $set, fn () => $this->alvoRepository()->query(), 'FK_NESTA_TABELA')
+    ->addToMany('campos', $get, $set, fn () => $this->filhoRepository()->query(), 'FK_NO_FILHO');
 ```
 
 ### Executando (via `AbstractRepository`)

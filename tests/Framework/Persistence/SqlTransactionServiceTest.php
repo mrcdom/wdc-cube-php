@@ -6,27 +6,30 @@ namespace Wdc\Tests\Framework\Persistence;
 
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Transaction\TransactionContext;
+use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
+use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
 
 final class SqlTransactionServiceTest extends RepositoryTestCase
 {
     private function insertProduct(string $name): void
     {
-        $this->repos->products->insert(new Product()->withName($name)->withPrice(1.0)->withDescription('-'));
+        Beans::of(ProductRepository::class)->insert(new Product()->withName($name)->withPrice(1.0)->withDescription('-'));
     }
 
     private function products(): int
     {
-        return $this->repos->products->count(new ProductCriteria());
+        return Beans::of(ProductRepository::class)->count(new ProductCriteria());
     }
 
     #[Test]
     public function commit_onNormalReturn_andReturnsTheValue(): void
     {
-        $result = $this->repos->transactions->required(function (): string {
+        $result = Beans::of(TransactionService::class)->required(function (): string {
             $this->insertProduct('A');
 
             return 'ok';
@@ -41,7 +44,7 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
     {
         $caught = null;
         try {
-            $this->repos->transactions->required(function (): void {
+            Beans::of(TransactionService::class)->required(function (): void {
                 $this->insertProduct('A');
                 throw new RuntimeException('falhou');
             });
@@ -55,7 +58,7 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
     #[Test]
     public function rollback_whenMarkedRollbackOnly(): void
     {
-        $this->repos->transactions->required(function (TransactionContext $tx): void {
+        Beans::of(TransactionService::class)->required(function (TransactionContext $tx): void {
             $this->insertProduct('A');
             $tx->setRollbackOnly();
         });
@@ -66,7 +69,7 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
     #[Test]
     public function nested_participatesInTheOuterTransaction(): void
     {
-        $tx = $this->repos->transactions;
+        $tx = Beans::of(TransactionService::class);
         $tx->required(function (TransactionContext $outer) use ($tx): void {   // `use` captura variáveis de fora
             $this->insertProduct('A');
             $tx->required(function (TransactionContext $inner) use ($outer): void {
@@ -82,7 +85,7 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
     #[Test]
     public function nested_exception_marksRollbackOnly(): void
     {
-        $tx = $this->repos->transactions;
+        $tx = Beans::of(TransactionService::class);
         $tx->required(function (TransactionContext $outer) use ($tx): void {
             $this->insertProduct('A');
             try {
@@ -99,7 +102,7 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
     #[Test]
     public function context_isInactiveAfterwards(): void
     {
-        $context = $this->repos->transactions->required(static fn (TransactionContext $tx): TransactionContext => $tx);
+        $context = Beans::of(TransactionService::class)->required(static fn (TransactionContext $tx): TransactionContext => $tx);
         self::assertFalse($context->isActive());
     }
 }
