@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Wdc\Framework\Cube\Util\QueryString;
 
-/** Parser de query string: vazios, codificação percentual, UTF-8, pontos no nome e chaves repetidas. */
+/** Query string parser: empties, percent-encoding, UTF-8, dots in names and repeated keys. */
 final class QueryStringTest extends TestCase
 {
     /** @return iterable<string, array{string|null, array<string, string|list<string>>}> */
@@ -37,8 +37,8 @@ final class QueryStringTest extends TestCase
         yield 'utf8' => ['name=caf%C3%A9', ['name' => 'café']];
         yield 'specialChars' => ['q=hello+world%21', ['q' => 'hello world!']];
         yield 'percentEncodedKey' => ['%6Bey=val', ['key' => 'val']];
-        yield 'dotsInNameAreKept' => ['a.b=1', ['a.b' => '1']];   // parse_str() trocaria por "a_b"
-        yield 'repeatedKey_becomesList' => ['t=1&t=2&t=3', ['t' => ['1', '2', '3']]];   // chave repetida vira lista, não sobrescreve
+        yield 'dotsInNameAreKept' => ['a.b=1', ['a.b' => '1']];   // parse_str() would turn it into "a_b"
+        yield 'repeatedKey_becomesList' => ['t=1&t=2&t=3', ['t' => ['1', '2', '3']]];   // a repeated key becomes a list, it does not overwrite
     }
 
     /** @param array<string, string|list<string>> $expected */
@@ -68,10 +68,10 @@ final class QueryStringTest extends TestCase
     #[Test]
     public function build_encodes_soParseRoundTrips(): void
     {
-        $params = ['q' => 'café & chá=bom', 'path' => 'a/b?c'];
+        $params = ['q' => 'café & tea=good', 'path' => 'a/b?c'];
         $query = QueryString::build($params);
 
-        self::assertSame('q=caf%C3%A9%20%26%20ch%C3%A1%3Dbom&path=a%2Fb%3Fc', $query);
+        self::assertSame('q=caf%C3%A9%20%26%20tea%3Dgood&path=a%2Fb%3Fc', $query);
         self::assertSame($params, QueryString::parse($query));
     }
 }

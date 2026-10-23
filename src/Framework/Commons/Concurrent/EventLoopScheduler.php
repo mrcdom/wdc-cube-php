@@ -11,10 +11,10 @@ use Revolt\EventLoop;
 use Throwable;
 
 /**
- * Agendador do servidor, sobre o event loop do Revolt (que o Amp usa).
+ * The server scheduler, on top of the Revolt event loop (the one Amp uses).
  *
- * As tarefas rodam na mesma thread de tudo o mais, quando o loop chega até elas — nunca
- * em paralelo com um request. Uma exceção numa tarefa é registrada e não derruba o servidor.
+ * Tasks run on the same thread as everything else, when the loop gets to them — never in
+ * parallel with a request. An exception in a task is logged and does not bring the server down.
  */
 final class EventLoopScheduler implements Scheduler
 {

@@ -9,8 +9,8 @@ use Wdc\Framework\Domain\Criteria\Criteria;
 use Wdc\Framework\Domain\Criteria\TextCriterion;
 
 /**
- * Critério de busca de User. Cada campo filtrável é um Criterion que já nasce criado
- * (nunca null): use hasUserId() para saber se foi informado.
+ * Search criterion for User. Each filterable field is a Criterion created up front
+ * (never null): use hasUserId() to tell whether it was set.
  */
 final class UserCriteria implements Criteria
 {
@@ -29,8 +29,8 @@ final class UserCriteria implements Criteria
 
     public function __construct()
     {
-        // Em PHP o valor inicial de uma propriedade precisa ser constante;
-        // objetos que dependem de $this são criados no construtor.
+        // In PHP a property's initial value must be a constant;
+        // objects that depend on $this are created in the constructor.
         $this->userId = new ComparableCriterion($this, 'userId');
         $this->userName = new TextCriterion($this, 'userName');
         $this->name = new TextCriterion($this, 'name');
@@ -72,7 +72,7 @@ final class UserCriteria implements Criteria
         return $this->userId->isSet();
     }
 
-    /** Atalho para userId()->eq($value). */
+    /** Shortcut for userId()->eq($value). */
     public function withUserId(?int $value): static
     {
         return $value === null ? $this : $this->userId->eq($value);
@@ -89,7 +89,7 @@ final class UserCriteria implements Criteria
         return $this->userName->isSet();
     }
 
-    /** Atalho para userName()->eq($value). */
+    /** Shortcut for userName()->eq($value). */
     public function withUserName(?string $value): static
     {
         return $value === null ? $this : $this->userName->eq($value);
@@ -106,7 +106,7 @@ final class UserCriteria implements Criteria
         return $this->name->isSet();
     }
 
-    /** Atalho para name()->eq($value). */
+    /** Shortcut for name()->eq($value). */
     public function withName(?string $value): static
     {
         return $value === null ? $this : $this->name->eq($value);
@@ -123,7 +123,7 @@ final class UserCriteria implements Criteria
         return $this->roles->isSet();
     }
 
-    /** Atalho para roles()->eq($value). */
+    /** Shortcut for roles()->eq($value). */
     public function withRoles(?string $value): static
     {
         return $value === null ? $this : $this->roles->eq($value);

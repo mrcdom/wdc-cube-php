@@ -8,8 +8,8 @@ use PHPUnit\Framework\Assert;
 use Wdc\Framework\Cube\Remote\RemoteDataSecurity;
 
 /**
- * O lado cliente da cifra do canal, passo a passo como o DataSecurity.ts do shell:
- * senha aleatória → PBKDF2 → AES-GCM; a senha vai cifrada com a chave do cookie `app_skey`.
+ * The client side of the channel encryption, step by step like the shell's DataSecurity.ts:
+ * random password → PBKDF2 → AES-GCM; the password is encrypted with the key from the `app_skey` cookie.
  */
 final readonly class ClientCrypto
 {
@@ -20,7 +20,7 @@ final readonly class ClientCrypto
     ) {
     }
 
-    /** @param string $webKey o valor do cookie `app_skey` ("e:n" em base 36) */
+    /** @param string $webKey the value of the `app_skey` cookie ("e:n" in base 36) */
     public static function handshake(string $webKey): self
     {
         [$e, $n] = explode(':', $webKey, 2);
@@ -45,7 +45,7 @@ final readonly class ClientCrypto
     {
         $data = (string) base64_decode($b64, true);
         $plain = openssl_decrypt(substr($data, 0, -16), 'aes-256-gcm', $this->key, OPENSSL_RAW_DATA, $this->iv, substr($data, -16));
-        Assert::assertIsString($plain, 'o cliente não conseguiu decifrar o que o servidor mandou');
+        Assert::assertIsString($plain, 'the client could not decrypt what the server sent');
 
         return $plain;
     }

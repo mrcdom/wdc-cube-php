@@ -8,12 +8,12 @@ use Closure;
 use LogicException;
 
 /**
- * CubeSkeleton montado com closures.
+ * A CubeSkeleton built from closures.
  *
- * Em PHP uma classe anônima não enxerga os privados de quem a criou; uma closure criada
- * dentro do presenter enxerga. Então o presenter escreve:
+ * In PHP an anonymous class cannot see the private members of whoever created it; a closure
+ * created inside the presenter can. So the presenter writes:
  *
- *     return new Skeleton('473dbdd7a36a', function (int $event, int $qtde, array $form): void {
+ *     return new Skeleton('473dbdd7a36a', function (int $event, int $count, array $form): void {
  *         match ($event) {
  *             1 => $this->onExit(),
  *             default => Skeleton::unknownEvent($event),
@@ -34,9 +34,9 @@ final readonly class Skeleton implements CubeSkeleton
     }
 
     /**
-     * Evento que o presenter não conhece: lança o erro para o evento não sumir em silêncio.
+     * An event the presenter does not know: throws so the event does not vanish silently.
      */
-    public static function unknownEvent(int $eventCode): never   // `never`: a função nunca retorna
+    public static function unknownEvent(int $eventCode): never   // `never`: the function never returns
     {
         throw new LogicException("eventCode({$eventCode}) not handled");
     }
@@ -46,9 +46,9 @@ final readonly class Skeleton implements CubeSkeleton
         return $this->classId;
     }
 
-    public function submit(int $eventCode, int $eventQtde, array $formData): void
+    public function submit(int $eventCode, int $eventCount, array $formData): void
     {
-        ($this->submit)($eventCode, $eventQtde, $formData);
+        ($this->submit)($eventCode, $eventCount, $formData);
     }
 
     public function syncState(array $formData): void

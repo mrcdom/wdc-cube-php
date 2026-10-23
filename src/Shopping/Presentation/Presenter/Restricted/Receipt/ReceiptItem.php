@@ -27,7 +27,7 @@ final class ReceiptItem
             ->withProduct(new Product()->withName(PV::STR));
     }
 
-    /** Copia o id: a ordenação do recibo por id depende dele. */
+    /** Copies the id: sorting the receipt by id depends on it. */
     public static function create(PurchaseItem $source): self
     {
         $item = new self();

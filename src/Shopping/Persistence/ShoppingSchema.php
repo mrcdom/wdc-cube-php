@@ -10,20 +10,20 @@ use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Domain\Security\PasswordUtil;
 
 /**
- * DDL e dados iniciais (seed) no PostgreSQL: sequências nativas, imagem em BYTEA, datas em
- * TIMESTAMP (UTC). NAME é TEXT comum — a busca por igualdade diferencia maiúsculas.
+ * DDL and initial (seed) data for PostgreSQL: native sequences, image as BYTEA, dates as
+ * TIMESTAMP (UTC). NAME is plain TEXT — equality search is case-sensitive.
  */
 final class ShoppingSchema
 {
-    // :: Ids do seed — ids 0 são válidos: nunca teste id com `!$id`
+    // :: Seed ids — id 0 is valid: never test an id with `!$id`
     public const int ADMIN_ID = 0;
-    public const int FULANO_ID = 1;
-    public const int BEOTRANO_ID = 2;
+    public const int JOHN_ID = 1;
+    public const int JANE_ID = 2;
 
-    public const int CAFETEIRA_ID = 0;
-    public const int BOLA_WILSON_ID = 1;
-    public const int FITA_VEDA_ROSCA_ID = 2;
-    public const int PEN_DRIVE2GB_ID = 3;
+    public const int COFFEE_MAKER_ID = 0;
+    public const int WILSON_BALL_ID = 1;
+    public const int THREAD_SEAL_TAPE_ID = 2;
+    public const int FLASH_DRIVE2GB_ID = 3;
 
     public const int ADMIN_FIRST_PURCHASE_ID = 0;
     public const int ADMIN_SECOND_PURCHASE_ID = 1;
@@ -31,7 +31,7 @@ final class ShoppingSchema
     public const int ADMIN_SECOND_PURCHASE_ITEM0_ID = 1;
     public const int ADMIN_SECOND_PURCHASE_ITEM1_ID = 2;
 
-    /** CHAR(32) na senha (o hash tem tamanho fixo), BYTEA na imagem, sequências nativas. */
+    /** CHAR(32) for the password (the hash has a fixed size), BYTEA for the image, native sequences. */
     private const string DDL = <<<'SQL'
         CREATE TABLE EN_USER (
             ID BIGINT NOT NULL PRIMARY KEY,
@@ -83,9 +83,9 @@ final class ShoppingSchema
     }
 
     /**
-     * Cria as tabelas se não existirem e, nesse caso, semeia.
+     * Creates the tables if they do not exist and, in that case, seeds them.
      *
-     * @return bool true se criou agora
+     * @return bool true if they were created now
      */
     public static function create(Database $db): bool
     {
@@ -98,23 +98,23 @@ final class ShoppingSchema
         return true;
     }
 
-    /** Remove as tabelas e as sequências. */
+    /** Drops the tables and the sequences. */
     public static function drop(Database $db): void
     {
         $db->exec(self::DROP);
     }
 
-    /** Apaga tudo e semeia os dados de demonstração (senha = login). */
+    /** Deletes everything and seeds the demo data (password = login). */
     public static function reset(Database $db): void
     {
         $db->exec('DELETE FROM EN_PURCHASEITEM; DELETE FROM EN_PURCHASE; DELETE FROM EN_PRODUCT; DELETE FROM EN_USER;');
 
         $users = [
-            [0, 'admin', 'João da Silva', 'ADMIN'],
-            [1, 'fulano', 'Fulano de Tal', 'CUSTOMER'],
-            [2, 'beotrano', 'Beotrano de Alguma Coisa', 'CUSTOMER'],
+            [0, 'admin', 'John Smith', 'ADMIN'],
+            [1, 'john', 'John Doe', 'CUSTOMER'],
+            [2, 'jane', 'Jane Roe', 'CUSTOMER'],
         ];
-        foreach ($users as [$id, $login, $name, $roles]) {   // destructuring: desmonta o array em variáveis
+        foreach ($users as [$id, $login, $name, $roles]) {   // destructuring: unpacks the array into variables
             $db->execute(
                 'INSERT INTO EN_USER (ID, USERNAME, PASSWORD, NAME, ROLES) VALUES (?, ?, ?, ?, ?)',
                 [$id, $login, PasswordUtil::hashPassword($login), $name, $roles],
@@ -123,23 +123,23 @@ final class ShoppingSchema
         $db->restartSequence('SQ_USER', 3);
 
         $products = [
-            [0, 'Cafeteira design italiano', 199.99, 'cafeteira.png',
-                '<ul><li>Capacidade para 30 cafés (50ml cada) ou 24 cafés (62ml cada)</li><li>Sistema corta-pingos</li>'
-                . '<li>Acompanha filtro permanente removível e colher medidora</li><li>Permite uso de filtro de papel</li>'
-                . '<li>Reservatório de água com graduação</li><li>Botão luminoso liga/desliga</li><li>Fácil de lavar</li>'
-                . '<li>Peças podem ser lavadas em máquina de lavar louça (exceto a base motora)</li>'
-                . '<li>Potência: 1000W - correspondente a 1 Kwh (Kilowatts hora).</li></ul>'],
-            [1, 'Bola Wilson', 45.30, 'wilson.png',
-                '<ul><li>Bola Wilson Tamanho e Peso Oficial.</li><li>Garantia: Contra defeito de fabricação.</li>'
-                . '<li>Origem: Importada.</li></ul>'],
-            [2, 'Fita veda rosca', 2.67, 'vedarosca.png',
-                '<ul><li>Marca Tigre.</li><li>Tamanho e medida: 18 mm x 10 m.</li><li>Composição: Teflon.</li>'
-                . '<li>Utilização: vedação de juntas roscaveis.</li></ul>'],
-            [3, 'Pen Drive 2GB', 16.0, 'pendrive2gb.png',
-                'Ideal para transporte de arquivos de dados, áudio, vídeo, fotos e muito mais. Melhor valor para '
-                . 'armazenamento e transferência de informação. Portátil, fácil de usar e super leve, ele possui '
-                . 'segurança com seus dados, led indicando o uso, além de ser resistente a quedas. Pen Drive com '
-                . 'capacidade de armazenamento de 2 GB, praticidade e qualidade com seus arquivos!'],
+            [0, 'Italian design coffee maker', 199.99, 'cafeteira.png',
+                '<ul><li>Makes 30 coffees (50ml each) or 24 coffees (62ml each)</li><li>Drip-stop system</li>'
+                . '<li>Comes with a removable permanent filter and a measuring spoon</li><li>Works with paper filters</li>'
+                . '<li>Graduated water tank</li><li>Illuminated on/off button</li><li>Easy to clean</li>'
+                . '<li>Parts are dishwasher safe (except the motor base)</li>'
+                . '<li>Power: 1000W - equivalent to 1 kWh (kilowatt-hour).</li></ul>'],
+            [1, 'Wilson ball', 45.30, 'wilson.png',
+                '<ul><li>Wilson ball, official size and weight.</li><li>Warranty: against manufacturing defects.</li>'
+                . '<li>Origin: imported.</li></ul>'],
+            [2, 'Thread seal tape', 2.67, 'vedarosca.png',
+                '<ul><li>Brand: Tigre.</li><li>Size: 18 mm x 10 m.</li><li>Material: Teflon.</li>'
+                . '<li>Use: sealing threaded joints.</li></ul>'],
+            [3, 'Flash drive 2GB', 16.0, 'pendrive2gb.png',
+                'Ideal for carrying data files, audio, video, photos and much more. The best value for '
+                . 'storing and transferring information. Portable, easy to use and super light, it keeps '
+                . 'your data safe, has an LED that shows when it is in use, and is drop-resistant. A flash drive with '
+                . '2 GB of storage capacity: practicality and quality for your files!'],
         ];
         foreach ($products as [$id, $name, $price, $image, $description]) {
             $db->execute(
@@ -159,7 +159,7 @@ final class ShoppingSchema
 
     private static function image(string $file): string
     {
-        // __DIR__ = pasta deste arquivo .php (equivale a buscar um recurso no classpath)
+        // __DIR__ = the folder of this .php file (like loading a classpath resource)
         $bytes = file_get_contents(__DIR__ . '/Resources/images/' . $file);
         if ($bytes === false) {
             throw new RuntimeException("Missing image resource {$file}");

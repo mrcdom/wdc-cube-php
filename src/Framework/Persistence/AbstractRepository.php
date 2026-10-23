@@ -14,10 +14,11 @@ use Wdc\Framework\Persistence\Json\JsonQuery;
 use Wdc\Framework\Persistence\Json\QueryContext;
 
 /**
- * Base dos repositórios SQL. A leitura vai toda pela JsonQuery (projeção em JSON, uma ida ao
- * banco com o grafo inteiro); a escrita é campo a campo pela Table. Cada subclasse descreve a
- * tabela, as relações, as condições e a ordenação — sempre contra um alias, porque a mesma
- * entidade pode aparecer várias vezes numa consulta (como raiz e dentro de subconsultas).
+ * Base class for SQL repositories. All reads go through the JsonQuery (a JSON projection, one
+ * database round trip for the whole graph); writes go field by field through the Table. Each
+ * subclass describes the table, the relations, the conditions and the ordering — always against
+ * an alias, because the same entity may appear several times in one query (as the root and
+ * inside subqueries).
  *
  * @template E of object
  * @template C of object
@@ -33,27 +34,27 @@ abstract class AbstractRepository implements Repository
     abstract public function query(): JsonQuery;
 
     /**
-     * Outro repositório, achado no `Beans` pela interface e devolvido com o tipo concreto - para
-     * o método factory de quem precisa dele (relações da `JsonQuery`, escritas em cascata):
+     * Another repository, looked up in `Beans` by its interface and returned with its concrete
+     * type - for the factory method of whoever needs it (`JsonQuery` relations, cascading writes):
      *
      *     private function userRepository(): UserRepositoryImpl
      *     {
      *         return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
      *     }
      *
-     * A interface do domínio não expõe a `JsonQuery` (o domínio não sabe de SQL); o tipo concreto,
-     * sim, e com ele o PHPStan confere a entidade do alvo de cada relação.
+     * The domain interface does not expose the `JsonQuery` (the domain knows nothing about SQL);
+     * the concrete type does, and with it PHPStan checks the target entity of each relation.
      *
      * @template R of object
-     * @param class-string    $type interface do repositório (ex.: `UserRepository::class`)
-     * @param class-string<R> $impl implementação esperada (ex.: `UserRepositoryImpl::class`)
+     * @param class-string    $type repository interface (e.g. `UserRepository::class`)
+     * @param class-string<R> $impl expected implementation (e.g. `UserRepositoryImpl::class`)
      * @return R
      */
     protected static function repositoryOf(string $type, string $impl): object
     {
         $repository = Beans::of($type);
         if (!$repository instanceof $impl) {
-            throw new LogicException(get_class($repository) . " (registrado para {$type}) não é um {$impl}");
+            throw new LogicException(get_class($repository) . " (registered for {$type}) is not a {$impl}");
         }
 
         return $repository;
@@ -62,7 +63,7 @@ abstract class AbstractRepository implements Repository
     abstract protected function sequence(): string;
 
     /**
-     * WHERE do critério, contra o alias dado. Subconsultas (EXISTS) pedem aliases novos ao $ctx.
+     * WHERE clause for the criteria, against the given alias. Subqueries (EXISTS) ask $ctx for new aliases.
      *
      * @param C $criteria
      */
@@ -70,7 +71,7 @@ abstract class AbstractRepository implements Repository
 
     /**
      * @param C|null $criteria
-     * @return string lista de ordenação ("p1.PRICE ASC, p1.ID ASC") ou "" — sem o "ORDER BY"
+     * @return string ordering list ("p1.PRICE ASC, p1.ID ASC") or "" — without the "ORDER BY"
      */
     abstract protected function orderBy(?object $criteria, string $alias): string;
 
@@ -143,7 +144,7 @@ abstract class AbstractRepository implements Repository
     }
 
     /**
-     * Campo entra no UPDATE se está na projeção E (não há old OU o valor mudou).
+     * A field goes into the UPDATE if it is in the projection AND (there is no old bean OR the value changed).
      *
      * @template B of object
      * @param B                 $newBean
@@ -160,10 +161,10 @@ abstract class AbstractRepository implements Repository
         return $oldBean === null || !self::sameValue($getter($newBean), $getter($oldBean));
     }
 
-    // :: Apoio às subclasses
+    // :: Subclass helpers
 
     /**
-     * DELETE com o critério (contra um alias, como as leituras).
+     * DELETE by criteria (against an alias, like the reads).
      *
      * @param C $criteria
      */
@@ -177,10 +178,10 @@ abstract class AbstractRepository implements Repository
     }
 
     /**
-     * INSERT dos campos não-null, gerando o id pela sequência se preciso.
+     * INSERT of the non-null fields, generating the id from the sequence if needed.
      *
      * @param E                    $bean
-     * @param array<string, mixed> $foreignKeys coluna → valor
+     * @param array<string, mixed> $foreignKeys column → value
      */
     protected function insertBean(object $bean, array $foreignKeys = []): bool
     {
@@ -214,12 +215,12 @@ abstract class AbstractRepository implements Repository
     }
 
     /**
-     * UPDATE só dos campos projetados e alterados. Sem mudança ⇒ false, sem SQL.
+     * UPDATE of only the projected and changed fields. No change ⇒ false, no SQL.
      *
      * @param E                                                   $newBean
      * @param E|null                                              $oldBean
      * @param E|null                                              $projection
-     * @param array<string, array{Closure(E): mixed, ColumnType}> $foreignKeys coluna → [getter, tipo]
+     * @param array<string, array{Closure(E): mixed, ColumnType}> $foreignKeys column → [getter, type]
      */
     protected function updateBean(object $newBean, ?object $oldBean, ?object $projection, array $foreignKeys = []): bool
     {
@@ -257,7 +258,7 @@ abstract class AbstractRepository implements Repository
     private static function sameValue(mixed $a, mixed $b): bool
     {
         if ($a instanceof DateTimeInterface && $b instanceof DateTimeInterface) {
-            return $a == $b;   // == em datas compara o instante; === compararia a identidade do objeto
+            return $a == $b;   // == on dates compares the instant; === would compare object identity
         }
 
         return $a === $b;

@@ -8,7 +8,7 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Presenter\RootKeys;
 use Wdc\Shopping\Presentation\Place;
 
-/** Keys da área restrita (guarda, sem nomes próprios). */
+/** Keys of the restricted area (a guard, no names of its own). */
 class RestrictedKeys extends RootKeys
 {
     public function place(): CubePlace

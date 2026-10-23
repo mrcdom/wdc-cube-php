@@ -20,7 +20,7 @@ use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\Subject;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductInfo;
 
-/** O carrinho da sessão: itens em memória até a compra, que vira uma Purchase no banco. */
+/** The session's cart: items in memory until checkout, which becomes a Purchase in the database. */
 final class CartManager
 {
     /** @var list<CartItem> */
@@ -45,7 +45,7 @@ final class CartManager
     }
 
     /**
-     * Avisado depois de cada compra fechada. A Registration devolvida desfaz o registro.
+     * Notified after each completed purchase. The returned Registration undoes the registration.
      *
      * @param Closure(): mixed $listener
      */
@@ -60,7 +60,7 @@ final class CartManager
     }
 
     /**
-     * Avisado a cada mudança no conteúdo do carrinho.
+     * Notified on every change to the cart's contents.
      *
      * @param Closure(): mixed $listener
      */
@@ -75,16 +75,16 @@ final class CartManager
     }
 
     /**
-     * Cópia da lista (os itens em si são os mesmos objetos).
+     * A copy of the list (the items themselves are the same objects).
      *
      * @return list<CartItem>
      */
     public function cartItems(): array
     {
-        return $this->items;   // arrays são copiados ao sair da função — a lista interna não muda
+        return $this->items;   // arrays are copied when returned — the internal list does not change
     }
 
-    /** Produto já no carrinho ⇒ soma a quantidade. */
+    /** Product already in the cart ⇒ adds to the quantity. */
     public function addProduct(ProductInfo $product, int $quantity): void
     {
         $existing = $this->find($product->id);
@@ -93,7 +93,7 @@ final class CartManager
         } else {
             $this->items[] = CartItem::create($product, $quantity);
         }
-        // incluir e somar quantidade avisam os ouvintes
+        // adding and increasing the quantity both notify the listeners
         $this->fire($this->changeListeners);
     }
 
@@ -113,7 +113,7 @@ final class CartManager
     {
         foreach ($this->items as $i => $item) {
             if ($item->id === $productId) {
-                array_splice($this->items, $i, 1);   // remove e reindexa (mantém a lista como list)
+                array_splice($this->items, $i, 1);   // removes and reindexes (keeps the array a list)
                 $this->fire($this->changeListeners);
 
                 return true;
@@ -124,11 +124,11 @@ final class CartManager
     }
 
     /**
-     * Fecha a compra: grava compra e itens numa transação, esvazia o carrinho e avisa.
+     * Checks out: saves the purchase and its items in one transaction, empties the cart and notifies.
      *
-     * @return int id da compra
+     * @return int the purchase id
      *
-     * @throws InvalidCartItemException item com quantidade negativa
+     * @throws InvalidCartItemException an item with a negative quantity
      */
     public function commit(Subject $subject): int
     {
@@ -172,14 +172,14 @@ final class CartManager
             ->withBuyDate(new DateTimeImmutable())
             ->withItems($items);
 
-        // a única fronteira de transação da apresentação: compra + itens, tudo ou nada
+        // the presentation's only transaction boundary: purchase + items, all or nothing
         $this->tx->required(function () use ($purchase): void {
             if (!$this->purchases->insert($purchase)) {
                 throw new LogicException('Record not inserted');
             }
         });
 
-        return $purchase->id() ?? throw new LogicException('Compra sem id depois do insert');
+        return $purchase->id() ?? throw new LogicException('Purchase has no id after insert');
     }
 
     private function find(int $productId): ?CartItem
@@ -196,7 +196,7 @@ final class CartManager
     /** @param array<int, Closure(): mixed> $listeners */
     private function fire(array $listeners): void
     {
-        foreach ($listeners as $listener) {   // itera uma cópia: um ouvinte pode se remover
+        foreach ($listeners as $listener) {   // iterates a copy: a listener may remove itself
             $listener();
         }
     }

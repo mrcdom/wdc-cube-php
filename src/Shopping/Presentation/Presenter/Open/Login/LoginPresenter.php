@@ -43,9 +43,9 @@ final class LoginPresenter extends AbstractCubePresenter
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
     {
         if ($initialization) {
-            $this->view = (self::$createView ?? throw new LogicException('LoginPresenter::$createView não configurado'))($this);
+            $this->view = (self::$createView ?? throw new LogicException('LoginPresenter::$createView not configured'))($this);
         }
-        $this->ownerSlot = (new LoginKeys($this->app, $intent))->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+        $this->ownerSlot = (new LoginKeys($this->app, $intent))->ownerSlot;   // on every trip: the owner above decides the slot
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -60,14 +60,14 @@ final class LoginPresenter extends AbstractCubePresenter
         $this->update();
 
         if ($this->app->context->simulateSlowLogin) {
-            ($this->app->context->sleep)(3.0);   // sleep assíncrono: não pode travar o event loop
+            ($this->app->context->sleep)(3.0);   // asynchronous sleep: must not block the event loop
         }
 
         try {
             $result = $this->loginService->fetchSubject($userName, $password);
             if ($result === null) {
                 $this->app->setSubject(null);
-                $this->alertUserOrPasswordNotRecognize();
+                $this->alertUserOrPasswordNotRecognized();
             } else {
                 if ($result->persistentToken !== null) {
                     $this->app->clientPersistentStore()->secure()->set(StorageKeys::AUTH_TOKEN, $result->persistentToken);
@@ -89,7 +89,7 @@ final class LoginPresenter extends AbstractCubePresenter
     {
         return new Skeleton(
             'c677cda52d14',
-            function (int $event, int $qtde, array $form): void {
+            function (int $event, int $count, array $form): void {
                 match ($event) {
                     1 => $this->onEnter(
                         Coerce::asString($form['p.userName'] ?? null),
@@ -106,23 +106,23 @@ final class LoginPresenter extends AbstractCubePresenter
         );
     }
 
-    private function alertUserOrPasswordNotRecognize(): void
+    private function alertUserOrPasswordNotRecognized(): void
     {
         $this->state->errorCode = 1;
-        $this->state->errorMessage = 'Usuário ou senha não reconhecido!';
+        $this->state->errorMessage = 'Username or password not recognized!';
         $this->update();
     }
 
     private function alertDatabaseIsOffline(): void
     {
         $this->state->errorCode = 4;
-        $this->state->errorMessage = 'Banco de dados esta fora do ar!';
+        $this->state->errorMessage = 'The database is offline!';
         $this->update();
     }
 
     private function alertConnectionError(Throwable $caught): void
     {
-        $message = 'Falha de comunicação com o servidor. Verifique sua conexão.';
+        $message = 'Could not communicate with the server. Check your connection.';
         $this->state->errorCode = 5;
         $this->state->errorMessage = $message;
         $this->update();

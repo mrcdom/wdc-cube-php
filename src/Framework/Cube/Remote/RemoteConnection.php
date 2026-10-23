@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Cube\Remote;
 
-/** Uma conexão de cliente (no servidor, um WebSocket). */
+/** A client connection (on the server, a WebSocket). */
 interface RemoteConnection extends RemoteChannel
 {
-    /** Identifica esta conexão (uma sessão pode ter várias ao longo da vida: F5, queda de rede). */
+    /** Identifies this connection (a session may have several over its lifetime: F5, network drop). */
     public function connectionId(): string;
 
     public function close(int $code, string $reason): void;

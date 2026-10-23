@@ -6,17 +6,17 @@ namespace Wdc\Framework\Persistence\Transaction;
 
 use Wdc\Framework\Domain\Config\AppConfig;
 
-/** Parâmetros do coordenador de transação remota. Tempos em milissegundos. */
+/** Remote transaction coordinator settings. Times in milliseconds. */
 final readonly class RemoteTransactionOptions
 {
     public const int DEFAULT_IDLE_TIMEOUT_MS = 60_000;
-    /** Vida máxima desde a abertura: impede que um cliente "pingando" segure a conexão para sempre. */
+    /** Maximum lifetime since opening: keeps a "pinging" client from holding the connection forever. */
     public const int DEFAULT_MAX_LIFETIME_MS = 600_000;
-    /** Por quanto tempo o desfecho é lembrado, para commit/rollback repetidos serem idempotentes. */
+    /** How long the outcome is remembered, so repeated commit/rollback calls are idempotent. */
     public const int DEFAULT_OUTCOME_RETENTION_MS = 300_000;
-    /** Cada transação aberta segura uma conexão: teto global... */
+    /** Each open transaction holds a connection: global limit... */
     public const int DEFAULT_MAX_OPEN = 128;
-    /** ...e por dono, para um cliente não monopolizar o banco. */
+    /** ...and per owner, so one client cannot monopolize the database. */
     public const int DEFAULT_MAX_OPEN_PER_OWNER = 16;
 
     public function __construct(
@@ -28,7 +28,7 @@ final readonly class RemoteTransactionOptions
     ) {
     }
 
-    /** Lê `database.remoteTransaction.*` (tempos em segundos); chave ausente = padrão. */
+    /** Reads `database.remoteTransaction.*` (times in seconds); a missing key = the default. */
     public static function fromConfig(AppConfig $config, string $prefix = ''): self
     {
         $base = $prefix . 'database.remoteTransaction.';

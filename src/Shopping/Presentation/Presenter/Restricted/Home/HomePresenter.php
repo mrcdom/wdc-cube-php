@@ -29,8 +29,8 @@ use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
 
 /**
- * Home da área restrita: cabeçalho (nome, carrinho, sair), os dois painéis (vitrine e extrato)
- * e um slot onde abrem produto, carrinho e recibo.
+ * Home of the restricted area: header (name, cart, exit), the two panels (catalog and purchase
+ * history) and a slot where product, cart and receipt open.
  *
  * @extends AbstractCubePresenter<ShoppingApplication>
  */
@@ -51,7 +51,7 @@ final class HomePresenter extends AbstractCubePresenter
 
     private ?PurchasesPanelPresenter $purchasesPanel = null;
 
-    /** @var list<Registration> ouvintes do carrinho, desfeitos no release */
+    /** @var list<Registration> cart listeners, removed on release */
     private array $cartListeners = [];
 
     public function __construct(ShoppingApplication $app)
@@ -90,7 +90,7 @@ final class HomePresenter extends AbstractCubePresenter
         }
 
         if ($initialization || $this->view === null) {
-            $this->view = (self::$createView ?? throw new LogicException('HomePresenter::$createView não configurado'))($this);
+            $this->view = (self::$createView ?? throw new LogicException('HomePresenter::$createView not configured'))($this);
             $this->state->nickName = $subject->nickName;
 
             $this->productsPanel = new ProductsPanelPresenter($this->app, $this);
@@ -108,21 +108,21 @@ final class HomePresenter extends AbstractCubePresenter
         }
 
         $keys = new HomeKeys($this->app, $intent);
-        $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+        $this->ownerSlot = $keys->ownerSlot;   // on every trip: the owner above decides the slot
         if ($this->ownerSlot === null) {
             return false;
         }
         $this->ownerSlot->setView($this->view);
         if ($deepest) {
-            $this->setContentView(null);   // a home é o destino: mostra os painéis
+            $this->setContentView(null);   // the home is the destination: show the panels
         } else {
-            $keys->ownerSlot = $this->contentSlot;   // reoferece, com o mesmo nome, ao nível de baixo
+            $keys->ownerSlot = $this->contentSlot;   // re-offers it, under the same name, to the level below
         }
 
         return true;
     }
 
-    /** Estado derivado, recalculado logo antes de a view ser enviada ao cliente. */
+    /** Derived state, recomputed right before the view is sent to the client. */
     public function commitComputedState(): void
     {
         $count = $this->cart?->itemCount() ?? 0;
@@ -136,26 +136,26 @@ final class HomePresenter extends AbstractCubePresenter
     {
         try {
             if ($productId === null) {
-                $this->alert(6, 'Código do produto é um argumento obrigatório.');
+                $this->alert(6, 'Product code is a required argument.');
 
                 return;
             }
-            $product = ProductKeys::of($this->app);   // a viagem parte do estado atual
+            $product = ProductKeys::of($this->app);   // the trip starts from the current state
             $product->productId = $productId;
             $product->go();
         } catch (ProductNotFoundException) {
-            $this->alert(3, 'Código do produto não localizado.');
+            $this->alert(3, 'Product code not found.');
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError("Trying to go to product place to show productId={$productId}", $caught);
         }
     }
 
-    /** Recibo inexistente (PurchaseNotFoundException) vira o erro 5. */
+    /** A missing receipt (PurchaseNotFoundException) becomes error 5. */
     public function onOpenReceipt(?int $purchaseId): void
     {
         try {
             if ($purchaseId === null) {
-                $this->alert(7, 'Código do recibo é um argumento obrigatório.');
+                $this->alert(7, 'Receipt code is a required argument.');
 
                 return;
             }
@@ -163,7 +163,7 @@ final class HomePresenter extends AbstractCubePresenter
             $receipt->purchaseId = $purchaseId;
             $receipt->go();
         } catch (PurchaseNotFoundException) {
-            $this->alert(5, 'Código do recibo não localizado.');
+            $this->alert(5, 'Receipt code not found.');
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError("Trying to go to receipt place to show purchaseId={$purchaseId}", $caught);
         }
@@ -195,7 +195,7 @@ final class HomePresenter extends AbstractCubePresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('473dbdd7a36a', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('473dbdd7a36a', function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onExit(),
                 2 => $this->onOpenCart(),
@@ -229,7 +229,7 @@ final class HomePresenter extends AbstractCubePresenter
         if ($this->state->contentView !== $view) {
             $this->state->contentView = $view;
             $this->update();
-            if ($view === null) {   // voltou para a home: o extrato pode ter mudado
+            if ($view === null) {   // back to the home: the purchase history may have changed
                 $this->purchasesPanel?->loadPurchases();
             }
         }

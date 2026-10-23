@@ -20,8 +20,8 @@ use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
 /**
- * `/api/repo/user/*`. A senha nunca sai: é zerada em toda resposta e tirada das projeções.
- * Sem `data:all`, cada um só vê e altera o próprio usuário.
+ * `/api/repo/user/*`. The password never leaves: it is cleared in every response and removed from projections.
+ * Without `data:all`, each user only sees and changes their own user.
  */
 final class UserApiController extends ApiController
 {
@@ -150,7 +150,7 @@ final class UserApiController extends ApiController
         }
     }
 
-    /** Sem `data:all` só se grava o próprio usuário. */
+    /** Without `data:all` a user can only save themselves. */
     private static function enforceUserScope(?SecurityContext $context, User $user): void
     {
         if ($context !== null && SecurityEnforcer::isScoped($context) && $user->id() !== null && $user->id() !== $context->userId()) {
@@ -159,8 +159,8 @@ final class UserApiController extends ApiController
     }
 
     /**
-     * A senha pode vir cifrada com a chave pública da sessão (RSA-OAEP com SHA-256, Base64) —
-     * a que o login devolve em `publicKey`. Se não decifrar, é usada como veio.
+     * The password may come encrypted with the session's public key (RSA-OAEP with SHA-256, Base64) —
+     * the one login returns in `publicKey`. If it does not decrypt, it is used as received.
      */
     private function decryptPasswordIfPresent(User $user): void
     {

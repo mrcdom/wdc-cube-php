@@ -7,7 +7,7 @@ namespace Wdc\Shopping\Presentation;
 use Wdc\Framework\Cube\CubeIntent;
 
 /**
- * Cada rota é a cadeia de places da raiz até o destino. Intent omitido = estado atual
+ * Each route is the chain of places from the root to the destination. Omitted intent = current state
  * (`$app->newIntent()`).
  */
 final class Routes
@@ -16,14 +16,14 @@ final class Routes
     {
     }
 
-    // -- nível 0 --
+    // -- level 0 --
 
     public static function root(ShoppingApplication $app, ?CubeIntent $intent = null): bool
     {
         return $app->subject() === null ? self::login($app, $intent) : self::home($app, $intent);
     }
 
-    // -- nível 1 --
+    // -- level 1 --
 
     public static function open(ShoppingApplication $app, ?CubeIntent $intent = null): bool
     {
@@ -37,7 +37,7 @@ final class Routes
             ->execute($intent ?? $app->newIntent());
     }
 
-    // -- nível 2 --
+    // -- level 2 --
 
     public static function login(ShoppingApplication $app, ?CubeIntent $intent = null): bool
     {
@@ -51,7 +51,7 @@ final class Routes
             ->execute($intent ?? $app->newIntent());
     }
 
-    // -- nível 3 --
+    // -- level 3 --
 
     public static function cart(ShoppingApplication $app, ?CubeIntent $intent = null): bool
     {

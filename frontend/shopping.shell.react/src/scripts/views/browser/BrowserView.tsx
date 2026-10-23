@@ -12,7 +12,7 @@ const ON_ALERT_OK = 1
 // :: View
 
 class BrowserViewClass extends BaseViewClass<ViewProps, BrowserViewState> {
-  // :: Renderes
+  // :: Renderers
 
   override render({ className }: ViewProps) {
     const { state } = this
@@ -26,7 +26,7 @@ class BrowserViewClass extends BaseViewClass<ViewProps, BrowserViewState> {
 
     let connectionAlert: ReactNode
     if (state.error) {
-      connectionAlert = <ConnectionAlert delay={state.error.delay} onReconnectNow={this.onRecconectNow} />
+      connectionAlert = <ConnectionAlert delay={state.error.delay} onReconnectNow={this.onReconnectNow} />
     }
 
     let rootView: ReactNode
@@ -57,14 +57,14 @@ class BrowserViewClass extends BaseViewClass<ViewProps, BrowserViewState> {
     )
   }
 
-  // :: Emissores
+  // :: Emitters
 
   readonly emitAlertOk = () => {
     const { vsid } = this
     bridge.submit(vsid, ON_ALERT_OK)
   }
 
-  readonly onRecconectNow = () => {
+  readonly onReconnectNow = () => {
     bridge.connect()
   }
 }
@@ -88,11 +88,11 @@ function AppAlert(props: AppAlertProps) {
       detailMessage = props.args[1]
       break
     case -2:
-      msgNode = "A URI " + props.args[0] + " não está acessível"
+      msgNode = "The URI " + props.args[0] + " is not reachable"
       detailMessage = props.args[1]
       break
     default:
-      msgNode = props.args.length > 0 ? props.args[0] : "Ocorreu um erro não esperado"
+      msgNode = props.args.length > 0 ? props.args[0] : "An unexpected error occurred"
   }
 
   return (
@@ -102,7 +102,7 @@ function AppAlert(props: AppAlertProps) {
       </span>
       <div style={{ flex: 1 }}>
         <div className={clsx(Sel.fontBold, Sel.textSm)} style={{ color: "var(--app-error-text)" }}>
-          Aviso!
+          Warning!
         </div>
         <span className={Sel.alertErrorText}>{msgNode}</span>
         {detailMessage && (
@@ -135,10 +135,10 @@ function ConnectionAlert(props: ConnectionAlertProps) {
       minutes = Math.floor(seconds / 60)
       seconds = seconds - minutes * 60
     }
-    timeText = minutes > 0 ? `Conectando em ${minutes}m e ${seconds}s...` : `Conectando em ${seconds}s...`
+    timeText = minutes > 0 ? `Connecting in ${minutes}m ${seconds}s...` : `Connecting in ${seconds}s...`
     showRetry = true
   } else {
-    timeText = "Conectando agora..."
+    timeText = "Connecting now..."
   }
 
   return (
@@ -148,7 +148,7 @@ function ConnectionAlert(props: ConnectionAlertProps) {
         style={{ display: "inline-flex", borderRadius: "0 0 8px 8px", padding: "6px 12px", margin: 0 }}
       >
         <span className={clsx(Sel.fontBold, Sel.textSm)} style={{ color: "var(--app-error-text)" }}>
-          Não conectado.
+          Not connected.
         </span>{" "}
         <span className={Sel.textSm} style={{ color: "var(--app-error-text)" }}>
           {timeText}
@@ -159,7 +159,7 @@ function ConnectionAlert(props: ConnectionAlertProps) {
             style={{ color: "var(--app-accent)", textDecoration: "underline" }}
             onClick={props.onReconnectNow}
           >
-            Tentar agora
+            Try now
           </span>
         )}
       </div>

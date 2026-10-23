@@ -7,7 +7,7 @@ namespace Wdc\Framework\Persistence\Transaction;
 use Amp\Postgres\PostgresConnection;
 use Amp\Postgres\PostgresTransaction;
 
-/** @internal uma transação remota aberta */
+/** @internal an open remote transaction */
 final class RemoteTransactionEntry
 {
     public bool $inUse = false;

@@ -15,7 +15,7 @@ use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
 use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
-/** Repositório de itens de compra: consultas, critérios e escrita sobre o seed. */
+/** Purchase item repository: queries, criteria and writes over the seed. */
 final class PurchaseItemRepositoryTest extends RepositoryTestCase
 {
     private function repo(): PurchaseItemRepository
@@ -37,7 +37,7 @@ final class PurchaseItemRepositoryTest extends RepositoryTestCase
         self::assertSame(1, $item->amount());
         self::assertSame(200.0, $item->price());
         self::assertSame(Seed::ADMIN_FIRST_PURCHASE_ID, $item->purchaseId());
-        self::assertSame(Seed::CAFETEIRA_ID, $item->productId());
+        self::assertSame(Seed::COFFEE_MAKER_ID, $item->productId());
     }
 
     #[Test]
@@ -60,7 +60,7 @@ final class PurchaseItemRepositoryTest extends RepositoryTestCase
     public function fetchWithProductName_loadsTheProduct(): void
     {
         $item = $this->repo()->fetchById(Seed::ADMIN_SECOND_PURCHASE_ITEM1_ID, new PurchaseItem()->withProduct(new Product()->withName(PV::STR)));
-        self::assertSame('Fita veda rosca', $item?->product()?->name());
+        self::assertSame('Thread seal tape', $item?->product()?->name());
     }
 
     #[Test]
@@ -74,16 +74,16 @@ final class PurchaseItemRepositoryTest extends RepositoryTestCase
     public function fetchByUserId_crossEntityExists(): void
     {
         self::assertCount(3, $this->repo()->fetch(new PurchaseItemCriteria()->withUserId(Seed::ADMIN_ID)));
-        self::assertSame([], $this->repo()->fetch(new PurchaseItemCriteria()->withUserId(Seed::FULANO_ID)));
+        self::assertSame([], $this->repo()->fetch(new PurchaseItemCriteria()->withUserId(Seed::JOHN_ID)));
     }
 
     #[Test]
     public function fetchByProductId(): void
     {
-        $items = $this->repo()->fetch(new PurchaseItemCriteria()->withProductId(Seed::CAFETEIRA_ID));
+        $items = $this->repo()->fetch(new PurchaseItemCriteria()->withProductId(Seed::COFFEE_MAKER_ID));
         self::assertNotEmpty($items);
         foreach ($items as $item) {
-            self::assertSame(Seed::CAFETEIRA_ID, $item->productId());
+            self::assertSame(Seed::COFFEE_MAKER_ID, $item->productId());
         }
     }
 
@@ -110,14 +110,14 @@ final class PurchaseItemRepositoryTest extends RepositoryTestCase
             ->withAmount(5)
             ->withPrice(15.50)
             ->withPurchase(new Purchase()->withId(Seed::ADMIN_FIRST_PURCHASE_ID))
-            ->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID));
+            ->withProduct(new Product()->withId(Seed::FLASH_DRIVE2GB_ID));
         self::assertTrue($this->repo()->insert($item));
         self::assertNotNull($item->id());
 
         $fetched = $this->repo()->fetchById($item->id());
         self::assertSame(5, $fetched?->amount());
         self::assertEqualsWithDelta(15.50, $fetched->price(), 0.001);
-        self::assertSame(Seed::PEN_DRIVE2GB_ID, $fetched->productId());
+        self::assertSame(Seed::FLASH_DRIVE2GB_ID, $fetched->productId());
     }
 
     #[Test]
@@ -142,16 +142,16 @@ final class PurchaseItemRepositoryTest extends RepositoryTestCase
     #[Test]
     public function update_changingProduct_keepsPurchase(): void
     {
-        // regressão: o update não pode gravar o productId em PURCHASEID
+        // regression: the update must not write the productId into PURCHASEID
         $original = $this->repo()->fetchById(Seed::ADMIN_FIRST_PURCHASE_ITEM0_ID);
         self::assertNotNull($original);
         $updated = clone $original;
-        $updated->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID));
+        $updated->withProduct(new Product()->withId(Seed::FLASH_DRIVE2GB_ID));
 
         self::assertTrue($this->repo()->update($updated, $original));
 
         $fetched = $this->repo()->fetchById(Seed::ADMIN_FIRST_PURCHASE_ITEM0_ID);
-        self::assertSame(Seed::PEN_DRIVE2GB_ID, $fetched?->productId());
+        self::assertSame(Seed::FLASH_DRIVE2GB_ID, $fetched?->productId());
         self::assertSame(Seed::ADMIN_FIRST_PURCHASE_ID, $fetched->purchaseId());
     }
 
@@ -173,7 +173,7 @@ final class PurchaseItemRepositoryTest extends RepositoryTestCase
     public function deleteByUserId_crossEntityExists(): void
     {
         self::assertSame(3, $this->repo()->delete(new PurchaseItemCriteria()->withUserId(Seed::ADMIN_ID)));
-        self::assertSame(0, $this->repo()->delete(new PurchaseItemCriteria()->withUserId(Seed::FULANO_ID)));
+        self::assertSame(0, $this->repo()->delete(new PurchaseItemCriteria()->withUserId(Seed::JOHN_ID)));
     }
 
     #[Test]

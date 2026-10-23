@@ -15,18 +15,18 @@ use Wdc\Shopping\Presentation\Place;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Todo nome de parâmetro e de atributo é único na aplicação: uma navegação passa o MESMO intent
- * por todos os `applyParameters` do caminho, e dois donos do mesmo nome se sobrescreveriam em
- * silêncio. Por isso cada `*Keys.php` declara os seus nomes numa tabela local de constantes
- * (`P_*` parâmetros, `A_*` atributos), todos começando por um PREFIX de duas letras só dele.
- * Este teste impede que a regra dependa da memória de alguém.
+ * Every parameter and attribute name is unique in the application: a navigation passes the SAME intent
+ * through every `applyParameters` along the path, and two owners of the same name would silently
+ * overwrite each other. So each `*Keys.php` declares its names in a local table of constants
+ * (`P_*` parameters, `A_*` attributes), all starting with a two-letter PREFIX of its own.
+ * This test keeps the rule from depending on anyone's memory.
  */
 final class KeysNamesTest extends TestCase
 {
-    /** Código da aplicação (o framework não declara nomes). */
+    /** Application code (the framework declares no names). */
     private const string SOURCES = __DIR__ . '/../../../src/Shopping';
 
-    /** Acesso ao intent por nome. */
+    /** Access to the intent by name. */
     private const string ACCESS = '/\$(?:this->)?intent->(?:getParameter\w*|setParameter|removeParameter|getAttribute|setAttribute|removeAttribute|getViewSlot|setViewSlot)\(\s*([^,)]+)/';
 
     /** @return list<string> */
@@ -71,17 +71,17 @@ final class KeysNamesTest extends TestCase
             preg_match_all('/const string ([PA]_\w+) = (.+?);/', $source, $tables, PREG_SET_ORDER);
             $codes = [];
             foreach ($tables as [, $name, $value]) {
-                self::assertMatchesRegularExpression("/^self::PREFIX \\. '-[a-z0-9-]+'$/", $value, "{$file}: {$name} fora do formato self::PREFIX . '-código'");
+                self::assertMatchesRegularExpression("/^self::PREFIX \\. '-[a-z0-9-]+'$/", $value, "{$file}: {$name} outside the format self::PREFIX . '-code'");
                 $codes[] = $value;
             }
             if ($codes !== []) {
-                self::assertMatchesRegularExpression('/^[a-z]{2}$/', $prefix[1] ?? '', "{$file}: quem declara nomes precisa de um PREFIX de duas letras");
+                self::assertMatchesRegularExpression('/^[a-z]{2}$/', $prefix[1] ?? '', "{$file}: a file that declares names needs a two-letter PREFIX");
             }
-            self::assertSame(count($codes), count(array_unique($codes)), "{$file}: código local repetido");
+            self::assertSame(count($codes), count(array_unique($codes)), "{$file}: duplicated local code");
 
             preg_match_all(self::ACCESS, $source, $calls);
             foreach ($calls[1] as $argument) {
-                self::assertMatchesRegularExpression('/^self::[PA]_\w+$/', trim($argument), "{$file}: nome solto, fora da tabela");
+                self::assertMatchesRegularExpression('/^self::[PA]_\w+$/', trim($argument), "{$file}: loose name, outside the table");
             }
         }
     }
@@ -97,10 +97,10 @@ final class KeysNamesTest extends TestCase
         }
         $shared = array_filter($owners, static fn (array $files) => count($files) > 1);
 
-        self::assertSame([], $shared, 'prefixo usado por mais de um arquivo de keys');
+        self::assertSame([], $shared, 'prefix used by more than one keys file');
     }
 
-    /** Cada place tem a SUA classe de keys - inclusive guardas e telas sem parâmetros. */
+    /** Every place has ITS OWN keys class - guards and parameterless screens included. */
     #[Test]
     public function everyPlaceHasExactlyOneKeysClass(): void
     {
@@ -112,12 +112,12 @@ final class KeysNamesTest extends TestCase
                 continue;
             }
             /** @var CubeKeys<ShoppingApplication> $keys */
-            $keys = $reflection->newInstanceWithoutConstructor();   // place() não depende do estado
+            $keys = $reflection->newInstanceWithoutConstructor();   // place() does not depend on state
             $owners[$keys->place()->name()][] = $class;
         }
 
         foreach (Place::cases() as $place) {
-            self::assertCount(1, $owners[$place->name()] ?? [], "place {$place->name}: precisa de exatamente uma classe de keys");
+            self::assertCount(1, $owners[$place->name()] ?? [], "place {$place->name}: needs exactly one keys class");
         }
     }
 
@@ -126,7 +126,7 @@ final class KeysNamesTest extends TestCase
     {
         preg_match('/^namespace ([^;]+);/m', (string) file_get_contents($path), $ns);
         $class = ($ns[1] ?? '') . '\\' . basename($path, '.php');
-        self::assertTrue(class_exists($class), "classe {$class} não encontrada");
+        self::assertTrue(class_exists($class), "class {$class} not found");
 
         return $class;
     }
@@ -144,6 +144,6 @@ final class KeysNamesTest extends TestCase
             }
         }
 
-        self::assertSame([], $loose, 'acesso ao intent por nome fora das keys: use a classe de keys do place');
+        self::assertSame([], $loose, 'intent access by name outside the keys: use the place keys class');
     }
 }

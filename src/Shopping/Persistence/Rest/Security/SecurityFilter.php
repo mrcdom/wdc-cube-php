@@ -13,10 +13,10 @@ use Wdc\Framework\Rest\RestRequest;
 use Wdc\Framework\Rest\RestResponse;
 
 /**
- * Filtro dos endpoints protegidos (`/api/repo/*`, `/api/tx/*`): exige `Authorization: Bearer
- * <jwt>`, valida pelo AuthenticationService e dá o contexto de segurança da requisição.
+ * Filter for the protected endpoints (`/api/repo/*`, `/api/tx/*`): requires `Authorization: Bearer
+ * <jwt>`, validates it through the AuthenticationService and provides the request's security context.
  *
- * Ficam de fora o preflight de CORS (OPTIONS) e a imagem de produto (catálogo público).
+ * The CORS preflight (OPTIONS) and the product image (public catalog) are left out.
  */
 final readonly class SecurityFilter implements RestFilter
 {

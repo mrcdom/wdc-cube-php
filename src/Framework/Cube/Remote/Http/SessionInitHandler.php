@@ -13,9 +13,9 @@ use Wdc\Framework\Cube\Remote\RemoteApplicationRegistry;
 use Wdc\Framework\Cube\Remote\ViewStateSerializer;
 
 /**
- * `GET /api/session/init` — o início de sessão para clientes que não são browser (desktop,
- * mobile, probes): devolve `{appId, appSKey}` em JSON, no lugar dos cookies do index.html.
- * O cliente manda o `secret` na 1ª mensagem do WebSocket.
+ * `GET /api/session/init` — session start for non-browser clients (desktop,
+ * mobile, probes): returns `{appId, appSKey}` as JSON, instead of the index.html cookies.
+ * The client sends the `secret` in the first WebSocket message.
  */
 final readonly class SessionInitHandler implements RequestHandler
 {

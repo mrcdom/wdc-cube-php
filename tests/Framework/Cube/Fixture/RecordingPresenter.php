@@ -9,8 +9,8 @@ use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubeView;
 
 /**
- * Presenter que anota cada chamada no log da app. Lê/publica um parâmetro com o próprio
- * nome do place (ex.: "page=7").
+ * Presenter that records every call in the app log. Reads/publishes a parameter named after
+ * its own place (e.g. "page=7").
  *
  * @extends AbstractCubePresenter<TestApp>
  */
@@ -18,7 +18,7 @@ final class RecordingPresenter extends AbstractCubePresenter
 {
     public ?string $value = null;
 
-    /** Para o teste de slot: a view que um filho encaixou aqui. */
+    /** For the slot test: the view a child plugged in here. */
     public ?CubeView $content = null;
 
     public function __construct(TestApp $app, public readonly TestPlace $place)

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Base dos presenters navegáveis.
+ * Base for navigable presenters.
  *
  * @template A of CubeApplication
  */

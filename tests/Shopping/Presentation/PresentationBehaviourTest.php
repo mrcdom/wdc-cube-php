@@ -22,7 +22,7 @@ use Wdc\Tests\Shopping\Presentation\Mock\ProductViewMock;
 use Wdc\Tests\Shopping\Presentation\Mock\ReceiptViewMock;
 use Wdc\Tests\Shopping\Presentation\Mock\ShoppingApplicationMock;
 
-/** Comportamentos de apresentação além do fluxo principal (contadores, erros, casos de borda). */
+/** Presentation behaviours beyond the main flow (counters, errors, edge cases). */
 final class PresentationBehaviourTest extends PresentationTestCase
 {
     private function home(): HomeViewMock
@@ -33,13 +33,13 @@ final class PresentationBehaviourTest extends PresentationTestCase
     #[Test]
     public function guards_sendAnonymousUsersToLogin_andLoggedUsersToHome(): void
     {
-        self::assertFalse($this->app->go('cart'), 'área restrita sem login: a navegação é desviada');
+        self::assertFalse($this->app->go('cart'), 'restricted area without login: navigation is redirected');
         self::assertSame(Place::LOGIN, $this->app->lastPlace());
         LoginViewMock::cast($this->app->rootView()->state->contentView);
 
         $this->login();
         $this->app->go('open');
-        self::assertSame(Place::HOME, $this->app->lastPlace(), 'logado não volta para a área pública');
+        self::assertSame(Place::HOME, $this->app->lastPlace(), 'a logged-in user does not go back to the public area');
     }
 
     #[Test]
@@ -47,10 +47,10 @@ final class PresentationBehaviourTest extends PresentationTestCase
     {
         $this->login();
 
-        $this->app->go('product?pr-id=' . Seed::BOLA_WILSON_ID);
+        $this->app->go('product?pr-id=' . Seed::WILSON_BALL_ID);
 
-        self::assertSame(Seed::BOLA_WILSON_ID, ProductViewMock::cast($this->home()->state->contentView)->state->product?->id);
-        self::assertSame('product?rt-user=0&pr-id=1', (string) $this->app->newIntent(), 'a URL vem dos presenters');
+        self::assertSame(Seed::WILSON_BALL_ID, ProductViewMock::cast($this->home()->state->contentView)->state->product?->id);
+        self::assertSame('product?rt-user=0&pr-id=1', (string) $this->app->newIntent(), 'the URL comes from the presenters');
     }
 
     #[Test]
@@ -60,14 +60,14 @@ final class PresentationBehaviourTest extends PresentationTestCase
         $token = $this->app->clientPersistentStore()->secure()->get(StorageKeys::AUTH_TOKEN);
         self::assertNotNull($token);
 
-        // outra sessão (outra aba, servidor reiniciado...) com o mesmo armazenamento do browser
+        // another session (another tab, restarted server...) with the same browser storage
         $storage = new InMemoryClientStorage();
         $storage->secure()->set(StorageKeys::AUTH_TOKEN, $token);
         $other = new ShoppingApplicationMock($this->context, $storage);
         Routes::root($other);
 
-        self::assertSame(Place::HOME, $other->lastPlace(), 'auto-login pelo token persistente');
-        self::assertSame('João da Silva', HomeViewMock::cast($other->rootView()->state->contentView)->state->nickName);
+        self::assertSame(Place::HOME, $other->lastPlace(), 'auto-login through the persistent token');
+        self::assertSame('John Smith', HomeViewMock::cast($other->rootView()->state->contentView)->state->nickName);
         $other->release();
     }
 
@@ -75,7 +75,7 @@ final class PresentationBehaviourTest extends PresentationTestCase
     public function invalidPersistentToken_isDiscarded(): void
     {
         $storage = new InMemoryClientStorage();
-        $storage->secure()->set(StorageKeys::AUTH_TOKEN, 'lixo');
+        $storage->secure()->set(StorageKeys::AUTH_TOKEN, 'garbage');
         $other = new ShoppingApplicationMock($this->context, $storage);
         Routes::root($other);
 
@@ -97,15 +97,15 @@ final class PresentationBehaviourTest extends PresentationTestCase
     #[Test]
     public function cartErrors_clearThemselvesAfterThreeSeconds(): void
     {
-        $this->login()->presenter->onOpenProduct(Seed::CAFETEIRA_ID);
+        $this->login()->presenter->onOpenProduct(Seed::COFFEE_MAKER_ID);
         ProductViewMock::cast($this->home()->state->contentView)->presenter->onAddToCart(1);
         $cart = CartViewMock::cast($this->home()->state->contentView);
 
-        $cart->presenter->onModifyQuantity(Seed::CAFETEIRA_ID, 0);
+        $cart->presenter->onModifyQuantity(Seed::COFFEE_MAKER_ID, 0);
         self::assertSame(1, $cart->state->errorCode);
 
         $this->scheduler->advance(CartPresenter::ERROR_CLEAR_DELAY_SECONDS - 0.1);
-        self::assertSame(1, $cart->state->errorCode, 'ainda não');
+        self::assertSame(1, $cart->state->errorCode, 'not yet');
         $this->scheduler->advance(0.2);
         self::assertSame(0, $cart->state->errorCode);
         self::assertNull($cart->state->errorMessage);
@@ -116,11 +116,11 @@ final class PresentationBehaviourTest extends PresentationTestCase
     {
         $this->login();
         foreach ([2, 3] as $quantity) {
-            $this->home()->presenter->onOpenProduct(Seed::PEN_DRIVE2GB_ID);
+            $this->home()->presenter->onOpenProduct(Seed::FLASH_DRIVE2GB_ID);
             ProductViewMock::cast($this->home()->state->contentView)->presenter->onAddToCart($quantity);
         }
 
-        self::assertSame(5, $this->home()->state->cartItemCount, 'somar quantidade também avisa, não só a inclusão');
+        self::assertSame(5, $this->home()->state->cartItemCount, 'adding to the quantity notifies too, not just adding an item');
     }
 
     #[Test]
@@ -128,7 +128,7 @@ final class PresentationBehaviourTest extends PresentationTestCase
     {
         $this->login()->presenter->onOpenReceipt(PHP_INT_MAX);
 
-        self::assertSame(5, $this->home()->state->errorCode, 'compra inexistente cai no erro 5');
+        self::assertSame(5, $this->home()->state->errorCode, 'a nonexistent purchase ends in error 5');
     }
 
     #[Test]
@@ -138,7 +138,7 @@ final class PresentationBehaviourTest extends PresentationTestCase
 
         $receipt = ReceiptViewMock::cast($this->home()->state->contentView);
         self::assertFalse($receipt->state->notifySuccess);
-        self::assertSame([1, 2], array_map(static fn ($i) => $i->id, $receipt->state->receipt->items ?? []), 'itens por id');
+        self::assertSame([1, 2], array_map(static fn ($i) => $i->id, $receipt->state->receipt->items ?? []), 'items by id');
     }
 
     #[Test]
@@ -147,15 +147,15 @@ final class PresentationBehaviourTest extends PresentationTestCase
         Routes::login($this->app);
         $login = LoginViewMock::cast($this->app->rootView()->state->contentView);
         $login->presenter->skeleton()->syncState(['userName' => 'adm']);
-        self::assertSame('adm', $login->state->userName, 'campos sem "p." sincronizam o estado');
+        self::assertSame('adm', $login->state->userName, 'fields without "p." sync the state');
 
-        // a senha chega cifrada com a chave da sessão (no mock, Base64)
+        // the password arrives encrypted with the session key (Base64 in the mock)
         $login->presenter->skeleton()->submit(1, 1, ['p.userName' => 'admin', 'p.password' => base64_encode('admin')]);
         $home = $this->home();
 
-        $home->productsPanel()->presenter->skeleton()->submit(1, 1, ['p.productId' => (string) Seed::FITA_VEDA_ROSCA_ID]);
+        $home->productsPanel()->presenter->skeleton()->submit(1, 1, ['p.productId' => (string) Seed::THREAD_SEAL_TAPE_ID]);
         $product = ProductViewMock::cast($this->home()->state->contentView);
-        self::assertSame(Seed::FITA_VEDA_ROSCA_ID, $product->state->product?->id, 'número chega como texto do JSON');
+        self::assertSame(Seed::THREAD_SEAL_TAPE_ID, $product->state->product?->id, 'the number arrives as JSON text');
 
         $product->presenter->skeleton()->submit(2, 1, ['p.quantity' => 2]);
         self::assertSame(2, CartViewMock::cast($this->home()->state->contentView)->state->items[0]->quantity ?? null);
@@ -171,10 +171,10 @@ final class PresentationBehaviourTest extends PresentationTestCase
         Beans::set(AuthenticationService::class, null);
         $app = new ShoppingApplicationMock(new ShoppingContext($this->scheduler));
         Routes::login($app);
-        LoginViewMock::cast($app->rootView()->state->contentView)->presenter->onEnter('fulano', 'fulano');
+        LoginViewMock::cast($app->rootView()->state->contentView)->presenter->onEnter('john', 'john');
 
         self::assertSame(Place::HOME, $app->lastPlace());
-        self::assertNull($app->clientPersistentStore()->secure()->get(StorageKeys::AUTH_TOKEN), 'sem "lembrar-me"');
+        self::assertNull($app->clientPersistentStore()->secure()->get(StorageKeys::AUTH_TOKEN), 'no "remember me"');
         $app->release();
     }
 }

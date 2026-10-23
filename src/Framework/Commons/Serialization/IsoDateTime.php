@@ -9,12 +9,12 @@ use DateTimeZone;
 use Wdc\Framework\Domain\Exception\InvalidRequestException;
 
 /**
- * Data e hora em ISO-8601 com deslocamento: `2024-01-15T10:30:00Z`,
- * `2024-01-15T10:30:00.25-03:00`. Fração só quando não é zero; deslocamento zero vira "Z".
+ * Date and time in ISO-8601 with offset: `2024-01-15T10:30:00Z`,
+ * `2024-01-15T10:30:00.25-03:00`. Fraction only when non-zero; a zero offset becomes "Z".
  */
 final class IsoDateTime
 {
-    /** o ano pode ter sinal e até 9 dígitos: clientes mandam o ano -999999999 como valor-sentinela nas projeções */
+    /** the year may be signed and have up to 9 digits: clients send year -999999999 as a sentinel value in projections */
     private const string PATTERN = '/^[+-]?\d{4,9}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2}(:\d{2})?)$/';
 
     private function __construct()
@@ -25,7 +25,7 @@ final class IsoDateTime
     {
         $text = $value->format('Y-m-d\TH:i:s');
         if ((int) $value->format('Y') > 9999) {
-            $text = '+' . $text;   // ano fora de 0000–9999 leva sinal (ISO-8601 estendido)
+            $text = '+' . $text;   // a year outside 0000–9999 gets a sign (extended ISO-8601)
         }
         $micros = (int) $value->format('u');
         if ($micros !== 0) {
@@ -36,8 +36,8 @@ final class IsoDateTime
     }
 
     /**
-     * Um instante em UTC: `2024-01-15T10:30:00Z`, com a
-     * fração (quando há) em grupos de 3 dígitos — `.250`, `.123456`.
+     * An instant in UTC: `2024-01-15T10:30:00Z`, with the
+     * fraction (if any) in groups of 3 digits — `.250`, `.123456`.
      */
     public static function formatInstant(DateTimeImmutable $value): string
     {
@@ -52,13 +52,13 @@ final class IsoDateTime
         return $utc->format('Y-m-d\TH:i:s') . $fraction . 'Z';
     }
 
-    /** Aceita só ISO-8601 estrito — recusa "now", "tomorrow" e cia., que o PHP aceitaria. */
+    /** Accepts strict ISO-8601 only — rejects "now", "tomorrow" and the like, which PHP would accept. */
     public static function parse(string $text): DateTimeImmutable
     {
         if (preg_match(self::PATTERN, $text) !== 1) {
-            throw new InvalidRequestException("Data e hora fora do formato ISO-8601 com deslocamento: '{$text}'");
+            throw new InvalidRequestException("Date and time not in ISO-8601 format with offset: '{$text}'");
         }
-        // o PHP guarda microssegundos: corta a fração em 6 dígitos (o formato admite até 9, nanossegundos)
+        // PHP stores microseconds: cut the fraction to 6 digits (the format allows up to 9, nanoseconds)
         $text = preg_replace('/(\.\d{6})\d+/', '$1', $text) ?? $text;
 
         return new DateTimeImmutable($text);

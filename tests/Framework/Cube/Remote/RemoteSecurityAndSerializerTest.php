@@ -58,7 +58,7 @@ final class SampleState implements ViewState
     public ?DateTimeImmutable $at = null;
 
     #[Transient]
-    public string $secret = 'não sai';
+    public string $secret = 'not sent';
 }
 
 final class RemoteSecurityAndSerializerTest extends TestCase
@@ -91,7 +91,7 @@ final class RemoteSecurityAndSerializerTest extends TestCase
         $data = ViewStateSerializer::serialize($state, 'x:1');
 
         self::assertSame('[]', ViewStateSerializer::json($data['items']));
-        self::assertSame('[]', ViewStateSerializer::json($data['map']), 'array vazio é ambíguo em PHP: sai como lista');
+        self::assertSame('[]', ViewStateSerializer::json($data['map']), 'an empty array is ambiguous in PHP: it is emitted as a list');
     }
 
     #[Test]
@@ -100,14 +100,14 @@ final class RemoteSecurityAndSerializerTest extends TestCase
         $keys = RemoteAppSecurity::generateDevKeys();
         $security = new RemoteAppSecurity(Rsa::fromBase36($keys['rsaPublicKey'], $keys['rsaPrivateKey']), $keys['signPublicKey'], $keys['signPrivateKey']);
 
-        self::assertSame($security->sign('home?userId=0'), $security->sign('home?userId=0'), 'PKCS#1 v1.5: mesma entrada, mesma assinatura');
+        self::assertSame($security->sign('home?userId=0'), $security->sign('home?userId=0'), 'PKCS#1 v1.5: same input, same signature');
         self::assertTrue($security->isSignatureValid('home?userId=0', $security->sign('home?userId=0')));
         self::assertSame(16, strlen($security->signAsHash('x')));
 
         $appId = $security->newAppId();
         self::assertTrue($security->isValidAppId($appId));
         self::assertFalse($security->isValidAppId($appId . 'x'));
-        self::assertFalse($security->isValidAppId('sem-ponto'));
+        self::assertFalse($security->isValidAppId('no-dot'));
         self::assertMatchesRegularExpression('/^[0-9A-Za-z]+\.[0-9A-Za-z]+$/', $appId);
     }
 }

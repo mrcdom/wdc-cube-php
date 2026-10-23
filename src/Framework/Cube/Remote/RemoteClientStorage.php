@@ -8,11 +8,11 @@ use Throwable;
 use Wdc\Framework\Commons\Storage\ClientStorage;
 
 /**
- * Espelho no servidor do armazenamento do browser (sessionStorage/localStorage).
+ * Server-side mirror of the browser storage (sessionStorage/localStorage).
  *
- * Na criação da sessão o cliente manda tudo o que tem (cifrado); depois, cada alteração feita
- * pela app vira um "delta" que sai na próxima resposta, cifrado. Três escopos no fio:
- * `session`, `persistent` e `persistent-secure` (os dois últimos são o mesmo mapa no servidor).
+ * When the session is created the client sends everything it has (encrypted); afterwards, every change
+ * made by the app becomes a "delta" sent, encrypted, in the next response. Three scopes on the wire:
+ * `session`, `persistent` and `persistent-secure` (the last two are the same map on the server).
  */
 final class RemoteClientStorage
 {
@@ -26,14 +26,14 @@ final class RemoteClientStorage
     /** @var array<string, string> */
     private array $persistentData = [];
 
-    /** @var array<string, array<string, ?string>> escopo → chave → valor (null = remover) */
+    /** @var array<string, array<string, ?string>> scope → key → value (null = remove) */
     private array $deltas = [];
 
     public function __construct(private readonly RemoteDataSecurity $security)
     {
     }
 
-    /** Carga inicial vinda do cliente. Valores que não decifram são ignorados. */
+    /** Initial load coming from the client. Values that fail to decrypt are ignored. */
     public function loadFromBootstrap(mixed $storage): void
     {
         if (!is_array($storage)) {
@@ -45,7 +45,7 @@ final class RemoteClientStorage
     }
 
     /**
-     * Deltas pendentes já cifrados para o fio, e os limpa. null = nada a enviar.
+     * Pending deltas, already encrypted for the wire, and clears them. null = nothing to send.
      *
      * @return array<string, array<string, ?string>>|null
      */
@@ -70,7 +70,7 @@ final class RemoteClientStorage
         return new ScopedClientStorage($this->sessionData, $this->recorder(self::SCOPE_SESSION));
     }
 
-    /** `secure()` desta visão grava os deltas no escopo `persistent-secure`. */
+    /** `secure()` of this view records deltas in the `persistent-secure` scope. */
     public function persistent(): ClientStorage
     {
         $secure = new ScopedClientStorage($this->persistentData, $this->recorder(self::SCOPE_PERSISTENT_SECURE));
@@ -91,7 +91,7 @@ final class RemoteClientStorage
                 try {
                     $target[(string) $key] = $this->security->b64Decipher($ciphered);
                 } catch (Throwable) {
-                    // valor adulterado ou de outra sessão: ignora
+                    // tampered value or from another session: ignore
                 }
             }
         }

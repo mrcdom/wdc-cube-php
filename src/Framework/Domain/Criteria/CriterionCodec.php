@@ -11,15 +11,15 @@ use Wdc\Framework\Commons\Serialization\Json;
 use Wdc\Framework\Domain\Exception\InvalidRequestException;
 
 /**
- * Como um campo de critério trafega — escrito uma vez aqui, e não repetido em cada codec de
- * entidade (o que muda de campo para campo é só o tipo do valor):
+ * How a criteria field travels over the wire — written once here rather than repeated in every
+ * entity codec (the only thing that varies from field to field is the value type):
  *
  *     "price": { "or": true, "p": [ { "o": "GE", "v": [10.0] }, { "o": "IS_NULL" } ] }
  *
- * O valor solto (`"price": 10.0`) não bastaria: um campo carrega vários pedidos, cada um com
- * seu operador e aridade, e a disjunção é do campo. Reduzir a forma descartaria tudo menos a
- * igualdade — em silêncio, devolvendo linhas a mais. Mas o valor solto é **aceito** na
- * leitura, como igualdade.
+ * A bare value (`"price": 10.0`) would not be enough: a field carries several requests, each with
+ * its own operator and arity, and the disjunction belongs to the field. Reducing the shape would
+ * drop everything but equality — silently, returning extra rows. A bare value is, however,
+ * **accepted** on read, as equality.
  */
 final class CriterionCodec
 {
@@ -28,7 +28,7 @@ final class CriterionCodec
     }
 
     /**
-     * Escreve o campo em $out — se houver o que escrever: campo sem pedido não gera chave.
+     * Writes the field into $out — if there is anything to write: a field with no requests produces no key.
      *
      * @param array<string, mixed> $out
      * @param Criterion<*, *> $criterion
@@ -57,8 +57,8 @@ final class CriterionCodec
     }
 
     /**
-     * Lê o campo e repõe os pedidos no criterion — por `restore()`, não pelos métodos
-     * fluentes: `eq(null)` não acrescenta pedido e apagaria em silêncio o que veio do outro lado.
+     * Reads the field and restores the requests into the criterion — via `restore()`, not the fluent
+     * methods: `eq(null)` adds no request and would silently drop what came from the other side.
      *
      * @param Criterion<*, *> $criterion
      */
@@ -82,14 +82,14 @@ final class CriterionCodec
     }
 
     /**
-     * Lê o nome da ordenação, **recusando** o que não conhece — ao contrário do operador
-     * desconhecido, que é descartado. Sem um pedido o filtro fica mais frouxo e o campo continua
-     * listado; sem a ordenação, a lista volta numa ordem qualquer e ninguém percebe.
+     * Reads the ordering name, **rejecting** unknown ones — unlike an unknown operator, which is
+     * dropped. Without a request the filter just gets looser and the field is still listed; without
+     * the ordering, the list comes back in arbitrary order and nobody notices.
      *
      * @template E of UnitEnum
      * @param list<E> $accepted
      * @return E|null
-     * @throws InvalidRequestException nomeando o valor recebido e os aceitos (400)
+     * @throws InvalidRequestException naming the received value and the accepted ones (400)
      */
     public static function readOrderBy(mixed $in, array $accepted): ?UnitEnum
     {
@@ -104,7 +104,7 @@ final class CriterionCodec
         }
         $names = implode(', ', array_map(static fn (UnitEnum $c) => $c->name, $accepted));
 
-        throw new InvalidRequestException("ordenação desconhecida: '{$name}' — aceitas: {$names}");
+        throw new InvalidRequestException("unknown ordering: '{$name}' — accepted: {$names}");
     }
 
     /** @param Criterion<*, *> $criterion */
@@ -129,8 +129,8 @@ final class CriterionCodec
     }
 
     /**
-     * Operador desconhecido (o outro lado é mais novo) é descartado, não traduzido por
-     * aproximação: o filtro "mais parecido" seria outro filtro, sem nada assinalar.
+     * An unknown operator (the other side is newer) is dropped, not approximated: the "closest"
+     * filter would be a different filter, with nothing to flag it.
      */
     private static function parseOperator(?string $name): ?Operator
     {

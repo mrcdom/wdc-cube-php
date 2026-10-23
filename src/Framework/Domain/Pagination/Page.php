@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Pagination;
 
 /**
- * Uma página de resultados (page é 0-based).
+ * A page of results (page is 0-based).
  *
  * @template T
  */

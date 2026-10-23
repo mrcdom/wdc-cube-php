@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Transaction;
 
 /**
- * Demarcação programática de transação, estilo CMT.
+ * Programmatic transaction demarcation, CMT style.
  *
- * Em PHP uma função que "não devolve nada" devolve null, então um único método genérico
- * atende tanto o trabalho sem resultado quanto o que devolve um valor.
+ * In PHP a function that "returns nothing" returns null, so a single generic method
+ * serves both work without a result and work that returns a value.
  *
- * Por ora só REQUIRED é implementado — é o único usado (checkout).
+ * Only REQUIRED is implemented for now — it is the only one in use (checkout).
  */
 interface TransactionService
 {
     /**
-     * Executa $work dentro de uma transação: participa da corrente ou abre uma nova.
-     * Commit no retorno normal; rollback em exceção (repropagada) ou se setRollbackOnly().
+     * Runs $work inside a transaction: joins the current one or opens a new one.
+     * Commits on normal return; rolls back on exception (rethrown) or if setRollbackOnly().
      *
      * @template T
      * @param callable(TransactionContext): T $work

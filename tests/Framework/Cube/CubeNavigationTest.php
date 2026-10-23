@@ -34,7 +34,7 @@ final class CubeNavigationTest extends TestCase
     }
 
     /**
-     * Devolve o log e o zera — cada asserção olha só o que aconteceu desde a anterior.
+     * Returns the log and clears it — each assertion looks only at what happened since the previous one.
      *
      * @return list<string>
      */
@@ -71,7 +71,7 @@ final class CubeNavigationTest extends TestCase
         $this->app->go(P::ROOT, P::SECTION, P::PAGE);
 
         self::assertSame(['apply root', 'apply section', 'apply page deepest'], $this->takeLog());
-        self::assertSame($page, $this->presenter(P::PAGE), 'mesma instância: o estado sobrevive');
+        self::assertSame($page, $this->presenter(P::PAGE), 'same instance: the state survives');
     }
 
     #[Test]
@@ -109,7 +109,7 @@ final class CubeNavigationTest extends TestCase
         self::assertFalse($this->app->go(P::ROOT, P::SECTION, P::PAGE));
 
         self::assertSame(['create root', 'apply root init', 'create section', 'apply section init'], $this->takeLog());
-        self::assertSame(['root', 'section'], $this->app->active(), 'commit parcial do que foi aceito');
+        self::assertSame(['root', 'section'], $this->app->active(), 'partial commit of what was accepted');
     }
 
     #[Test]
@@ -127,7 +127,7 @@ final class CubeNavigationTest extends TestCase
     #[Test]
     public function redirect_interruptsTheOuterNavigationAndTheInnerOneWins(): void
     {
-        // a seção é "restrita": manda para o login e recusa
+        // the section is "restricted": sends to login and refuses
         $app = $this->app;
         $app->behaviors[P::SECTION->id()] = static function () use ($app): bool {
             $app->go(P::ROOT, P::LOGIN);
@@ -140,39 +140,39 @@ final class CubeNavigationTest extends TestCase
         self::assertSame([
             'create root', 'apply root init',
             'create section', 'apply section init',
-            // navegação interna: herda o root já criado (sem init)
+            // inner navigation: inherits the root already created (no init)
             'apply root', 'create login', 'apply login init deepest',
-            // a seção foi criada pela externa e ficou de fora: liberada
-            // (mesmo sem presenters ativos antes da navegação)
+            // the section was created by the outer one and left out: released
+            // (even with no active presenters before the navigation)
             'release section',
         ], $this->takeLog());
         self::assertSame(['root', 'login'], $app->active());
         self::assertSame(P::LOGIN, $app->lastPlace());
-        self::assertSame(1, $app->historyUpdates, 'só a navegação interna comitou');
+        self::assertSame(1, $app->historyUpdates, 'only the inner navigation committed');
     }
 
     #[Test]
     public function exception_rollsBackToThePreviousState(): void
     {
-        $this->app->go(new CubeIntentBuilder()->with('section', 'antes')->build(), P::ROOT, P::SECTION);
-        $this->app->behaviors[P::PAGE->id()] = static fn (): bool => throw new RuntimeException('falhou');
+        $this->app->go(new CubeIntentBuilder()->with('section', 'before')->build(), P::ROOT, P::SECTION);
+        $this->app->behaviors[P::PAGE->id()] = static fn (): bool => throw new RuntimeException('failed');
         $this->takeLog();
 
         try {
-            $this->app->go(new CubeIntentBuilder()->with('section', 'depois')->build(), P::ROOT, P::SECTION, P::PAGE);
-            self::fail('a exceção deveria ser repropagada');
+            $this->app->go(new CubeIntentBuilder()->with('section', 'after')->build(), P::ROOT, P::SECTION, P::PAGE);
+            self::fail('the exception should have been rethrown');
         } catch (RuntimeException $e) {
-            self::assertSame('falhou', $e->getMessage());
+            self::assertSame('failed', $e->getMessage());
         }
 
         self::assertSame([
             'apply root', 'apply section', 'create page', 'apply page init deepest',
-            // rollback: reaplica o intent anterior nos que já existiam e libera o criado
+            // rollback: re-applies the previous intent to the existing ones and releases the created one
             'apply root', 'apply section deepest',
             'release page',
         ], $this->takeLog());
         self::assertSame(['root', 'section'], $this->app->active());
-        self::assertSame('antes', $this->presenter(P::SECTION)->value, 'estado restaurado');
+        self::assertSame('before', $this->presenter(P::SECTION)->value, 'state restored');
         self::assertSame(P::SECTION, $this->app->lastPlace());
     }
 
@@ -198,7 +198,7 @@ final class CubeNavigationTest extends TestCase
         }
         unset($app->behaviors[P::ROOT->id()]);
 
-        // a navegação interrompida não pode ficar presa na app, senão toda navegação seguinte falharia
+        // the interrupted navigation must not stay stuck in the app, or every following navigation would fail
         self::assertTrue($app->go(P::ROOT, P::SECTION));
         self::assertSame(['root', 'section'], $app->active());
     }
@@ -263,7 +263,7 @@ final class CubeNavigationTest extends TestCase
     }
 }
 
-/** Atalho de teste para montar intents com parâmetros. */
+/** Test shortcut for building intents with parameters. */
 final class CubeIntentBuilder
 {
     private CubeIntent $intent;

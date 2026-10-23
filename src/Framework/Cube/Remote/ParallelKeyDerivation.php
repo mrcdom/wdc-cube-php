@@ -9,8 +9,8 @@ use Amp\Parallel\Worker\WorkerPool;
 use function Amp\Parallel\Worker\workerPool;
 
 /**
- * PBKDF2 num processo do pool do amphp/parallel. Quem chama espera (a sua Fiber é suspensa)
- * e o event loop segue atendendo as outras sessões nesse meio tempo.
+ * PBKDF2 in a process from the amphp/parallel pool. The caller waits (its Fiber is suspended)
+ * and the event loop keeps serving the other sessions in the meantime.
  */
 final readonly class ParallelKeyDerivation implements KeyDerivation
 {

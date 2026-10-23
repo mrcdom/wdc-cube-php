@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Criteria;
 
 /**
- * Critério sobre um campo: os pedidos de comparação feitos e como eles se combinam.
+ * Criterion on a field: the comparison requests made and how they combine.
  *
- * Regras:
- * - pedidos sucessivos acumulam e valem juntos (AND); or() torna o campo disjuntivo (OR dentro do campo);
- * - valor null não acrescenta pedido (filtro de tela vazio = "não filtrar");
- * - os métodos fluentes devolvem o dono (o XxxCriteria) para encadear.
+ * Rules:
+ * - successive requests accumulate and apply together (AND); or() makes the field disjunctive (OR within the field);
+ * - a null value adds no request (empty screen filter = "don't filter");
+ * - the fluent methods return the owner (the XxxCriteria) for chaining.
  *
- * @template-covariant C of object  tipo do XxxCriteria dono (covariante: só aparece em retornos)
- * @template T            tipo do valor comparado
+ * @template-covariant C of object  type of the owning XxxCriteria (covariant: only appears in return types)
+ * @template T            type of the compared value
  */
 class Criterion
 {
@@ -31,7 +31,7 @@ class Criterion
     ) {
     }
 
-    /** Nome lógico do campo. */
+    /** Logical field name. */
     public function name(): string
     {
         return $this->name;
@@ -48,13 +48,13 @@ class Criterion
         return $this->disjunctive;
     }
 
-    /** true quando há ao menos um pedido, ou seja, quando o campo deve virar condição. */
+    /** true when there is at least one request, i.e. when the field must become a condition. */
     public function isSet(): bool
     {
         return $this->predicates !== [];
     }
 
-    /** Marca o campo como disjuntivo: os pedidos passam a valer com OR entre si. */
+    /** Marks the field as disjunctive: its requests are combined with OR. */
     public function or(): static
     {
         $this->disjunctive = true;
@@ -62,7 +62,7 @@ class Criterion
         return $this;
     }
 
-    /** Volta a exigir todos os pedidos (AND). */
+    /** Requires all requests again (AND). */
     public function and(): static
     {
         $this->disjunctive = false;
@@ -71,7 +71,7 @@ class Criterion
     }
 
     /**
-     * Apaga os pedidos deste campo. Não desfaz or().
+     * Clears this field's requests. Does not undo or().
      *
      * @return C
      */
@@ -101,7 +101,7 @@ class Criterion
     }
 
     /**
-     * Pertence ao conjunto. Conjunto nulo ou vazio não acrescenta pedido.
+     * Belongs to the set. A null or empty set adds no request.
      *
      * @param iterable<T>|null $values
      * @return C
@@ -135,10 +135,10 @@ class Criterion
     }
 
     /**
-     * Repõe um pedido tal como veio do transporte, sem as regras dos métodos fluentes.
+     * Restores a request exactly as it came over the wire, bypassing the fluent methods' rules.
      *
-     * Os valores não são conferidos contra T: quem lê o transporte (CriterionCodec) já os
-     * converteu pelo tipo declarado do campo.
+     * Values are not checked against T: whoever reads the wire format (CriterionCodec) has already
+     * converted them using the field's declared type.
      *
      * @param list<mixed> $values
      */

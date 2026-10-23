@@ -34,10 +34,10 @@ final class CriterionCodecTest extends TestCase
     {
         $criteria = (new ProductCriteria())->withOrderBy(ProductOrderBy::CHEAPEST_FIRST);
         $criteria->price()->or()->ge(10.0)->price()->isNull();
-        $criteria->name()->like('Bola%');
+        $criteria->name()->like('Wilson%');
 
         self::assertSame(
-            '{"name":{"p":[{"o":"LIKE","v":["Bola%"]}]},"price":{"or":true,"p":[{"o":"GE","v":[10.0]},{"o":"IS_NULL"}]},"orderBy":"CHEAPEST_FIRST"}',
+            '{"name":{"p":[{"o":"LIKE","v":["Wilson%"]}]},"price":{"or":true,"p":[{"o":"GE","v":[10.0]},{"o":"IS_NULL"}]},"orderBy":"CHEAPEST_FIRST"}',
             Json::encode((object) (new ProductCodec())->writeCriteriaFields($criteria)),
         );
     }
@@ -61,11 +61,11 @@ final class CriterionCodecTest extends TestCase
     #[Test]
     public function bareValue_readsAsEquality(): void
     {
-        $criteria = $this->readProduct('{"productId": 2, "name": "Bola"}');
+        $criteria = $this->readProduct('{"productId": 2, "name": "Wilson"}');
 
         self::assertSame(Operator::EQ, $criteria->productId()->predicates()[0]->operator);
         self::assertSame([2], $criteria->productId()->predicates()[0]->values);
-        self::assertSame(['Bola'], $criteria->name()->predicates()[0]->values);
+        self::assertSame(['Wilson'], $criteria->name()->predicates()[0]->values);
     }
 
     #[Test]
@@ -89,7 +89,7 @@ final class CriterionCodecTest extends TestCase
     public function unknownOrderBy_isRefused_namingTheAcceptedOnes(): void
     {
         $this->expectException(InvalidRequestException::class);
-        $this->expectExceptionMessage("ordenação desconhecida: 'BY_COLOR' — aceitas: OLDEST_FIRST, NEWEST_FIRST, NAME_A_TO_Z");
+        $this->expectExceptionMessage("unknown ordering: 'BY_COLOR' — accepted: OLDEST_FIRST, NEWEST_FIRST, NAME_A_TO_Z");
 
         $this->readProduct('{"orderBy": "BY_COLOR"}');
     }
@@ -106,7 +106,7 @@ final class CriterionCodecTest extends TestCase
         (new PurchaseCodec())->readCriteriaField(Json::fields(Json::decode('{"b": {"p": [{"o": "LT", "v": ["2024-01-15T07:30:00-03:00"]}]}}'))['b'], 'buyDate', $read);
         $value = $read->buyDate()->predicates()[0]->values[0];
         self::assertInstanceOf(DateTimeImmutable::class, $value);
-        self::assertEquals(new DateTimeImmutable("2024-01-15T10:30:00Z"), $value, "mesmo instante");
+        self::assertEquals(new DateTimeImmutable("2024-01-15T10:30:00Z"), $value, "same instant");
     }
 
     #[Test]

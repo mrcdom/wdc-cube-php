@@ -7,8 +7,8 @@ namespace Wdc\Framework\Commons\Concurrent;
 use Closure;
 
 /**
- * Agendador de relógio manual, para testes: nada roda sozinho; `advance()` move o relógio e
- * executa o que venceu, em ordem de vencimento.
+ * Manual-clock scheduler, for tests: nothing runs on its own; `advance()` moves the clock and
+ * runs whatever is due, in due order.
  */
 final class ManualScheduler implements Scheduler
 {
@@ -29,7 +29,7 @@ final class ManualScheduler implements Scheduler
         return $this->add($task, $initialDelaySeconds, $periodSeconds);
     }
 
-    /** Avança o relógio e executa as tarefas vencidas. */
+    /** Advances the clock and runs the tasks that are due. */
     public function advance(float $seconds): void
     {
         $target = $this->now + $seconds;

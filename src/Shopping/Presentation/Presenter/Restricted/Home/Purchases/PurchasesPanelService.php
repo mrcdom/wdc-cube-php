@@ -17,7 +17,7 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Home\PurchaseInfo;
 
 final class PurchasesPanelService
 {
-    /** Data usada quando a compra não tem data (sentinela fixa). */
+    /** Date used when the purchase has no date (fixed sentinel). */
     private const int NO_DATE_MILLIS = 115754400000;
 
     private readonly PurchaseRepository $purchases;
@@ -38,7 +38,7 @@ final class PurchasesPanelService
         return $this->purchases->count(new PurchaseCriteria()->withUserId($userId));
     }
 
-    /** @return list<PurchaseInfo> mais recentes primeiro */
+    /** @return list<PurchaseInfo> most recent first */
     public function loadPurchasesOfUser(int $userId, int $offset = 0, int $limit = 0): array
     {
         return $this->toInfos($this->purchases->fetch(self::ofUser($userId), $offset, $limit));
@@ -60,7 +60,7 @@ final class PurchasesPanelService
             ->withOrderBy(PurchaseOrderBy::MOST_RECENT_PURCHASE_FIRST);
     }
 
-    /** id, data e itens (preço, quantidade, nome do produto): uma consulta só, graças à projeção JSON. */
+    /** id, date and items (price, quantity, product name): a single query, thanks to the JSON projection. */
     private static function projection(): Purchase
     {
         $item = new PurchaseItem()
@@ -85,7 +85,7 @@ final class PurchasesPanelService
         $info = new PurchaseInfo();
         $info->id = $purchase->id() ?? -1;
         $buyDate = $purchase->buyDate();
-        $info->date = $buyDate === null ? self::NO_DATE_MILLIS : (int) $buyDate->format('Uv');   // U = segundos, v = milissegundos
+        $info->date = $buyDate === null ? self::NO_DATE_MILLIS : (int) $buyDate->format('Uv');   // U = seconds, v = milliseconds
         $total = 0.0;
         foreach ($purchase->items() ?? [] as $item) {
             $total += ($item->price() ?? 0.0) * ($item->amount() ?? 0);

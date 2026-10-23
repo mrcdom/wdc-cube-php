@@ -8,7 +8,7 @@ use Wdc\Framework\Cube\ViewState;
 
 final class ReceiptViewState implements ViewState
 {
-    /** true logo depois da compra: a tela mostra o aviso de sucesso */
+    /** true right after the purchase: the screen shows the success notice */
     public bool $notifySuccess = false;
 
     public ?ReceiptForm $receipt = null;

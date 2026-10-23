@@ -1,145 +1,150 @@
-# Serviços de aplicação — os objetivos de negócio da tela
+# Application services — the screen's business goals
 
-> **Para quem é:** quem vai escrever a consulta ou a gravação que uma tela precisa e quer saber
-> onde esse código mora, que forma ele tem e como o presenter o usa.
-> **Não cobre:** como escrever um repositório ([repository.md](repository.md)), o formato das
-> consultas ([json-query.md](json-query.md)) nem os detalhes de transação
+> **Who it's for:** anyone about to write the query or the write a screen needs and who wants to
+> know where that code lives, what shape it has and how the presenter uses it.
+> **Doesn't cover:** how to write a repository ([repository.md](repository.md)), the query format
+> ([json-query.md](json-query.md)) or transaction details
 > ([transaction-service.md](transaction-service.md)).
 
 ---
 
-## Índice
+## Contents
 
-1. [O problema que esse padrão resolve](#1-o-problema-que-esse-padrão-resolve)
-2. [A regra de ouro](#2-a-regra-de-ouro)
-3. [Onde vive na arquitetura](#3-onde-vive-na-arquitetura)
-4. [Onde colocar no projeto](#4-onde-colocar-no-projeto)
-5. [Como estruturar a classe](#5-como-estruturar-a-classe)
-6. [Exemplo 1 — consulta com filtros de negócio](#6-exemplo-1--consulta-com-filtros-de-negócio)
-7. [Exemplo 2 — mutação com validação](#7-exemplo-2--mutação-com-validação)
-8. [Exemplo 3 — mutação que envolve dois repositórios](#8-exemplo-3--mutação-que-envolve-dois-repositórios)
-9. [Como o presenter usa o serviço](#9-como-o-presenter-usa-o-serviço)
-10. [Anti-padrões — o que não fazer](#10-anti-padrões--o-que-não-fazer)
-11. [Referência rápida](#11-referência-rápida)
-
----
-
-## 1. O problema que esse padrão resolve
-
-Pense na funcionalidade "avaliar um produto". Quando o usuário clica em **Enviar**, o sistema
-precisa:
-
-1. conferir se a nota está entre 1 e 5;
-2. conferir se o comentário não passa de 500 caracteres (caracteres, não bytes — é UTF-8);
-3. tratar comentário vazio como "sem comentário";
-4. montar a avaliação com o autor **logado** (nunca um id que veio do cliente) e a data em UTC;
-5. gravar;
-6. recarregar a lista, agora com a nova avaliação no topo.
-
-Se tudo isso for parar dentro do **presenter**, ele mistura duas coisas que mudam por motivos
-diferentes: a lógica da tela (estado, `update()`, mensagens de erro, navegação) e a regra de
-negócio (limites, defaults, montagem da entidade). O método `onSubmitReview()` vira uma página de
-código, difícil de ler e impossível de reaproveitar em outra tela.
-
-Se for parar no **repositório**, ele deixa de ser o acesso genérico a uma tabela
-(`insert`, `fetch`, `count`...) e passa a conhecer regras de uma tela — também errado, porque o
-mesmo repositório atende a API REST, os testes e outras telas.
-
-O **serviço de aplicação** é o lugar do meio: uma classe pequena que **orquestra** um objetivo de
-negócio — valida, monta, chama os repositórios, converte o resultado — e devolve à tela algo pronto
-para mostrar. O presenter fica fino: recebe o evento, chama o serviço, põe o resultado no estado.
+1. [The problem this pattern solves](#1-the-problem-this-pattern-solves)
+2. [The golden rule](#2-the-golden-rule)
+3. [Where it lives in the architecture](#3-where-it-lives-in-the-architecture)
+4. [Where to put it in the project](#4-where-to-put-it-in-the-project)
+5. [How to structure the class](#5-how-to-structure-the-class)
+6. [Example 1 — a query with business filters](#6-example-1--a-query-with-business-filters)
+7. [Example 2 — a mutation with validation](#7-example-2--a-mutation-with-validation)
+8. [Example 3 — a mutation involving two repositories](#8-example-3--a-mutation-involving-two-repositories)
+9. [How the presenter uses the service](#9-how-the-presenter-uses-the-service)
+10. [Anti-patterns — what not to do](#10-anti-patterns--what-not-to-do)
+11. [Quick reference](#11-quick-reference)
 
 ---
 
-## 2. A regra de ouro
+## 1. The problem this pattern solves
 
-> **O presenter decide o que a tela mostra; o serviço decide o que é verdade no negócio.**
+Think of the "review a product" feature. When the user clicks **Submit**, the system needs to:
+
+1. check that the rating is between 1 and 5;
+2. check that the comment is no longer than 500 characters (characters, not bytes — it's UTF-8);
+3. treat an empty comment as "no comment";
+4. build the review with the **logged-in** author (never an id that came from the client) and the
+   date in UTC;
+5. save it;
+6. reload the list, now with the new review at the top.
+
+If all of this ends up inside the **presenter**, it mixes two things that change for different
+reasons: screen logic (state, `update()`, error messages, navigation) and business rules (limits,
+defaults, building the entity). The `onSubmitReview()` method becomes a page of code, hard to read
+and impossible to reuse on another screen.
+
+If it ends up in the **repository**, the repository stops being generic access to a table
+(`insert`, `fetch`, `count`...) and starts knowing a screen's rules — also wrong, because the same
+repository serves the REST API, the tests and other screens.
+
+The **application service** is the middle ground: a small class that **orchestrates** a business
+goal — validates, builds, calls the repositories, converts the result — and gives the screen
+something ready to show. The presenter stays thin: it receives the event, calls the service, puts
+the result in the state.
+
+---
+
+## 2. The golden rule
+
+> **The presenter decides what the screen shows; the service decides what is true for the business.**
 >
-> O serviço não conhece a tela: não toca no `ViewState`, não chama `update()`, não navega, não
-> guarda a `ShoppingApplication`. Recebe valores, devolve *structs* de apresentação (ou nada) e,
-> quando a regra recusa a operação, **lança uma exceção esperada**.
+> The service doesn't know the screen: it doesn't touch the `ViewState`, doesn't call `update()`,
+> doesn't navigate, doesn't keep the `ShoppingApplication`. It receives values, returns
+> presentation *structs* (or nothing) and, when the rule refuses the operation, **throws an
+> expected exception**.
 >
-> O presenter não conhece o banco: não monta critério, não escolhe projeção, não chama
-> repositório. Chama o serviço e traduz o resultado — ou a exceção — em estado da tela.
+> The presenter doesn't know the database: it doesn't build criteria, doesn't choose a projection,
+> doesn't call a repository. It calls the service and translates the result — or the exception —
+> into screen state.
 
-Quando bater a dúvida "isto vai no presenter ou no serviço?", pergunte: *"se outra tela (ou um
-teste sem tela) precisasse fazer a mesma coisa, ela precisaria deste código?"* Se sim, é do serviço.
+When in doubt whether "this goes in the presenter or the service?", ask: *"if another screen (or a
+test with no screen) had to do the same thing, would it need this code?"* If yes, it belongs to the
+service.
 
 ---
 
-## 3. Onde vive na arquitetura
+## 3. Where it lives in the architecture
 
 ```mermaid
 flowchart LR
-    V["View React<br/>(navegador)"] -- "evento + formulário<br/>(WebSocket)" --> P["Presenter<br/>estado da tela"]
-    P -- "chama" --> S["Serviço de aplicação<br/>regra de negócio"]
-    S -- "critério + projeção" --> RI["*RepositoryImpl<br/>(SQL / JsonQuery)"]
+    V["React view<br/>(browser)"] -- "event + form<br/>(WebSocket)" --> P["Presenter<br/>screen state"]
+    P -- "calls" --> S["Application service<br/>business rule"]
+    S -- "criteria + projection" --> RI["*RepositoryImpl<br/>(SQL / JsonQuery)"]
     RI --> DB[("PostgreSQL")]
-    S -. "ProductInfo, ReviewInfo...<br/>(structs com campos públicos)" .-> P
-    P -. "ViewState serializado" .-> V
+    S -. "ProductInfo, ReviewInfo...<br/>(structs with public fields)" .-> P
+    P -. "serialized ViewState" .-> V
 ```
 
-Três pontos do desenho:
+Three points of the design:
 
-- **A autorização é responsabilidade do presenter e do serviço.** A `ShoppingApplication` (a
-  sessão) entrega os repositórios sem embrulho de segurança. Quem roda no servidor já é escrito
-  para respeitar as regras: o serviço filtra pelo usuário logado (`$app->subject()`) quando a tela
-  é "os meus dados". A conferência de permissões por papel existe só na API REST, onde a
-  requisição vem pronta de um cliente que não controlamos.
-- **O que volta para o presenter são structs de apresentação** — classes com campos públicos, como
-  `ProductInfo` e `ReviewInfo` —, não entidades. Elas são o que o serializador sabe enviar ao React.
-- **A consulta é uma só.** O serviço pede exatamente os campos que a tela usa (a projeção), e
-  relações vêm dentro dela; ver [json-query.md](json-query.md).
+- **Authorization is the responsibility of the presenter and the service.** The
+  `ShoppingApplication` (the session) hands out repositories with no security wrapper. Code
+  running on the server is already written to respect the rules: the service filters by the
+  logged-in user (`$app->subject()`) when the screen is "my data". Role-based permission checks
+  exist only in the REST API, where the request arrives ready-made from a client we don't control.
+- **What comes back to the presenter are presentation structs** — classes with public fields, like
+  `ProductInfo` and `ReviewInfo` —, not entities. They are what the serializer knows how to send to
+  React.
+- **There is a single query.** The service asks for exactly the fields the screen uses (the
+  projection), and relations come inside it; see [json-query.md](json-query.md).
 
 ---
 
-## 4. Onde colocar no projeto
+## 4. Where to put it in the project
 
-O serviço mora **ao lado do presenter que o usa**, na mesma pasta da tela. Não existe uma pasta
-`Services/` global: o serviço é parte da funcionalidade.
+The service lives **next to the presenter that uses it**, in the screen's folder. There is no
+global `Services/` folder: the service is part of the feature.
 
-| Serviço | Pasta | Quem usa |
+| Service | Folder | Used by |
 |---|---|---|
 | `ProductService` | `src/Shopping/Presentation/Presenter/Restricted/Products/` | `ProductPresenter`, `ProductsPanelPresenter` |
 | `ReceiptService` | `src/Shopping/Presentation/Presenter/Restricted/Receipt/` | `ReceiptPresenter` |
 | `LoginService` | `src/Shopping/Presentation/Presenter/Open/Login/` | `LoginPresenter` |
 | `PurchasesPanelService` | `src/Shopping/Presentation/Presenter/Restricted/Home/Purchases/` | `PurchasesPanelPresenter` |
-| `CartManager` | `src/Shopping/Presentation/Presenter/Restricted/Cart/` | `HomePresenter` (cria), `CartPresenter`, `ProductPresenter` |
+| `CartManager` | `src/Shopping/Presentation/Presenter/Restricted/Cart/` | `HomePresenter` (creates it), `CartPresenter`, `ProductPresenter` |
 
-O `CartManager` é um caso especial: além de regra de negócio, ele **guarda estado da sessão** (os
-itens do carrinho em memória até a compra) e avisa ouvintes. Por isso ele é criado uma vez por
-sessão e fica na `ShoppingApplication` (`cart()` / `setCart()`), em vez de ser criado por cada
-presenter. Os demais serviços não guardam estado e cada presenter cria o seu.
+`CartManager` is a special case: besides business rules, it **keeps session state** (the cart
+items in memory until the purchase) and notifies listeners. That's why it is created once per
+session and lives in the `ShoppingApplication` (`cart()` / `setCart()`), instead of being created
+by each presenter. The other services keep no state and each presenter creates its own.
 
-No exemplo guiado de [criar-funcionalidade.md](criar-funcionalidade.md) (avaliações de produto), o
-serviço fica em `Presenter/Restricted/Products/Reviews/ReviewService.php`, junto do
-`ReviewsPanelPresenter`, do `ReviewsPanelViewState` e da struct `ReviewInfo`.
+In the guided example in [building-a-feature.md](building-a-feature.md) (product reviews), the
+service lives in `Presenter/Restricted/Products/Reviews/ReviewService.php`, next to
+`ReviewsPanelPresenter`, `ReviewsPanelViewState` and the `ReviewInfo` struct.
 
-Convenção de nomes:
+Naming convention:
 
-- `XxxService` — o serviço;
-- `XxxInfo` (ou `XxxItem`, `XxxForm`) — a struct que ele devolve, na mesma pasta;
-- exceções esperadas em `src/Shopping/Presentation/Exception/` (`ProductNotFoundException`,
-  `WrongParametersException`, `InvalidReviewException`...) ou, quando são do domínio, em
+- `XxxService` — the service;
+- `XxxInfo` (or `XxxItem`, `XxxForm`) — the struct it returns, in the same folder;
+- expected exceptions in `src/Shopping/Presentation/Exception/` (`ProductNotFoundException`,
+  `WrongParametersException`, `InvalidReviewException`...) or, when they belong to the domain, in
   `src/Shopping/Domain/Exception/` (`InvalidCartItemException`).
 
 ---
 
-## 5. Como estruturar a classe
+## 5. How to structure the class
 
-**Construtor: o serviço acha as próprias dependências.** No construtor, ele busca no `Beans`, pela
-**interface**, os repositórios (`ProductRepository`, `PurchaseRepository`...) e, se precisar, o
-`TransactionService`, e os guarda em campos `readonly`. Quem cria o serviço não sabe do que ele
-depende:
+**Constructor: the service finds its own dependencies.** In the constructor, it looks up in
+`Beans`, by **interface**, the repositories (`ProductRepository`, `PurchaseRepository`...) and, if
+needed, the `TransactionService`, and keeps them in `readonly` fields. Whoever creates the service
+doesn't know what it depends on:
 
 ```php
 // ProductPresenter::__construct
 $this->productService = new ProductService();
 
-// HomePresenter (o carrinho da sessão)
+// HomePresenter (the session's cart)
 $this->cart = new CartManager();
 
-// ProductService: o construtor busca o que usa
+// ProductService: the constructor looks up what it uses
 private readonly ProductRepository $products;
 
 public function __construct()
@@ -148,21 +153,21 @@ public function __construct()
 }
 ```
 
-Buscar no construtor, e não a cada chamada, faz um registro esquecido aparecer logo, ao criar o
-serviço. O registro não muda depois da subida, então o campo guardado continua valendo. Para
-trocar uma implementação num teste, registre a outra com `Beans::set(...)` antes de criar o
-serviço (o `ShoppingServiceTest` registra os repositórios no `setUp`).
+Looking up in the constructor, and not on every call, makes a forgotten registration show up right
+away, when the service is created. The registry doesn't change after startup, so the stored field
+stays valid. To swap an implementation in a test, register the other one with `Beans::set(...)`
+before creating the service (`ShoppingServiceTest` registers the repositories in `setUp`).
 
-> **Dica de PHP:** um campo `readonly` só pode ser atribuído uma vez, de dentro da própria
-> classe - aqui, no construtor. Depois disso, tentar mudá-lo é erro. `final class` impede
-> herança: os serviços não são pontos de extensão.
+> **PHP tip:** a `readonly` field can only be assigned once, from inside the class itself - here,
+> in the constructor. After that, trying to change it is an error. `final class` prevents
+> inheritance: services are not extension points.
 
-**Retorno: structs de apresentação, montadas com a projeção da tela.** A struct sabe duas coisas:
-quais campos a tela precisa (`projection()`) e como converter a entidade (`create()`). O serviço
-usa as duas:
+**Return: presentation structs, built with the screen's projection.** The struct knows two things:
+which fields the screen needs (`projection()`) and how to convert the entity (`create()`). The
+service uses both:
 
 ```php
-/** Produto como a tela o mostra. Structs de apresentação têm campos públicos. */
+/** Product as the screen shows it. Presentation structs have public fields. */
 final class ProductInfo
 {
     public int $id = -1;
@@ -175,32 +180,32 @@ final class ProductInfo
         return new Product()->withId(PV::INT)->withName(PV::STR)->withPrice(PV::FLOAT)->withDescription(PV::STR);
     }
 
-    public static function create(?Product $product): ?self { /* copia campo a campo */ }
+    public static function create(?Product $product): ?self { /* copies field by field */ }
 }
 ```
 
-Por que campos públicos? O estado da view é serializado a partir dos campos públicos do objeto. Uma
-entidade (`Product`, `Review`) tem campos privados com *getters*: chegaria ao React como `{}`.
+Why public fields? The view state is serialized from the object's public fields. An entity
+(`Product`, `Review`) has private fields with *getters*: it would reach React as `{}`.
 
-**Falhas: exceções esperadas.** Quando a regra de negócio recusa a operação (nota inválida,
-produto inexistente, parâmetro ausente), o serviço lança uma exceção específica, com uma mensagem
-para o usuário. O presenter captura **essa** exceção e a transforma em código de erro no estado.
-Qualquer outra exceção é um defeito ou uma falha de infraestrutura e segue o caminho do alerta de
-erro inesperado (seção 9).
+**Failures: expected exceptions.** When the business rule refuses the operation (invalid rating,
+nonexistent product, missing parameter), the service throws a specific exception, with a message
+for the user. The presenter catches **that** exception and turns it into an error code in the
+state. Any other exception is a defect or an infrastructure failure and follows the
+unexpected-error alert path (section 9).
 
-**Sem estado entre chamadas.** Fora o `CartManager`, os serviços não guardam nada além das
-dependências. Isso os torna fáceis de testar e seguros de compartilhar entre presenters da mesma
-tela.
+**No state between calls.** Apart from `CartManager`, services keep nothing besides their
+dependencies. That makes them easy to test and safe to share between presenters of the same
+screen.
 
 ---
 
-## 6. Exemplo 1 — consulta com filtros de negócio
+## 6. Example 1 — a query with business filters
 
-A lista de avaliações de um produto: só as daquele produto, as mais recentes primeiro, no máximo
-`$limit`, e só os campos que o painel mostra — com o nome do autor na **mesma consulta**.
+A product's list of reviews: only that product's, newest first, at most `$limit`, and only the
+fields the panel shows — with the author's name in the **same query**.
 
 ```php
-/** @return list<ReviewInfo> mais recentes primeiro */
+/** @return list<ReviewInfo> newest first */
 public function listForProduct(int $productId, int $limit = 50): array
 {
     $criteria = new ReviewCriteria()
@@ -212,10 +217,10 @@ public function listForProduct(int $productId, int $limit = 50): array
 }
 ```
 
-E a projeção, definida na struct:
+And the projection, defined in the struct:
 
 ```php
-/** Só o que o painel mostra; o nome do autor vem na mesma consulta (subconsulta JSON). */
+/** Only what the panel shows; the author's name comes in the same query (JSON subquery). */
 public static function projection(): Review
 {
     return new Review()
@@ -227,18 +232,19 @@ public static function projection(): Review
 }
 ```
 
-O que observar:
+What to notice:
 
-- **O filtro de negócio vira critério**, não um `array_filter` depois da busca. Filtrar no PHP
-  traria do banco linhas que a tela vai jogar fora.
-- **A ordem também é do critério** (`ReviewOrderBy::NEWEST_FIRST`), não um `usort` no PHP.
-- **A relação `user` está dentro da projeção.** O nome do autor chega junto, numa subconsulta
-  JSON; não há um `fetchById` por avaliação.
-- `ReviewInfo::create(...)` é a sintaxe de *first-class callable* do PHP: transforma o método
-  estático numa `Closure` que o `array_map` aplica a cada entidade.
+- **The business filter becomes criteria**, not an `array_filter` after the fetch. Filtering in
+  PHP would bring rows from the database that the screen will throw away.
+- **The ordering is also in the criteria** (`ReviewOrderBy::NEWEST_FIRST`), not a `usort` in PHP.
+- **The `user` relation is inside the projection.** The author's name comes along, in a JSON
+  subquery; there is no `fetchById` per review.
+- `ReviewInfo::create(...)` is PHP's *first-class callable* syntax: it turns the static method into
+  a `Closure` that `array_map` applies to each entity.
 
-Um segundo exemplo, já no código: o painel de produtos da home não mostra a descrição (que é HTML
-grande). Em vez de criar outra struct, o serviço **tira um campo da projeção**:
+A second example, already in the code: the home products panel doesn't show the description (which
+is large HTML). Instead of creating another struct, the service **removes a field from the
+projection**:
 
 ```php
 /** @return list<ProductInfo> */
@@ -251,16 +257,16 @@ public function loadProductsWithoutDescription(int $limit): array
 }
 ```
 
-O `PurchasesPanelService` faz o mesmo com as compras **do usuário**: um método privado `ofUser()`
-monta o critério (`withUserId` + projeção + `MOST_RECENT_PURCHASE_FIRST`), reaproveitado pela
-lista e pela paginação.
+`PurchasesPanelService` does the same with **the user's** purchases: a private `ofUser()` method
+builds the criteria (`withUserId` + projection + `MOST_RECENT_PURCHASE_FIRST`), reused by the list
+and by pagination.
 
 ---
 
-## 7. Exemplo 2 — mutação com validação
+## 7. Example 2 — a mutation with validation
 
-Gravar uma avaliação. A validação vem **antes** de qualquer acesso ao banco, e cada recusa é uma
-`InvalidReviewException` com a mensagem que o usuário vai ler.
+Saving a review. Validation comes **before** any database access, and each refusal is an
+`InvalidReviewException` with the message the user will read.
 
 ```php
 public const int MIN_RATING = 1;
@@ -268,23 +274,23 @@ public const int MAX_RATING = 5;
 public const int MAX_COMMENT_LENGTH = 500;
 
 /**
- * Valida e grava a avaliação de quem está logado.
+ * Validates and saves the logged-in user's review.
  *
- * @throws InvalidReviewException nota ou comentário inválidos (falha esperada)
+ * @throws InvalidReviewException invalid rating or comment (expected failure)
  */
 public function add(Subject $subject, int $productId, ?int $rating, ?string $comment): void
 {
     if ($rating === null || $rating < self::MIN_RATING || $rating > self::MAX_RATING) {
-        throw new InvalidReviewException('Escolha uma nota de 1 a 5.');
+        throw new InvalidReviewException('Choose a rating from 1 to 5.');
     }
     $comment = trim($comment ?? '');
-    if (mb_strlen($comment) > self::MAX_COMMENT_LENGTH) {   // mb_: conta caracteres, não bytes (UTF-8)
-        throw new InvalidReviewException('O comentário pode ter no máximo ' . self::MAX_COMMENT_LENGTH . ' caracteres.');
+    if (mb_strlen($comment) > self::MAX_COMMENT_LENGTH) {   // mb_: counts characters, not bytes (UTF-8)
+        throw new InvalidReviewException('The comment can have at most ' . self::MAX_COMMENT_LENGTH . ' characters.');
     }
 
     $review = new Review()
-        ->withProduct(new Product()->withId($productId))   // só o id: vira a FK PRODUCTID
-        ->withUser(new User()->withId($subject->id))        // o autor é sempre o logado, nunca vem da view
+        ->withProduct(new Product()->withId($productId))   // id only: becomes the PRODUCTID FK
+        ->withUser(new User()->withId($subject->id))        // the author is always the logged-in user, never from the view
         ->withRating($rating)
         ->withComment($comment === '' ? null : $comment)
         ->withCreatedAt(new DateTimeImmutable('now', new DateTimeZone('UTC')));
@@ -292,33 +298,34 @@ public function add(Subject $subject, int $productId, ?int $rating, ?string $com
 }
 ```
 
-Decisões que valem para qualquer mutação:
+Decisions that apply to any mutation:
 
-- **Parâmetros que vêm do formulário são anuláveis** (`?int $rating`, `?string $comment`). O
-  presenter converte o que chegou do cliente com `Coerce::asInt` / `Coerce::asString`, que devolvem
-  `null` para lixo; o serviço trata `null` como inválido em vez de confiar no cliente.
-- **Limites viram constantes públicas** (`MAX_COMMENT_LENGTH`), para o teste e a mensagem usarem o
-  mesmo número.
-- **`mb_strlen`, não `strlen`.** `strlen('ação')` é 6 (bytes); `mb_strlen('ação')` é 4.
-- **Defaults de negócio ficam aqui:** comentário vazio vira `null`; a data é "agora" em UTC — o
-  banco guarda UTC e o navegador converte para o fuso de quem lê.
-- **Identidade vem da sessão.** O `Subject` (o usuário logado) é passado pelo presenter a partir de
-  `$this->app->subject()`. O serviço nunca aceita um "id do autor" vindo do formulário.
-- **Relação por id:** `new Product()->withId($productId)` basta para o repositório gravar a chave
-  estrangeira; não é preciso carregar o produto.
+- **Parameters coming from the form are nullable** (`?int $rating`, `?string $comment`). The
+  presenter converts what arrived from the client with `Coerce::asInt` / `Coerce::asString`, which
+  return `null` for garbage; the service treats `null` as invalid instead of trusting the client.
+- **Limits become public constants** (`MAX_COMMENT_LENGTH`), so the test and the message use the
+  same number.
+- **`mb_strlen`, not `strlen`.** `strlen('ação')` is 6 (bytes); `mb_strlen('ação')` is 4.
+- **Business defaults live here:** an empty comment becomes `null`; the date is "now" in UTC — the
+  database stores UTC and the browser converts to the reader's time zone.
+- **Identity comes from the session.** The `Subject` (the logged-in user) is passed by the
+  presenter from `$this->app->subject()`. The service never accepts an "author id" coming from the
+  form.
+- **Relation by id:** `new Product()->withId($productId)` is enough for the repository to write the
+  foreign key; there is no need to load the product.
 
-Uma única gravação não precisa de transação explícita: cada chamada de repositório já é um comando
-completo no banco. Transação entra quando há **mais de uma** escrita que precisa ser atômica — o
-próximo exemplo.
+A single write doesn't need an explicit transaction: each repository call is already a complete
+statement in the database. A transaction comes in when there is **more than one** write that must
+be atomic — the next example.
 
 ---
 
-## 8. Exemplo 3 — mutação que envolve dois repositórios
+## 8. Example 3 — a mutation involving two repositories
 
-Fechar a compra do carrinho grava uma linha em `EN_PURCHASE` e uma linha em `EN_PURCHASEITEM` para
-cada item. Se a terceira linha de item falhar, a compra não pode ficar gravada pela metade.
+Checking out the cart writes one row to `EN_PURCHASE` and one row to `EN_PURCHASEITEM` per item.
+If the third item row fails, the purchase can't be left half-written.
 
-O `CartManager::commit()` resolve com o `TransactionService` que recebeu no construtor:
+`CartManager::commit()` solves this with the `TransactionService` it received in the constructor:
 
 ```php
 public function commit(Subject $subject): int
@@ -348,24 +355,24 @@ private function doPurchase(int $userId): int
         ->withBuyDate(new DateTimeImmutable())
         ->withItems($items);
 
-    // a única fronteira de transação da apresentação: compra + itens, tudo ou nada
+    // the presentation layer's only transaction boundary: purchase + items, all or nothing
     $this->tx->required(function () use ($purchase): void {
         if (!$this->purchases->insert($purchase)) {
             throw new LogicException('Record not inserted');
         }
     });
 
-    return $purchase->id() ?? throw new LogicException('Compra sem id depois do insert');
+    return $purchase->id() ?? throw new LogicException('Purchase has no id after insert');
 }
 ```
 
-Onde estão os "dois repositórios"? O `PurchaseRepositoryImpl::insert()` grava a compra e, em
-seguida, chama o repositório de itens para cada um. `purchaseItemRepository()` o acha no `Beans` na
-primeira chamada (`self::repositoryOf(...)`) e o guarda num campo, porque na construção o
-repositório de itens pode ainda não estar registrado:
+Where are the "two repositories"? `PurchaseRepositoryImpl::insert()` writes the purchase and then
+calls the items repository for each item. `purchaseItemRepository()` finds it in `Beans` on the
+first call (`self::repositoryOf(...)`) and keeps it in a field, because at construction time the
+items repository may not be registered yet:
 
 ```php
-/** Insere a compra e, junto, os itens (cada item passa a apontar para ela). */
+/** Inserts the purchase and, with it, the items (each item now points to it). */
 public function insert(object $bean): bool
 {
     $inserted = $this->insertBean($bean, [self::USERID => $bean->userId()]);
@@ -379,42 +386,44 @@ public function insert(object $bean): bool
 }
 ```
 
-São vários comandos `INSERT`, em dois repositórios, e todos rodam **dentro** do `required()`
-porque estão na mesma Fiber. Se qualquer um lançar exceção, o `required()` faz rollback e repropaga
-a exceção — o carrinho não é esvaziado, porque `clear()` só roda depois que `doPurchase()` voltou.
+These are several `INSERT` statements, in two repositories, and all of them run **inside**
+`required()` because they are on the same Fiber. If any of them throws, `required()` rolls back and
+rethrows the exception — the cart isn't emptied, because `clear()` only runs after `doPurchase()`
+returns.
 
-O padrão para qualquer mutação com várias escritas:
+The pattern for any mutation with several writes:
 
-1. **Valide e monte tudo fora da transação** (o laço que confere as quantidades e cria os
-   `PurchaseItem`). A transação segura uma conexão do pool: quanto mais curta, melhor.
-2. **Dentro do `required()`, só as escritas.**
-3. **Efeitos que não são do banco** (esvaziar o carrinho, avisar ouvintes, navegar) **depois** do
-   `required()` voltar com sucesso.
+1. **Validate and build everything outside the transaction** (the loop that checks the quantities
+   and creates the `PurchaseItem`s). The transaction holds a connection from the pool: the shorter,
+   the better.
+2. **Inside `required()`, only the writes.**
+3. **Non-database effects** (emptying the cart, notifying listeners, navigating) **after**
+   `required()` returns successfully.
 
-Se o próprio serviço chamasse dois repositórios, a forma seria a mesma: as duas chamadas dentro
-da mesma closure passada ao `required()`.
+If the service itself called two repositories, the shape would be the same: both calls inside the
+same closure passed to `required()`.
 
-Tudo sobre `required()`, `setRollbackOnly()` e o que acontece por baixo está em
+Everything about `required()`, `setRollbackOnly()` and what happens underneath is in
 [transaction-service.md](transaction-service.md).
 
 ---
 
-## 9. Como o presenter usa o serviço
+## 9. How the presenter uses the service
 
-O presenter cria o serviço no construtor e o chama nos tratadores de evento e no
-`applyParameters`. O `ReviewsPanelPresenter` mostra os três desfechos possíveis:
+The presenter creates the service in its constructor and calls it in event handlers and in
+`applyParameters`. `ReviewsPanelPresenter` shows the three possible outcomes:
 
 ```php
 public function onSubmitReview(?int $rating, ?string $comment): void
 {
     try {
-        $subject = $this->app->subject() ?? throw new LogicException('Sem usuário logado');
-        $productId = $this->productId ?? throw new LogicException('Sem produto carregado');
+        $subject = $this->app->subject() ?? throw new LogicException('No logged-in user');
+        $productId = $this->productId ?? throw new LogicException('No product loaded');
         $this->service->add($subject, $productId, $rating, $comment);
         $this->clearError();
-        $this->loadReviews($productId);   // a nova avaliação entra no topo, e média/contagem acompanham
+        $this->loadReviews($productId);   // the new review goes to the top, and average/count follow
     } catch (InvalidReviewException $caught) {
-        // esperada: vai para o estado do painel; a lista fica como estava
+        // expected: goes into the panel state; the list stays as it was
         $this->state->errorCode = self::ERROR_INVALID_REVIEW;
         $this->state->errorMessage = $caught->getMessage();
         $this->update();
@@ -424,23 +433,23 @@ public function onSubmitReview(?int $rating, ?string $comment): void
 }
 ```
 
-1. **Sucesso:** o presenter atualiza o próprio estado (aqui, recarrega a lista pelo serviço) e chama
-   `update()` para a view ser reenviada.
-2. **Falha esperada:** a exceção específica vira um **código de erro** e uma mensagem no
-   `ViewState`. A view React mostra o erro junto do formulário. Os códigos são constantes do
-   presenter (`ERROR_INVALID_REVIEW = 1`), e a view decide como exibi-los.
-3. **Falha inesperada:** `alertUnexpectedError()` registra no log e mostra o alerta genérico da
-   aplicação. O presenter não tenta adivinhar o que deu errado.
+1. **Success:** the presenter updates its own state (here, reloads the list through the service)
+   and calls `update()` so the view is sent again.
+2. **Expected failure:** the specific exception becomes an **error code** and a message in the
+   `ViewState`. The React view shows the error next to the form. The codes are presenter constants
+   (`ERROR_INVALID_REVIEW = 1`), and the view decides how to display them.
+3. **Unexpected failure:** `alertUnexpectedError()` logs it and shows the application's generic
+   alert. The presenter doesn't try to guess what went wrong.
 
-O `CartPresenter::onBuy()` segue o mesmo desenho com mais de uma exceção esperada:
-`InvalidCartItemException` vira o código 1, `OfflineException` (banco fora do ar) vira o código 4,
-e o resto vai para o alerta.
+`CartPresenter::onBuy()` follows the same design with more than one expected exception:
+`InvalidCartItemException` becomes code 1, `OfflineException` (database down) becomes code 4, and
+the rest goes to the alert.
 
-**No `applyParameters`, a exceção sobe.** Quando o serviço é chamado durante a navegação, o
-presenter **não** captura: `ProductService::loadProductById()` lança `ProductNotFoundException` e
-o motor desfaz a navegação inteira (o usuário fica na tela anterior). Quem decide o que mostrar é
-quem iniciou a viagem — a `HomePresenter`, por exemplo, captura `ProductNotFoundException` ao abrir
-um produto.
+**In `applyParameters`, the exception propagates.** When the service is called during navigation,
+the presenter does **not** catch: `ProductService::loadProductById()` throws
+`ProductNotFoundException` and the engine undoes the whole navigation (the user stays on the
+previous screen). Whoever started the trip decides what to show — `HomePresenter`, for example,
+catches `ProductNotFoundException` when opening a product.
 
 ```php
 // ProductPresenter::applyParameters
@@ -450,17 +459,17 @@ if ($this->state->product === null || $newId !== $oldId) {
 }
 ```
 
-Repare no `if`: o presenter só chama o serviço **quando o produto mudou**. Passar pelo caminho não
-é recarregar — ver [presentation-module.md](presentation-module.md).
+Note the `if`: the presenter only calls the service **when the product changed**. Passing through
+is not reloading — see [presentation-module.md](presentation-module.md).
 
 ---
 
-## 10. Anti-padrões — o que não fazer
+## 10. Anti-patterns — what not to do
 
-### ❌ Consultar dentro de um laço (N+1)
+### ❌ Querying inside a loop (N+1)
 
 ```php
-// ERRADO: uma consulta por avaliação para buscar o nome do autor
+// WRONG: one query per review to fetch the author's name
 $reviews = $this->reviews->fetch($criteria);
 foreach ($reviews as $review) {
     $author = $this->users->fetchById($review->user()?->id());
@@ -468,82 +477,82 @@ foreach ($reviews as $review) {
 }
 ```
 
-Com 50 avaliações, são 51 idas ao banco, e a latência cresce com a lista. A relação vai **dentro da
-projeção** (`->withUser(new User()->withId(PV::INT)->withName(PV::STR))`), e o repositório traz
-tudo numa consulta só. Relações 1:N (os itens de uma compra) também: `->withItems([$item])`.
-Detalhes em [json-query.md](json-query.md).
+With 50 reviews, that's 51 round trips to the database, and the latency grows with the list. The
+relation goes **inside the projection** (`->withUser(new User()->withId(PV::INT)->withName(PV::STR))`),
+and the repository brings everything in a single query. 1:N relations (a purchase's items) too:
+`->withItems([$item])`. Details in [json-query.md](json-query.md).
 
-### ❌ Devolver entidades para o estado da view
+### ❌ Returning entities to the view state
 
 ```php
-// ERRADO
+// WRONG
 $this->state->reviews = $this->reviews->fetch($criteria);   // list<Review>
 ```
 
-A entidade tem campos privados: o React recebe `{}`. Além disso, ela carrega mais do que a tela
-deveria ver (o hash da senha de um `User`, por exemplo). O serviço sempre converte para a struct
-de apresentação (`ReviewInfo::create(...)`).
+The entity has private fields: React receives `{}`. Besides, it carries more than the screen should
+see (a `User`'s password hash, for example). The service always converts to the presentation struct
+(`ReviewInfo::create(...)`).
 
-### ❌ Capturar tudo dentro do serviço
+### ❌ Catching everything inside the service
 
-Um `try { ... } catch (Throwable) {}` em volta da gravação faz o presenter achar que deu certo.
-Engolir a exceção esconde defeitos e, dentro de uma transação, impede o rollback (o `required()`
-só desfaz o que vê falhar). O serviço só captura o que sabe resolver; o resto sobe. E nunca
-devolva `false` ou `null` para dizer "deu erro de validação" — use a exceção esperada, que carrega
-a mensagem. (`null` é legítimo quando significa "não encontrado" ou "credenciais inválidas", como
-em `ReceiptService::loadReceipt()` e `LoginService::fetchSubject()`.)
+A `try { ... } catch (Throwable) {}` around the write makes the presenter think it worked.
+Swallowing the exception hides defects and, inside a transaction, prevents the rollback
+(`required()` only undoes what it sees fail). The service only catches what it knows how to
+resolve; the rest propagates. And never return `false` or `null` to mean "validation error" — use
+the expected exception, which carries the message. (`null` is legitimate when it means "not found"
+or "invalid credentials", as in `ReceiptService::loadReceipt()` and `LoginService::fetchSubject()`.)
 
-### ❌ Regra de negócio na view
+### ❌ Business rules in the view
 
-A view React formata para exibição — número no padrão do navegador (`NumberUtils.format`), data
-no fuso de quem lê (`new Date(ms)`). Isso é dela. O que **não** é dela é decidir regras: o limite
-de 500 caracteres, se o frete é grátis, a média das notas, o que conta como "comentário vazio".
-Valores derivados de regra são calculados no servidor (serviço ou presenter) e chegam prontos no
-estado — o `ReviewsPanelPresenter` envia `averageLabel = "4,5 de 5"`, não a lista para o React
-somar. Se a regra mudar, muda num lugar só, e o teste de aceitação (que roda sem navegador) a
-cobre.
+The React view formats for display — numbers in the browser's format (`NumberUtils.format`), dates
+in the reader's time zone (`new Date(ms)`). That's its job. What is **not** its job is deciding
+rules: the 500-character limit, whether shipping is free, the average rating, what counts as an
+"empty comment". Rule-derived values are computed on the server (service or presenter) and arrive
+ready in the state — `ReviewsPanelPresenter` sends `averageLabel = "4.5 of 5"`, not the list for
+React to sum. If the rule changes, it changes in one place, and the acceptance test (which runs
+without a browser) covers it.
 
-### ❌ Fazer I/O que bloqueia o event loop
+### ❌ Doing I/O that blocks the event loop
 
-O servidor é **um processo** com **um event loop** atendendo todas as sessões. As chamadas ao banco
-já são assíncronas (suspendem só a Fiber de quem perguntou). Mas um serviço que faça:
+The server is **one process** with **one event loop** serving every session. Database calls are
+already asynchronous (they suspend only the Fiber of whoever asked). But a service that does:
 
 ```php
-sleep(2);                                          // ERRADO: congela todo mundo
-$cep = file_get_contents('https://viacep.com.br/...');   // ERRADO: HTTP síncrono
+sleep(2);                                                 // WRONG: freezes everyone
+$data = file_get_contents('https://api.example.com/...');   // WRONG: synchronous HTTP
 ```
 
-trava **todos** os usuários enquanto espera. Para esperar, use `($this->app->context->sleep)($s)`
-(passado ao serviço por quem o cria) ou o `scheduler()`; para HTTP, os clientes do Amp
-(`amphp/http-client`); para CPU pesada, um processo à parte (`amphp/parallel`, como o servidor já
-faz com a derivação de chaves do login). Ver [../arquitetura.md](../arquitetura.md).
+blocks **every** user while it waits. To wait, use `($this->app->context->sleep)($s)` (passed to
+the service by whoever creates it) or the `scheduler()`; for HTTP, the Amp clients
+(`amphp/http-client`); for heavy CPU work, a separate process (`amphp/parallel`, as the server
+already does for the login key derivation). See [../architecture.md](../architecture.md).
 
-### ❌ Serviço que mexe na tela
+### ❌ A service that touches the screen
 
-Receber a `ShoppingApplication` no construtor (para chamar `$this->app->go(...)`, por exemplo)
-dá ao serviço acesso a tudo — navegação, estado, alertas — e o amarra à sessão. Receba só os repositórios de que precisa; deixe navegação e `update()` para o
-presenter.
+Receiving the `ShoppingApplication` in the constructor (to call `$this->app->go(...)`, for example)
+gives the service access to everything — navigation, state, alerts — and ties it to the session.
+Receive only the repositories it needs; leave navigation and `update()` to the presenter.
 
 ---
 
-## 11. Referência rápida
+## 11. Quick reference
 
-| Pergunta | Resposta |
+| Question | Answer |
 |---|---|
-| Onde fica o serviço? | Na pasta do presenter que o usa: `Presenter/<Área>/<Tela>/XxxService.php`. |
-| Quem cria? | O presenter, no construtor: `new XxxService()`. O `CartManager` é criado uma vez por sessão. |
-| De onde vêm as dependências? | Do `Beans`, no construtor do serviço: `Beans::of(XxxRepository::class)` e, se escrever em mais de um lugar, `Beans::of(TransactionService::class)`. |
-| O que devolve? | Structs de apresentação com campos públicos (`ProductInfo`, `ReviewInfo`), `list<...>`, `Page<...>`, um id, ou nada. |
-| Como escolhe os campos? | `XxxInfo::projection()` no critério (`withProjection`) ou no `fetchById($id, $projection)`. |
-| Filtros e ordem? | No critério (`withProductId`, `withUserId`, `withOrderBy`), nunca em PHP depois da busca. |
-| Relações? | Dentro da projeção (`withUser(...)`, `withItems([...])`). Nunca um `fetch` por linha. |
-| Validação recusou? | `throw new XxxException('mensagem para o usuário')`; o presenter vira `errorCode` + `errorMessage`. |
-| Várias escritas? | Dentro de `$this->tx->required(fn () => ...)`; validar antes, efeitos colaterais depois. |
-| Pode guardar estado? | Não (exceção: `CartManager`, que é o carrinho da sessão). |
-| Pode chamar `update()`, navegar, guardar a `ShoppingApplication`? | Não. |
-| Pode usar `sleep()`, `file_get_contents` de URL, cliente HTTP síncrono? | Não: travam todas as sessões. |
+| Where does the service live? | In the folder of the presenter that uses it: `Presenter/<Area>/<Screen>/XxxService.php`. |
+| Who creates it? | The presenter, in its constructor: `new XxxService()`. `CartManager` is created once per session. |
+| Where do the dependencies come from? | From `Beans`, in the service constructor: `Beans::of(XxxRepository::class)` and, if it writes in more than one place, `Beans::of(TransactionService::class)`. |
+| What does it return? | Presentation structs with public fields (`ProductInfo`, `ReviewInfo`), `list<...>`, `Page<...>`, an id, or nothing. |
+| How does it choose the fields? | `XxxInfo::projection()` in the criteria (`withProjection`) or in `fetchById($id, $projection)`. |
+| Filters and ordering? | In the criteria (`withProductId`, `withUserId`, `withOrderBy`), never in PHP after the fetch. |
+| Relations? | Inside the projection (`withUser(...)`, `withItems([...])`). Never one `fetch` per row. |
+| Validation refused? | `throw new XxxException('message for the user')`; the presenter turns it into `errorCode` + `errorMessage`. |
+| Several writes? | Inside `$this->tx->required(fn () => ...)`; validate before, side effects after. |
+| Can it keep state? | No (exception: `CartManager`, which is the session's cart). |
+| Can it call `update()`, navigate, keep the `ShoppingApplication`? | No. |
+| Can it use `sleep()`, `file_get_contents` on a URL, a synchronous HTTP client? | No: they block every session. |
 
-**Para continuar:** [repository.md](repository.md) (o outro lado da chamada),
-[json-query.md](json-query.md) (projeções e critérios), [transaction-service.md](transaction-service.md),
-[presentation-module.md](presentation-module.md) (o presenter que chama o serviço) e
-[react-views.md](react-views.md) (como a view mostra o resultado e os códigos de erro).
+**Next:** [repository.md](repository.md) (the other side of the call),
+[json-query.md](json-query.md) (projections and criteria), [transaction-service.md](transaction-service.md),
+[presentation-module.md](presentation-module.md) (the presenter that calls the service) and
+[react-views.md](react-views.md) (how the view shows the result and the error codes).

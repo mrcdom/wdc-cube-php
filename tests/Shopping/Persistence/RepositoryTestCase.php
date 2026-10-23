@@ -9,7 +9,7 @@ use Wdc\Framework\Persistence\Database;
 use Wdc\Tests\Support\TestDatabase;
 
 /**
- * Cada teste começa com o banco de testes no seed (ver TestDatabase).
+ * Each test starts with the test database at the seed state (see TestDatabase).
  */
 abstract class RepositoryTestCase extends TestCase
 {

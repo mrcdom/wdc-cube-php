@@ -39,7 +39,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
     {
         $this->db->bind(null);
         foreach ($this->coordinators as $c) {
-            $c->close();   // transação esquecida aberta seguraria travas e o reset do próximo teste esperaria
+            $c->close();   // a transaction left open would hold locks and the next test's reset would wait
         }
     }
 
@@ -51,7 +51,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         return $this->coordinators[] = new SqlRemoteTransactionCoordinator($this->db, $options, fn (): float => $this->now);
     }
 
-    /** Uma "requisição" com o txId: liga a transação, grava, desliga. */
+    /** A "request" carrying the txId: binds the transaction, writes, unbinds. */
     private function insertIn(SqlRemoteTransactionCoordinator $c, string $txId, string $name, string $owner = self::OWNER): void
     {
         $c->resume($txId, $owner);
@@ -73,16 +73,16 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $c = $this->coordinator();
         $txId = $c->begin(self::OWNER);
 
-        $this->insertIn($c, $txId, 'Remoto A');
-        $this->insertIn($c, $txId, 'Remoto B');   // outra "requisição", mesma transação
+        $this->insertIn($c, $txId, 'Remote A');
+        $this->insertIn($c, $txId, 'Remote B');   // another "request", same transaction
 
-        self::assertSame(0, $this->productsNamed('Remoto A'), 'a conexão principal não enxerga o que não foi commitado');
+        self::assertSame(0, $this->productsNamed('Remote A'), 'the main connection does not see uncommitted data');
         self::assertSame('open', $c->status($txId, self::OWNER));
 
         $c->commit($txId, self::OWNER);
 
-        self::assertSame(1, $this->productsNamed('Remoto A'));
-        self::assertSame(1, $this->productsNamed('Remoto B'));
+        self::assertSame(1, $this->productsNamed('Remote A'));
+        self::assertSame(1, $this->productsNamed('Remote B'));
         self::assertSame('committed', $c->status($txId, self::OWNER));
         self::assertSame(0, $c->openCount());
     }
@@ -92,11 +92,11 @@ final class RemoteTransactionCoordinatorTest extends TestCase
     {
         $c = $this->coordinator();
         $txId = $c->begin(self::OWNER);
-        $this->insertIn($c, $txId, 'Descartado');
+        $this->insertIn($c, $txId, 'Discarded');
 
         $c->rollback($txId, self::OWNER);
 
-        self::assertSame(0, $this->productsNamed('Descartado'));
+        self::assertSame(0, $this->productsNamed('Discarded'));
         self::assertSame('rolledback', $c->status($txId, self::OWNER));
     }
 
@@ -114,7 +114,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $c->rollback($txId, self::OWNER);
     }
 
-    /** A transação é da Fiber que a retomou: as outras, ao mesmo tempo, seguem fora dela. */
+    /** The transaction belongs to the Fiber that resumed it: the others, running at the same time, stay outside it. */
     #[Test]
     public function otherFibers_doNotRunInsideTheTransaction(): void
     {
@@ -123,16 +123,16 @@ final class RemoteTransactionCoordinatorTest extends TestCase
 
         $c->resume($txId, self::OWNER);
         try {
-            Beans::of(ProductRepository::class)->insert((new Product())->withName('Só na tx')->withPrice(1.0)->withDescription('-'));
-            $outside = async(fn () => $this->productsNamed('Só na tx'))->await();
-            $inside = $this->productsNamed('Só na tx');
+            Beans::of(ProductRepository::class)->insert((new Product())->withName('Only in tx')->withPrice(1.0)->withDescription('-'));
+            $outside = async(fn () => $this->productsNamed('Only in tx'))->await();
+            $inside = $this->productsNamed('Only in tx');
         } finally {
             $c->suspend($txId);
         }
 
         self::assertSame([1, 0], [$inside, $outside]);
         $c->commit($txId, self::OWNER);
-        self::assertSame(1, $this->productsNamed('Só na tx'));
+        self::assertSame(1, $this->productsNamed('Only in tx'));
     }
 
     #[Test]
@@ -142,13 +142,13 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $txId = $c->begin(self::OWNER);
         $c->resume($txId, self::OWNER);
         Beans::of(TransactionService::class)->required(function (): void {
-            Beans::of(ProductRepository::class)->insert((new Product())->withName('Aninhado')->withPrice(1.0)->withDescription('-'));
+            Beans::of(ProductRepository::class)->insert((new Product())->withName('Nested')->withPrice(1.0)->withDescription('-'));
         });
         $c->suspend($txId);
 
-        self::assertSame(0, $this->productsNamed('Aninhado'), 'o required interno não commitou por conta própria');
+        self::assertSame(0, $this->productsNamed('Nested'), 'the inner required did not commit on its own');
         $c->commit($txId, self::OWNER);
-        self::assertSame(1, $this->productsNamed('Aninhado'));
+        self::assertSame(1, $this->productsNamed('Nested'));
     }
 
     #[Test]
@@ -157,7 +157,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $c = $this->coordinator();
         $committed = $c->begin(self::OWNER);
         $c->commit($committed, self::OWNER);
-        $c->commit($committed, self::OWNER);   // resposta perdida, cliente repete: no-op
+        $c->commit($committed, self::OWNER);   // lost response, client retries: no-op
 
         $rolledBack = $c->begin(self::OWNER);
         $c->rollback($rolledBack, self::OWNER);
@@ -171,10 +171,10 @@ final class RemoteTransactionCoordinatorTest extends TestCase
     public function unknownTransaction_isAnError_andStatusSaysUnknown(): void
     {
         $c = $this->coordinator();
-        self::assertSame('unknown', $c->status('nao-existe', self::OWNER));
+        self::assertSame('unknown', $c->status('does-not-exist', self::OWNER));
 
         $this->expectException(TransactionSystemException::class);
-        $c->resume('nao-existe', self::OWNER);
+        $c->resume('does-not-exist', self::OWNER);
     }
 
     #[Test]
@@ -189,9 +189,9 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         ] as $attempt) {
             try {
                 $attempt();
-                self::fail('deveria negar');
+                self::fail('should have been denied');
             } catch (AccessDeniedException) {
-                // esperado
+                // expected
             }
         }
         self::assertSame('open', $c->status($txId, self::OWNER));
@@ -222,13 +222,13 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $c->begin('user:1');
         try {
             $c->begin('user:1');
-            self::fail('teto por dono');
+            self::fail('per-owner limit');
         } catch (TransactionLimitExceededException $e) {
-            self::assertStringContainsString('por dono', $e->getMessage());
+            self::assertStringContainsString('Per-owner', $e->getMessage());
         }
         $c->begin('user:2');
         $this->expectException(TransactionLimitExceededException::class);
-        $this->expectExceptionMessage('global');
+        $this->expectExceptionMessage('Global');
         $c->begin('user:3');
     }
 
@@ -237,25 +237,25 @@ final class RemoteTransactionCoordinatorTest extends TestCase
     {
         $c = $this->coordinator(new RemoteTransactionOptions(idleTimeoutMs: 1_000, maxLifetimeMs: 10_000));
         $idle = $c->begin(self::OWNER);
-        $this->insertIn($c, $idle, 'Abandonado');
+        $this->insertIn($c, $idle, 'Abandoned');
         $busy = $c->begin(self::OWNER);
 
-        // a "ocupada" é usada a cada 900 ms: nunca fica ociosa, mas passa da vida máxima
+        // the "busy" one is used every 900 ms: never idle, but it exceeds the maximum lifetime
         for ($i = 0; $i < 12; $i++) {
             $this->now += 900;
             $c->resume($busy, self::OWNER);
             $c->suspend($busy);
             if ($i === 1) {
-                $c->begin('user:9');   // a varredura roda no begin
-                self::assertSame('rolledback', $c->status($idle, self::OWNER), 'ociosa além do timeout');
+                $c->begin('user:9');   // the sweep runs on begin
+                self::assertSame('rolledback', $c->status($idle, self::OWNER), 'idle beyond the timeout');
                 self::assertSame('open', $c->status($busy, self::OWNER));
             }
         }
         $c->begin('user:9');
 
-        self::assertSame('rolledback', $c->status($busy, self::OWNER), 'passou da vida máxima');
+        self::assertSame('rolledback', $c->status($busy, self::OWNER), 'exceeded the maximum lifetime');
         self::assertFalse($c->hasOpenTransactionForOwner(self::OWNER));
-        self::assertSame(0, $this->productsNamed('Abandonado'));
+        self::assertSame(0, $this->productsNamed('Abandoned'));
     }
 
     #[Test]
@@ -266,7 +266,7 @@ final class RemoteTransactionCoordinatorTest extends TestCase
         $c->commit($txId, self::OWNER);
 
         $this->now += 6_000;
-        $c->rollback($c->begin(self::OWNER), self::OWNER);   // begin varre
+        $c->rollback($c->begin(self::OWNER), self::OWNER);   // begin sweeps
 
         self::assertSame('unknown', $c->status($txId, self::OWNER));
     }

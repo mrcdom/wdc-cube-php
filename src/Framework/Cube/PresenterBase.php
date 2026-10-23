@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Base comum de todo presenter. Interfaces PHP não têm implementação padrão, então as
- * classes abstratas fornecem a versão NOOP dos dois métodos.
+ * Common base of every presenter. PHP interfaces have no default implementations, so the
+ * abstract classes provide the NOOP version of both methods.
  */
 interface PresenterBase
 {
-    /** Recalcula estado derivado logo antes de a view ser serializada. */
+    /** Recomputes derived state right before the view is serialized. */
     public function commitComputedState(): void;
 
     public function release(): void;

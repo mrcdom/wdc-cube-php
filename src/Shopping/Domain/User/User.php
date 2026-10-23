@@ -8,7 +8,7 @@ final class User
 {
     private ?int $id = null;
     private ?string $userName = null;
-    /** hash MD5→base36 (ver PasswordUtil) */
+    /** MD5→base36 hash (see PasswordUtil) */
     private ?string $password = null;
     private ?string $name = null;
     /** CSV: "ADMIN", "CUSTOMER", "ADMIN,CUSTOMER" */

@@ -20,8 +20,8 @@ final class KeyDerivationTest extends TestCase
         $salt = random_bytes(16);
 
         self::assertSame(
-            new DirectKeyDerivation()->derive('senha-da-sessao', $salt),
-            new ParallelKeyDerivation()->derive('senha-da-sessao', $salt),
+            new DirectKeyDerivation()->derive('session-password', $salt),
+            new ParallelKeyDerivation()->derive('session-password', $salt),
         );
     }
 
@@ -29,18 +29,18 @@ final class KeyDerivationTest extends TestCase
     public function parallel_doesNotBlockTheEventLoop(): void
     {
         $derivation = new ParallelKeyDerivation();
-        $derivation->derive('aquece', 'o-pool');   // sobe o worker antes de medir
+        $derivation->derive('warm-up', 'the-pool');   // start the worker before measuring
 
         $ticks = 0;
-        $ticker = async(static function () use (&$ticks): void {   // outra "sessão": um timer de 10 ms
+        $ticker = async(static function () use (&$ticks): void {   // another "session": a 10 ms timer
             for ($i = 0; $i < 100; $i++) {
                 delay(0.01);
                 $ticks++;
             }
         });
-        $derivation->derive('senha', random_bytes(16));   // ~180 ms de CPU, em outro processo
+        $derivation->derive('password', random_bytes(16));   // ~180 ms of CPU, in another process
         $ticker->ignore();
 
-        self::assertGreaterThan(5, $ticks, 'o timer seguiu rodando enquanto o PBKDF2 calculava');
+        self::assertGreaterThan(5, $ticks, 'the timer kept running while PBKDF2 was computing');
     }
 }

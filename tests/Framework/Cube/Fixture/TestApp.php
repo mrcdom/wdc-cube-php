@@ -11,7 +11,7 @@ use Wdc\Framework\Cube\CubeApplication;
 use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubePlace;
 
-/** App de teste que registra tudo o que o motor faz com os presenters. */
+/** Test app that records everything the engine does with the presenters. */
 final class TestApp extends CubeApplication
 {
     /** @var list<string> */
@@ -20,7 +20,7 @@ final class TestApp extends CubeApplication
     public int $historyUpdates = 0;
 
     /**
-     * Comportamento extra por place, executado dentro do applyParameters.
+     * Extra behaviour per place, run inside applyParameters.
      *
      * @var array<int, Closure(RecordingPresenter, CubeIntent, bool, bool): bool>
      */
@@ -37,7 +37,7 @@ final class TestApp extends CubeApplication
         $this->persistentStore = new InMemoryClientStorage();
     }
 
-    /** Navega pela cadeia dada; o intent é opcional. */
+    /** Navigates through the given chain; the intent is optional. */
     public function go(CubeIntent|CubePlace ...$chain): bool
     {
         $intent = new CubeIntent();
@@ -53,7 +53,7 @@ final class TestApp extends CubeApplication
         return $navigation->execute($intent);
     }
 
-    /** @return list<string> nomes dos places com presenter ativo */
+    /** @return list<string> names of the places with an active presenter */
     public function active(): array
     {
         return array_values(array_map(

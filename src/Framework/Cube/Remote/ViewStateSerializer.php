@@ -15,21 +15,21 @@ use UnitEnum;
 use Wdc\Framework\Cube\CubeView;
 
 /**
- * ViewState → array pronto para `json_encode`.
+ * ViewState → array ready for `json_encode`.
  *
- * Regras de topo (o contrato com o React):
- * - `"#"` = id da view, sempre primeiro;
- * - propriedades públicas não estáticas, menos as marcadas com #[Transient];
- * - `bool` (não anulável) sai sempre; `int`/`float` não anuláveis saem sempre (inclusive 0);
- * - `null` é omitido; string em branco é omitida;
- * - CubeView vira `"<nome>Id": "<id da view>"` (ex.: contentView → contentViewId).
+ * Top-level rules (the contract with React):
+ * - `"#"` = view id, always first;
+ * - public non-static properties, except those marked with #[Transient];
+ * - non-nullable `bool` is always emitted; non-nullable `int`/`float` are always emitted (including 0);
+ * - `null` is omitted; a blank string is omitted;
+ * - a CubeView becomes `"<name>Id": "<view id>"` (e.g. contentView → contentViewId).
  *
- * Dentro de listas e objetos: null fica `null`, CubeView vira o id puro, string não é filtrada,
- * objetos saem com as propriedades públicas não nulas.
+ * Inside lists and objects: null stays `null`, a CubeView becomes the bare id, strings are not filtered,
+ * objects are emitted with their non-null public properties.
  */
 final class ViewStateSerializer
 {
-    /** @var array<class-string, list<ReflectionProperty>> cache da reflexão por classe */
+    /** @var array<class-string, list<ReflectionProperty>> reflection cache per class */
     private static array $properties = [];
 
     private function __construct()
@@ -59,7 +59,7 @@ final class ViewStateSerializer
         return $out;
     }
 
-    /** JSON no formato que os clientes esperam: sem escapar "/" nem Unicode, 10.0 continua 10.0. */
+    /** JSON in the format clients expect: no escaping of "/" or Unicode, 10.0 stays 10.0. */
     public static function json(mixed $data): string
     {
         return json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
@@ -79,7 +79,7 @@ final class ViewStateSerializer
         };
     }
 
-    /** ISO-8601 em UTC; a fração só aparece quando não é zero. */
+    /** ISO-8601 in UTC; the fraction only appears when it is not zero. */
     private static function isoUtc(DateTimeInterface $date): string
     {
         $utc = DateTimeImmutable::createFromInterface($date)->setTimezone(new DateTimeZone('UTC'));
@@ -89,7 +89,7 @@ final class ViewStateSerializer
     }
 
     /**
-     * Lista ⇒ array JSON; mapa ⇒ objeto JSON (stdClass, para `[]` vazio não virar objeto nem o contrário).
+     * List ⇒ JSON array; map ⇒ JSON object (stdClass, so an empty `[]` does not become an object or vice versa).
      *
      * @param array<mixed> $value
      */

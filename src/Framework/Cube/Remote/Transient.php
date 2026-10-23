@@ -6,7 +6,7 @@ namespace Wdc\Framework\Cube\Remote;
 
 use Attribute;
 
-/** Propriedade pública de ViewState que NÃO vai para o cliente. PHP não tem modificador para excluir propriedades da serialização; este atributo faz esse papel. */
+/** A public ViewState property that is NOT sent to the client. PHP has no modifier to exclude properties from serialization; this attribute plays that role. */
 #[Attribute(Attribute::TARGET_PROPERTY)]
 final class Transient
 {

@@ -9,8 +9,8 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Framework\Cube\CubePresenter;
 
 /**
- * Places de teste. Árvore: root → section → page; root → other; root → login.
- * Ids crescem com a profundidade (invariante do motor).
+ * Test places. Tree: root → section → page; root → other; root → login.
+ * Ids grow with depth (an engine invariant).
  */
 enum TestPlace: int implements CubePlace
 {

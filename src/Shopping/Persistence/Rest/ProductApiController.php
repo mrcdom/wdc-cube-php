@@ -20,7 +20,7 @@ use Wdc\Shopping\Domain\Product\ProductCriteria;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
-/** `/api/repo/product/*` — catálogo. Sem escopo por usuário; a imagem (GET) é pública. */
+/** `/api/repo/product/*` — catalog. No per-user scoping; the image (GET) is public. */
 final class ProductApiController extends ApiController
 {
     private readonly ProductCodec $codec;
@@ -51,7 +51,7 @@ final class ProductApiController extends ApiController
         $add('PUT', "{$base}/{id:\\d+}/image", $this->updateImage(...), true);
     }
 
-    /** Projeção padrão: tudo menos a imagem. */
+    /** Default projection: everything but the image. */
     public static function fullProjection(): Product
     {
         return (new Product())->withId(PV::INT)->withName(PV::STR)->withPrice(PV::FLOAT)->withDescription(PV::STR);
@@ -76,7 +76,7 @@ final class ProductApiController extends ApiController
 
     private function delete(RestRequest $request): Response
     {
-        $this->security->require('product', 'write');   // apagar produto pede write (não há product:delete)
+        $this->security->require('product', 'write');   // deleting a product requires write (there is no product:delete)
         $criteria = self::readCriteria($request->json(), $this->codec, new ProductCriteria());
 
         return RestResponse::json(['count' => $this->repo->delete($criteria)]);
@@ -129,14 +129,14 @@ final class ProductApiController extends ApiController
         return $product === null ? self::notFound() : RestResponse::json($this->codec->writeEntity($product));
     }
 
-    /** Pública: o catálogo mostra as imagens sem login. 204 = produto sem imagem. */
+    /** Public: the catalog shows images without login. 204 = product without an image. */
     private function fetchImage(RestRequest $request): Response
     {
         try {
             $image = $this->repo->fetchImage(self::pathId($request));
         } catch (Throwable $e) {
-            // produto inexistente cai aqui também, de propósito: clientes REST leem 404 como
-            // "sem imagem" (null) e só um erro faz o fetchImage deles lançar, como o local
+            // a missing product lands here too, on purpose: REST clients read 404 as
+            // "no image" (null) and only an error makes their fetchImage throw, like the local one
             if (!$e instanceof BusinessException) {
                 $this->logger->error('Fetching product image', ['exception' => $e]);
             }

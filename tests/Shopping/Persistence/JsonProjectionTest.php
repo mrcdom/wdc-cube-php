@@ -24,8 +24,8 @@ use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
 /**
- * A projeção em JSON traz o grafo pedido numa única ida ao banco (sem N+1) e só com os campos
- * pedidos. Estes testes contam os comandos enviados e olham o SQL gerado.
+ * The JSON projection brings the requested graph in a single database round trip (no N+1) and only with
+ * the requested fields. These tests count the statements sent and inspect the generated SQL.
  */
 final class JsonProjectionTest extends RepositoryTestCase
 {
@@ -40,7 +40,7 @@ final class JsonProjectionTest extends RepositoryTestCase
         });
     }
 
-    /** Compras com usuário (nome) e itens (com nome do produto): três níveis de grafo. */
+    /** Purchases with user (name) and items (with product name): three graph levels. */
     private static function fullGraph(): Purchase
     {
         return new Purchase()
@@ -69,16 +69,16 @@ final class JsonProjectionTest extends RepositoryTestCase
             ->withProjection(self::fullGraph())
             ->withOrderBy(PurchaseOrderBy::OLDEST_FIRST));
 
-        self::assertCount(1, $this->statements, 'uma ida ao banco para compras + usuários + itens + produtos');
+        self::assertCount(1, $this->statements, 'one round trip for purchases + users + items + products');
         self::assertCount(2, $purchases);
 
         $second = $purchases[1];
-        self::assertSame('João da Silva', $second->user()?->name());
+        self::assertSame('John Smith', $second->user()?->name());
         $items = $second->items();
         self::assertIsArray($items);
-        self::assertSame(['Bola Wilson', 'Fita veda rosca'], array_map(static fn (PurchaseItem $i) => $i->product()?->name(), $items));
+        self::assertSame(['Wilson ball', 'Thread seal tape'], array_map(static fn (PurchaseItem $i) => $i->product()?->name(), $items));
         self::assertSame(45.3, $items[0]->price());
-        self::assertNull($items[0]->product()?->price(), 'preço do produto não foi pedido');
+        self::assertNull($items[0]->product()?->price(), 'product price was not requested');
     }
 
     #[Test]
@@ -88,12 +88,12 @@ final class JsonProjectionTest extends RepositoryTestCase
         $criteria = static fn () => new PurchaseCriteria()->withProjection(self::fullGraph());
         $purchases->fetch($criteria());
 
-        // sem os registros, um novo lookup falharia: cada repositório guardou o que achou no Beans
+        // without the registrations a new lookup would fail: each repository kept what it found in Beans
         Beans::set(UserRepository::class, null);
         Beans::set(PurchaseItemRepository::class, null);
         Beans::set(ProductRepository::class, null);
 
-        self::assertSame('João da Silva', $purchases->fetch($criteria())[1]->user()?->name());
+        self::assertSame('John Smith', $purchases->fetch($criteria())[1]->user()?->name());
     }
 
     #[Test]
@@ -102,15 +102,15 @@ final class JsonProjectionTest extends RepositoryTestCase
         for ($i = 0; $i < 20; $i++) {
             Beans::of(PurchaseRepository::class)->insert(new Purchase()
                 ->withBuyDate(new \DateTimeImmutable())
-                ->withUser(new User()->withId(Seed::FULANO_ID))
-                ->withItems([new PurchaseItem()->withAmount(1)->withPrice(1.0)->withProduct(new Product()->withId(Seed::CAFETEIRA_ID))]));
+                ->withUser(new User()->withId(Seed::JOHN_ID))
+                ->withItems([new PurchaseItem()->withAmount(1)->withPrice(1.0)->withProduct(new Product()->withId(Seed::COFFEE_MAKER_ID))]));
         }
         $this->statements = [];
 
         $purchases = Beans::of(PurchaseRepository::class)->fetch(new PurchaseCriteria()->withProjection(self::fullGraph()));
 
         self::assertCount(22, $purchases);
-        self::assertCount(1, $this->statements, 'N+1 seria 1 + 22 (usuários) + 22 (itens) + ...');
+        self::assertCount(1, $this->statements, 'N+1 would be 1 + 22 (users) + 22 (items) + ...');
     }
 
     #[Test]
@@ -120,7 +120,7 @@ final class JsonProjectionTest extends RepositoryTestCase
 
         $field = static fn (string $k, string $col): string => "'\"{$k}\":' || coalesce(to_json({$col}), 'null')";
         self::assertStringContainsString($field('name', 'pr1.NAME'), $this->statements[0]);
-        self::assertStringContainsString($field('id', 'pr1.ID'), $this->statements[0], 'o id entra sempre');
+        self::assertStringContainsString($field('id', 'pr1.ID'), $this->statements[0], 'the id is always included');
         self::assertStringNotContainsString('PRICE', $this->statements[0]);
         self::assertStringNotContainsString('DESCRIPTION', $this->statements[0]);
     }
@@ -128,7 +128,7 @@ final class JsonProjectionTest extends RepositoryTestCase
     #[Test]
     public function relationWithOnlyTheId_comesFromTheForeignKey_withoutSubquery(): void
     {
-        // a projeção padrão de compra traz user { id } — é o caso mais comum
+        // the default purchase projection brings user { id } — the most common case
         $purchase = Beans::of(PurchaseRepository::class)->fetchById(Seed::ADMIN_FIRST_PURCHASE_ID);
 
         self::assertSame(Seed::ADMIN_ID, $purchase?->user()?->id());
@@ -169,8 +169,8 @@ final class JsonProjectionTest extends RepositoryTestCase
     #[Test]
     public function collectionFilter_bindsItsParametersInTheRightPlace(): void
     {
-        // o critério do filho tem parâmetro (?) dentro da subconsulta; o da raiz vem depois, no WHERE
-        $items = PV::singletonList(new PurchaseItem()->withId(PV::INT), new PurchaseItemCriteria()->withProductId(Seed::FITA_VEDA_ROSCA_ID));
+        // the child criteria has a parameter (?) inside the subquery; the root one comes later, in the WHERE
+        $items = PV::singletonList(new PurchaseItem()->withId(PV::INT), new PurchaseItemCriteria()->withProductId(Seed::THREAD_SEAL_TAPE_ID));
         $purchases = Beans::of(PurchaseRepository::class)->fetch(new PurchaseCriteria()
             ->withUserId(Seed::ADMIN_ID)
             ->withProjection(new Purchase()->withId(PV::INT)->withItems($items))
@@ -183,13 +183,13 @@ final class JsonProjectionTest extends RepositoryTestCase
     #[Test]
     public function binaryColumn_roundTripsThroughJson_andNullStaysNull(): void
     {
-        Beans::of(ProductRepository::class)->updateImage(Seed::FITA_VEDA_ROSCA_ID, null);
+        Beans::of(ProductRepository::class)->updateImage(Seed::THREAD_SEAL_TAPE_ID, null);
         $products = Beans::of(ProductRepository::class)->fetch(new ProductCriteria()
-            ->productId()->in([Seed::CAFETEIRA_ID, Seed::FITA_VEDA_ROSCA_ID])
+            ->productId()->in([Seed::COFFEE_MAKER_ID, Seed::THREAD_SEAL_TAPE_ID])
             ->withProjection(new Product()->withImage(PV::BIN)));
 
-        self::assertSame(Beans::of(ProductRepository::class)->fetchImage(Seed::CAFETEIRA_ID), $products[0]->image());
-        self::assertNull($products[1]->image(), 'hex(NULL) seria "" — o dialeto trata');
+        self::assertSame(Beans::of(ProductRepository::class)->fetchImage(Seed::COFFEE_MAKER_ID), $products[0]->image());
+        self::assertNull($products[1]->image(), 'hex(NULL) would be "" — the dialect handles it');
     }
 
     #[Test]
@@ -198,7 +198,7 @@ final class JsonProjectionTest extends RepositoryTestCase
         $items = PV::singletonList(new PurchaseItem()->withId(PV::INT), new ProductCriteria());
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('não serve para EN_PURCHASEITEM');
+        $this->expectExceptionMessage('does not apply to EN_PURCHASEITEM');
         Beans::of(PurchaseRepository::class)->fetch(new PurchaseCriteria()->withProjection(new Purchase()->withItems($items)));
     }
 }

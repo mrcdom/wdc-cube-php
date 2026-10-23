@@ -8,16 +8,16 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Place;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 
-/** Keys do detalhe do produto: `product?pr-id=3`. */
+/** Product detail keys: `product?pr-id=3`. */
 final class ProductKeys extends HomeKeys
 {
-    /** Prefixo dos nomes deste arquivo - único na aplicação. */
+    /** Prefix of this file's names - unique in the application. */
     private const string PREFIX = 'pr';
 
-    /** Parâmetro: o produto mostrado. */
+    /** Parameter: the product shown. */
     private const string P_ID = self::PREFIX . '-id';
 
-    /** O produto: inteiro não negativo, ou null se o endereço não traz um utilizável. */
+    /** The product: a non-negative integer, or null if the address does not carry a usable one. */
     public ?int $productId {
         get => $this->idParameter(self::P_ID);
         set (?int $value) {

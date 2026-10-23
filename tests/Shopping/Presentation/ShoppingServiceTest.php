@@ -28,10 +28,10 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductService;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptService;
 use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
 
-/** Serviço de compras testado diretamente, sem presenters. */
+/** Shopping services tested directly, without presenters. */
 final class ShoppingServiceTest extends RepositoryTestCase
 {
-    /** Os serviços acham os repositórios no Beans (o TestDatabase os registra); sem autenticação registrada, o login confere a senha direto. */
+    /** The services find the repositories in Beans (TestDatabase registers them); with no authentication registered, login checks the password directly. */
     protected function tearDown(): void
     {
         Beans::clear();
@@ -40,20 +40,20 @@ final class ShoppingServiceTest extends RepositoryTestCase
     #[Test]
     public function purchaseStatement_ordersByPurchaseDate_notByInsertionOrder(): void
     {
-        // a última cadastrada (maior id), porém a mais antiga de todas
+        // the last one inserted (highest id), yet the oldest of all
         $late = new Purchase()
             ->withUser(new User()->withId(Seed::ADMIN_ID))
             ->withBuyDate(new DateTimeImmutable('2009-05-20 10:00:00', new DateTimeZone('UTC')))
-            ->withItems([new PurchaseItem()->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1)]);
+            ->withItems([new PurchaseItem()->withProduct(new Product()->withId(Seed::FLASH_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1)]);
         Beans::of(PurchaseRepository::class)->insert($late);
 
         $statement = new PurchasesPanelService()->loadPurchasesOfUser(Seed::ADMIN_ID);
         $ids = array_map(static fn ($p) => $p->id, $statement);
         self::assertCount(3, $ids);
 
-        self::assertSame($late->id(), max(...$ids), 'a compra de 2009 é a de maior id');
-        self::assertNotSame($late->id(), $ids[0], 'a mais antiga não pode encabeçar o extrato');
-        self::assertSame($late->id(), $ids[2], 'a mais antiga fecha a lista');
+        self::assertSame($late->id(), max(...$ids), 'the 2009 purchase has the highest id');
+        self::assertNotSame($late->id(), $ids[0], 'the oldest one must not head the statement');
+        self::assertSame($late->id(), $ids[2], 'the oldest one closes the list');
     }
 
     #[Test]
@@ -68,19 +68,19 @@ final class ShoppingServiceTest extends RepositoryTestCase
         $items = Beans::of(PurchaseItemRepository::class)->fetch(new PurchaseItemCriteria()->withUserId(Seed::ADMIN_ID)->withProjection($projection));
 
         self::assertCount(3, $items);
-        self::assertSame('admin', $items[0]->purchase()?->user()?->userName(), 'três níveis de grafo');
+        self::assertSame('admin', $items[0]->purchase()?->user()?->userName(), 'three graph levels');
     }
 
     #[Test]
     public function login_wrongPassword_isRejected(): void
     {
-        self::assertNull(new LoginService()->fetchSubject('admin', 'senha-errada'));
+        self::assertNull(new LoginService()->fetchSubject('admin', 'wrong-password'));
     }
 
     #[Test]
     public function login_unknownUser_isRejected(): void
     {
-        self::assertNull(new LoginService()->fetchSubject('ninguem', 'admin'));
+        self::assertNull(new LoginService()->fetchSubject('nobody', 'admin'));
     }
 
     #[Test]
@@ -89,8 +89,8 @@ final class ShoppingServiceTest extends RepositoryTestCase
         $result = new LoginService()->fetchSubject('admin', 'admin');
         self::assertNotNull($result);
         self::assertSame(Seed::ADMIN_ID, $result->subject->id);
-        self::assertSame('João da Silva', $result->subject->nickName);
-        self::assertNull($result->persistentToken, 'sem AuthenticationService não há "lembrar-me"');
+        self::assertSame('John Smith', $result->subject->nickName);
+        self::assertNull($result->persistentToken, 'without AuthenticationService there is no "remember me"');
 
         $products = array_values(array_filter(array_map(
             ProductInfo::create(...),
@@ -103,7 +103,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
             self::assertStringEndsWith('.png', $product->image);
             self::assertGreaterThanOrEqual(0.0, $product->price);
             self::assertNotSame('', trim($product->description));
-            self::assertEquals($product, $service->loadProductById($product->id), 'mesmo produto pelos dois caminhos');
+            self::assertEquals($product, $service->loadProductById($product->id), 'same product through both paths');
         }
 
         $purchasesService = new PurchasesPanelService();
@@ -116,8 +116,8 @@ final class ShoppingServiceTest extends RepositoryTestCase
             ->withUser(new User()->withId($result->subject->id))
             ->withBuyDate(new DateTimeImmutable())
             ->withItems([
-                new PurchaseItem()->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1),
-                new PurchaseItem()->withProduct(new Product()->withId(Seed::FITA_VEDA_ROSCA_ID))->withPrice(5.0)->withAmount(2),
+                new PurchaseItem()->withProduct(new Product()->withId(Seed::FLASH_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1),
+                new PurchaseItem()->withProduct(new Product()->withId(Seed::THREAD_SEAL_TAPE_ID))->withPrice(5.0)->withAmount(2),
             ]);
         Beans::of(PurchaseRepository::class)->insert($purchase);
         self::assertSame(Seed::ADMIN_SECOND_PURCHASE_ID + 1, $purchase->id());
@@ -132,7 +132,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
         self::assertNotNull($receipt);
         self::assertSame(65.0, $receipt->total);
         self::assertSame(
-            [['Pen Drive 2GB', 55.0, 1], ['Fita veda rosca', 5.0, 2]],
+            [['Flash drive 2GB', 55.0, 1], ['Thread seal tape', 5.0, 2]],
             array_map(static fn ($i) => [$i->description, $i->value, $i->quantity], $receipt->items),
         );
     }

@@ -14,7 +14,7 @@ final class AppConfigTest extends TestCase
     public function parseToml_flattensSectionsAndStripsQuotes(): void
     {
         $toml = <<<'TOML'
-            # comentário
+            # comment
             [app]
             basedir = ".."
 

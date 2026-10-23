@@ -8,8 +8,8 @@ use Wdc\Framework\Domain\Criteria\ComparableCriterion;
 use Wdc\Framework\Domain\Criteria\Criteria;
 
 /**
- * Critério de busca de PurchaseItem. Cada campo filtrável é um Criterion que já nasce criado
- * (nunca null): use hasPurchaseItemId() para saber se foi informado.
+ * Search criterion for PurchaseItem. Each filterable field is a Criterion created up front
+ * (never null): use hasPurchaseItemId() to tell whether it was set.
  */
 final class PurchaseItemCriteria implements Criteria
 {
@@ -27,13 +27,13 @@ final class PurchaseItemCriteria implements Criteria
     private readonly ComparableCriterion $amount;
     /** @var ComparableCriterion<self, float> */
     private readonly ComparableCriterion $price;
-    /** @var ComparableCriterion<self, int>  campo virtual: dono da compra (EXISTS em EN_PURCHASE) */
+    /** @var ComparableCriterion<self, int>  virtual field: the purchase's owner (EXISTS on EN_PURCHASE) */
     private readonly ComparableCriterion $userId;
 
     public function __construct()
     {
-        // Em PHP o valor inicial de uma propriedade precisa ser constante;
-        // objetos que dependem de $this são criados no construtor.
+        // In PHP a property's initial value must be a constant;
+        // objects that depend on $this are created in the constructor.
         $this->purchaseItemId = new ComparableCriterion($this, 'purchaseItemId');
         $this->purchaseId = new ComparableCriterion($this, 'purchaseId');
         $this->productId = new ComparableCriterion($this, 'productId');
@@ -77,7 +77,7 @@ final class PurchaseItemCriteria implements Criteria
         return $this->purchaseItemId->isSet();
     }
 
-    /** Atalho para purchaseItemId()->eq($value). */
+    /** Shortcut for purchaseItemId()->eq($value). */
     public function withPurchaseItemId(?int $value): static
     {
         return $value === null ? $this : $this->purchaseItemId->eq($value);
@@ -94,7 +94,7 @@ final class PurchaseItemCriteria implements Criteria
         return $this->purchaseId->isSet();
     }
 
-    /** Atalho para purchaseId()->eq($value). */
+    /** Shortcut for purchaseId()->eq($value). */
     public function withPurchaseId(?int $value): static
     {
         return $value === null ? $this : $this->purchaseId->eq($value);
@@ -111,7 +111,7 @@ final class PurchaseItemCriteria implements Criteria
         return $this->productId->isSet();
     }
 
-    /** Atalho para productId()->eq($value). */
+    /** Shortcut for productId()->eq($value). */
     public function withProductId(?int $value): static
     {
         return $value === null ? $this : $this->productId->eq($value);
@@ -128,7 +128,7 @@ final class PurchaseItemCriteria implements Criteria
         return $this->amount->isSet();
     }
 
-    /** Atalho para amount()->eq($value). */
+    /** Shortcut for amount()->eq($value). */
     public function withAmount(?int $value): static
     {
         return $value === null ? $this : $this->amount->eq($value);
@@ -145,7 +145,7 @@ final class PurchaseItemCriteria implements Criteria
         return $this->price->isSet();
     }
 
-    /** Atalho para price()->eq($value). */
+    /** Shortcut for price()->eq($value). */
     public function withPrice(?float $value): static
     {
         return $value === null ? $this : $this->price->eq($value);
@@ -162,7 +162,7 @@ final class PurchaseItemCriteria implements Criteria
         return $this->userId->isSet();
     }
 
-    /** Atalho para userId()->eq($value). */
+    /** Shortcut for userId()->eq($value). */
     public function withUserId(?int $value): static
     {
         return $value === null ? $this : $this->userId->eq($value);

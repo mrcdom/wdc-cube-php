@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Persistence\Json;
 
 /**
- * Contexto de uma consulta: gera aliases únicos (p1, u2, pi3...) para que cada subconsulta
- * correlacionada enxergue a sua tabela e a do pai sem ambiguidade.
+ * Context of a query: generates unique aliases (p1, u2, pi3...) so that each correlated subquery
+ * sees its own table and its parent's without ambiguity.
  */
 final class QueryContext
 {

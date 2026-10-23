@@ -7,9 +7,9 @@ namespace Wdc\Framework\Commons\Concurrent;
 use Revolt\EventLoop\FiberLocal;
 
 /**
- * Um valor por Fiber: cada Fiber enxerga só o que ela mesma gravou (começa em null). É o
- * equivalente, no event loop, de uma variável por thread. O event loop limpa o valor ao fim de
- * cada callback.
+ * One value per Fiber: each Fiber sees only what it wrote itself (starts as null). It is the
+ * event-loop equivalent of a thread-local variable. The event loop clears the value at the end of
+ * each callback.
  *
  * @template T of object
  */
@@ -19,8 +19,8 @@ final class FiberValue
     private readonly FiberLocal $local;
 
     /**
-     * @param class-string<T> $type    o tipo do valor (só para a checagem de tipos)
-     * @param T|null          $initial o que toda Fiber enxerga antes de gravar
+     * @param class-string<T> $type    the value's type (for type checking only)
+     * @param T|null          $initial what every Fiber sees before writing
      */
     public function __construct(public readonly string $type, private readonly ?object $initial = null)
     {

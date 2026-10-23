@@ -17,15 +17,15 @@ use Wdc\Shopping\Domain\ShoppingConfig;
 use Wdc\Shopping\Presentation\ShoppingContext;
 
 /**
- * Monta o host remoto do Shopping: chaves, registry de sessões
- * e a fábrica que cria uma sessão a partir da 1ª mensagem do cliente.
+ * Builds the Shopping remote host: keys, session registry
+ * and the factory that creates a session from the client's first message.
  */
 final class ShoppingRemoteHost
 {
     public readonly RemoteApplicationRegistry $registry;
 
     /**
-     * @param (Closure(): float)|null $clock relógio em ms (testes)
+     * @param (Closure(): float)|null $clock clock in ms (tests)
      */
     public function __construct(
         private readonly ShoppingContext $context,
@@ -46,8 +46,8 @@ final class ShoppingRemoteHost
     }
 
     /**
-     * Lê `[remote]` e `[server]` da configuração. Sem chaves, gera chaves de desenvolvimento e
-     * as grava em `application.local.toml` — troque-as em produção.
+     * Reads `[remote]` and `[server]` from the configuration. Without keys, generates development keys and
+     * writes them to `application.local.toml` — replace them in production.
      */
     public static function fromConfig(
         ShoppingConfig $config,
@@ -84,8 +84,8 @@ final class ShoppingRemoteHost
     }
 
     /**
-     * Cria a sessão a partir da 1ª mensagem: aplica o `secret` (antes do auto-login, que precisa
-     * decifrar o storage), carrega o client storage e navega para o `p.path` do evento de início.
+     * Creates the session from the first message: applies the `secret` (before auto-login, which needs
+     * to decipher the storage), loads the client storage and navigates to the start event's `p.path`.
      *
      * @param array<string, mixed> $request
      */
@@ -120,15 +120,15 @@ final class ShoppingRemoteHost
     {
         $file = $config->configDir . '/application.local.toml';
         $block = "\n[remote]\n"
-            . "# Chaves geradas automaticamente para DESENVOLVIMENTO — troque em produção\n"
-            . "# handshake do canal: RSA em base 36 (expoente:módulo / privada)\n"
+            . "# Keys generated automatically for DEVELOPMENT — replace them in production\n"
+            . "# channel handshake: RSA in base 36 (exponent:modulus / private)\n"
             . "rsaPublicKey = \"{$keys['rsaPublicKey']}\"\n"
             . "rsaPrivateKey = \"{$keys['rsaPrivateKey']}\"\n"
-            . "# assinatura de appId e URLs: DER em Base64 URL-safe (X.509 / PKCS#8)\n"
+            . "# appId and URL signing: DER in URL-safe Base64 (X.509 / PKCS#8)\n"
             . "signPublicKey = \"{$keys['signPublicKey']}\"\n"
             . "signPrivateKey = \"{$keys['signPrivateKey']}\"\n";
         if (file_put_contents($file, $block, FILE_APPEND) === false) {
-            throw new RuntimeException("Não foi possível gravar as chaves em {$file}");
+            throw new RuntimeException("Could not write the keys to {$file}");
         }
     }
 }

@@ -26,7 +26,7 @@ final class BeansTest extends TestCase
         Beans::set(Countable::class, $bean);
 
         self::assertSame($bean, Beans::of(Countable::class));
-        self::assertSame(2, Beans::of(Countable::class)->count(), 'o PHPStan sabe que é um Countable');
+        self::assertSame(2, Beans::of(Countable::class)->count(), 'PHPStan knows it is a Countable');
     }
 
     #[Test]
@@ -39,7 +39,7 @@ final class BeansTest extends TestCase
     public function of_withoutRegistration_isAWiringError(): void
     {
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Nenhuma implementação registrada para Countable');
+        $this->expectExceptionMessage('No implementation registered for Countable');
         Beans::of(Countable::class);
     }
 

@@ -19,8 +19,8 @@ use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseCodec;
 
 /**
- * PurchaseItem no JSON: `id`, `amount`, `price`, `product`, `purchaseId`. A compra vai só
- * pelo id (`purchaseId`); na leitura aceita também o objeto `purchase`.
+ * PurchaseItem in JSON: `id`, `amount`, `price`, `product`, `purchaseId`. The purchase goes only
+ * by id (`purchaseId`); on read it also accepts the `purchase` object.
  *
  * @implements ModelCodec<PurchaseItem, PurchaseItemCriteria>
  */
@@ -181,11 +181,11 @@ final class PurchaseItemCodec implements ModelCodec
         return true;
     }
 
-    /** Lê um critério de item inteiro (objeto) — usado no `where` da coleção projetada. */
+    /** Reads a whole item criterion (object) — used in the projected collection's `where`. */
     public function readCriteria(mixed $in): PurchaseItemCriteria
     {
         $criteria = new PurchaseItemCriteria();
-        foreach (Json::fields($in, 'critério') as $name => $value) {
+        foreach (Json::fields($in, 'criterion') as $name => $value) {
             $this->readCriteriaField($value, $name, $criteria);
         }
 

@@ -6,7 +6,7 @@ namespace Wdc\Framework\Cube;
 
 use LogicException;
 
-/** Place conhecido só pelo nome — o que sai de `CubeIntent::parse()`. */
+/** A place known only by name — what `CubeIntent::parse()` produces. */
 final readonly class GenericPlace implements CubePlace
 {
     public function __construct(private string $name, private int $id = -1)
@@ -25,6 +25,6 @@ final readonly class GenericPlace implements CubePlace
 
     public function createPresenter(CubeApplication $app): CubePresenter
     {
-        throw new LogicException("GenericPlace '{$this->name}' não cria presenter");
+        throw new LogicException("GenericPlace '{$this->name}' does not create a presenter");
     }
 }

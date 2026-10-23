@@ -125,4 +125,4 @@ tests/
 - View `classId`: 12 random hex characters, unique, the same in the skeleton and in the React
   view.
 - Event codes: small integers, named constants on both sides (`ON_ADD_TO_CART = 2`).
-- Comments and documentation in Portuguese (Brazil); diagrams in documentation use Mermaid.
+- Comments and documentation in English; diagrams in documentation use Mermaid.

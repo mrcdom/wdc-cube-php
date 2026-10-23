@@ -10,9 +10,9 @@ use Wdc\Framework\Cube\PresenterBase;
 use Wdc\Framework\Cube\ViewState;
 
 /**
- * A view genérica do modo remoto (RemoteViewImpl): não desenha nada — guarda o ViewState que
- * será serializado e repassa os eventos ao skeleton. Uma única classe serve a todas as telas;
- * o shell React escolhe o componente pelo prefixo do id (`<classId>:<n>`).
+ * The generic view of remote mode: it draws nothing — it holds the ViewState to be
+ * serialized and forwards events to the skeleton. A single class serves every screen;
+ * the React shell picks the component by the id prefix (`<classId>:<n>`).
  */
 final class RemoteView implements CubeView
 {
@@ -27,7 +27,7 @@ final class RemoteView implements CubeView
     ) {
         $this->instanceId = $instanceId ?? $skeleton->classId() . ':' . $app->remote()->nextInstanceId();
         $app->remote()->putView($this);
-        $app->remote()->markDirty($this);   // toda view nasce "suja": precisa ir ao cliente
+        $app->remote()->markDirty($this);   // every view is born "dirty": it must be sent to the client
     }
 
     public function instanceId(): string
@@ -52,9 +52,9 @@ final class RemoteView implements CubeView
     }
 
     /** @param array<string, mixed> $formData */
-    public function submit(int $eventCode, int $eventQtde, array $formData): void
+    public function submit(int $eventCode, int $eventCount, array $formData): void
     {
-        $this->skeleton->submit($eventCode, $eventQtde, $formData);
+        $this->skeleton->submit($eventCode, $eventCount, $formData);
     }
 
     /** @return array<string, mixed> */

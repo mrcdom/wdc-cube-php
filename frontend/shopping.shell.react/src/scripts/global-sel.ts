@@ -1,9 +1,9 @@
 /**
- * Seletores CSS globais — wrappers tipados para classes utilitárias do WDC Shopping.
+ * Global CSS selectors — typed wrappers for the WDC Shopping utility classes.
  *
- * Autocomplete, erros de compilação em vez de bugs silenciosos, refatoração segura.
+ * Autocomplete, compile errors instead of silent bugs, safe refactoring.
  *
- * Uso:
+ * Usage:
  * ```tsx
  * import clsx from 'clsx'
  * import GlobalSel from '@root/global-sel'

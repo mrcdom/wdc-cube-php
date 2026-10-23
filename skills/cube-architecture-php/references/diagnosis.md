@@ -5,7 +5,7 @@ first, and confirm the hypothesis before changing code.
 
 | Symptom | Likely cause | Where to look / fix |
 |---|---|---|
-| An area of the screen stays empty; `Nenhuma view registrada para a viewId` in the browser console | `classId` differs between the PHP skeleton and `BaseViewClass.FC(..., "<id>")`; view missing from `registerComponents`; shell not rebuilt | Compare the ids; check `index.tsx`; `bin/build-frontend.sh` and reload |
+| An area of the screen stays empty; `No view registered for viewId` in the browser console | `classId` differs between the PHP skeleton and `BaseViewClass.FC(..., "<id>")`; view missing from `registerComponents`; shell not rebuilt | Compare the ids; check `index.tsx`; `bin/build-frontend.sh` and reload |
 | The screen does not change after an action that changed the state | `update()` missing | Add `$this->update()` after the change |
 | A field is always empty in the view | Property not public; value null or blank (omitted); nested object without public properties (an entity) | Make it public; default it in the React view; use a presentation struct |
 | `eventCode(N) not handled` in the log + alert | The view sends a code the skeleton does not handle | Add the `match` arm; keep codes as named constants on both sides |
@@ -30,7 +30,7 @@ first, and confirm the hypothesis before changing code.
 | Lists slow, latency grows with the number of rows | N+1: repository called per row | Put the relation in the projection (`ProjectionList`) |
 | Rows repeated or missing across pages | ORDER BY without a unique tie-break | End the ordering with the id |
 | Session lost after a reconnect | The session expired (`server.sessionTtlSeconds`) or the reconnect reached another server instance | A new session is rebuilt from the address and client storage; keep important transient state in storage or the database |
-| Tests fail with "Banco de testes não configurado" | `[test.database]` missing in `application.local.toml` | Configure it (a database used only by tests) |
+| Tests fail with "Test database not configured" | `[test.database]` missing in `application.local.toml` | Configure it (a database used only by tests) |
 
 ## Procedure when nothing in the table matches
 

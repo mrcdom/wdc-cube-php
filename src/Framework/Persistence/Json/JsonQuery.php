@@ -14,10 +14,10 @@ use Wdc\Framework\Persistence\Sql;
 use Wdc\Framework\Persistence\Table;
 
 /**
- * Consulta por projeção em JSON.
+ * Query by JSON projection.
  *
- * Um único SELECT devolve, por linha, um objeto JSON com exatamente os campos projetados.
- * As relações projetadas entram como subconsultas correlacionadas DENTRO do JSON:
+ * A single SELECT returns, per row, a JSON object with exactly the projected fields.
+ * Projected relations go in as correlated subqueries INSIDE the JSON:
  *
  *     SELECT {
  *         "id": p1.ID,
@@ -26,18 +26,18 @@ use Wdc\Framework\Persistence\Table;
  *     } AS json
  *     FROM EN_PURCHASE p1 WHERE ...
  *
- * (em pseudo-SQL: `{...}` e `[...]` são montados com as funções JSON do banco — ver JsonDialect).
+ * (in pseudo-SQL: `{...}` and `[...]` are built with the database's JSON functions — see JsonDialect).
  *
- * O grafo inteiro vem numa ida ao banco, sem N+1, e só com o que a tela pediu.
+ * The whole graph comes in one database round trip, with no N+1, and only with what the screen asked for.
  *
- * Atalho de chave: se a projeção de uma relação N:1 pede só o id, ele já está na coluna de
- * FK desta linha — sai `{"id": p1.USERID}` sem subconsulta.
+ * Key shortcut: if the projection of an N:1 relation asks only for the id, it is already in this
+ * row's FK column — the result is `{"id": p1.USERID}` with no subquery.
  *
- * Relações são registradas depois da construção (`addToOne`/`addToMany`, com o alvo numa
- * closure) porque as consultas se referenciam em ciclo (compra → item → compra).
+ * Relations are registered after construction (`addToOne`/`addToMany`, with the target in a
+ * closure) because the queries reference each other in cycles (purchase → item → purchase).
  *
- * @template E of object  entidade
- * @template C of object  critério da entidade (filtro e ordem das subconsultas)
+ * @template E of object  entity
+ * @template C of object  the entity's criteria (filter and order of subqueries)
  */
 final class JsonQuery
 {
@@ -71,7 +71,7 @@ final class JsonQuery
     }
 
     /**
-     * Como o critério desta entidade vira WHERE, contra um alias qualquer.
+     * How this entity's criteria become a WHERE clause, against any alias.
      *
      * @param Closure(C, string, QueryContext): ?Sql $conditions
      * @return $this
@@ -84,7 +84,7 @@ final class JsonQuery
     }
 
     /**
-     * Como o OrderBy do critério vira lista de ordenação, contra um alias qualquer.
+     * How the criteria's OrderBy becomes an ordering list, against any alias.
      *
      * @param Closure(C|null, string): string $ordering
      * @return $this
@@ -97,12 +97,12 @@ final class JsonQuery
     }
 
     /**
-     * Relação N:1: esta tabela guarda a FK do alvo (ex.: EN_PURCHASE.USERID → EN_USER.ID).
+     * N:1 relation: this table holds the target's FK (e.g. EN_PURCHASE.USERID → EN_USER.ID).
      *
      * @template P of object
-     * @param Closure(E): (P|null)         $get    getter da relação no bean (a máscara, na projeção)
+     * @param Closure(E): (P|null)         $get    the relation's getter on the bean (the mask, in the projection)
      * @param Closure(E, P|null): mixed    $set
-     * @param Closure(): JsonQuery<P, *>   $target consulta do alvo (closure: resolve ciclos)
+     * @param Closure(): JsonQuery<P, *>   $target the target's query (a closure: resolves cycles)
      * @return $this
      */
     public function addToOne(string $field, Closure $get, Closure $set, Closure $target, string $fkColumn): self
@@ -113,7 +113,7 @@ final class JsonQuery
     }
 
     /**
-     * Relação 1:N: o alvo guarda a FK desta tabela (ex.: EN_PURCHASEITEM.PURCHASEID → EN_PURCHASE.ID).
+     * 1:N relation: the target holds this table's FK (e.g. EN_PURCHASEITEM.PURCHASEID → EN_PURCHASE.ID).
      *
      * @template P of object
      * @param Closure(E): (array<P>|ProjectionList<P>|null) $get
@@ -129,7 +129,7 @@ final class JsonQuery
     }
 
     /**
-     * Aceita `object` porque o critério de uma ProjectionList chega sem tipo; confere aqui.
+     * Accepts `object` because a ProjectionList's criteria arrive untyped; checked here.
      */
     public function conditions(?object $criteria, string $alias, QueryContext $ctx): ?Sql
     {
@@ -147,7 +147,7 @@ final class JsonQuery
     }
 
     /**
-     * SELECT completo: uma coluna "json" por linha.
+     * Full SELECT: one "json" column per row.
      *
      * @param E $projection
      */
@@ -158,7 +158,7 @@ final class JsonQuery
         [$where, $whereParams] = Sql::where($this->conditions($criteria, $alias, $ctx));
 
         $sql = "SELECT {$json->sql} AS json FROM {$this->table->name} {$alias}{$where}";
-        // sem ordenação pedida, a do id: sem ORDER BY o banco devolve as linhas em qualquer ordem
+        // no ordering requested: order by id, since without ORDER BY the database returns rows in any order
         $order = $this->ordering($criteria, $alias);
         $sql .= ' ORDER BY ' . ($order !== '' ? $order : "{$alias}.{$this->table->id()->column} ASC");
         $sql .= $this->sqlDialect->limit($limit, $offset);
@@ -167,7 +167,7 @@ final class JsonQuery
     }
 
     /**
-     * A expressão json_object(...) desta entidade, para a linha do alias dado.
+     * This entity's json_object(...) expression, for the row of the given alias.
      *
      * @param E $projection
      */
@@ -202,19 +202,19 @@ final class JsonQuery
     public function parse(string $json): object
     {
         try {
-            $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);   // true = arrays, não stdClass
+            $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);   // true = arrays, not stdClass
         } catch (JsonException $e) {
-            throw new LogicException("JSON inválido vindo do banco: {$e->getMessage()}", 0, $e);
+            throw new LogicException("Invalid JSON from the database: {$e->getMessage()}", 0, $e);
         }
         if (!is_array($data)) {
-            throw new LogicException('JSON do banco não é um objeto');
+            throw new LogicException('JSON from the database is not an object');
         }
 
         return $this->hydrate($data);
     }
 
     /**
-     * Monta o bean a partir do array decodificado. Chaves ausentes ficam null (não projetadas).
+     * Builds the bean from the decoded array. Missing keys stay null (not projected).
      *
      * @param array<mixed> $data
      * @return E
@@ -256,7 +256,7 @@ final class JsonQuery
     }
 
     /**
-     * true se a máscara não pede nada além do id (nem campos, nem relações).
+     * true if the mask asks for nothing beyond the id (no fields, no relations).
      *
      * @param E $mask
      */
@@ -298,9 +298,10 @@ final class JsonQuery
     }
 
     /**
-     * Coleção: subconsulta que agrega os filhos num array JSON, com a ordem DENTRO do agregado.
-     * O recorte (limit/offset por pai) vira `ID IN (subconsulta correlacionada ordenada e cortada)`
-     * — não cabe no agregado nem numa tabela derivada, que não enxergaria a linha do pai.
+     * Collection: a subquery that aggregates the children into a JSON array, with the order INSIDE
+     * the aggregate. The slice (limit/offset per parent) becomes `ID IN (ordered, sliced correlated
+     * subquery)` — it fits neither in the aggregate nor in a derived table, which could not see the
+     * parent row.
      *
      * @param JsonQuery<object, object>                 $target
      * @param array<object>|ProjectionList<object>      $collection
@@ -359,7 +360,7 @@ final class JsonQuery
     {
         if (!$criteria instanceof $this->criteriaClass) {
             throw new LogicException(sprintf(
-                'Critério %s não serve para %s (esperado %s)',
+                'Criteria %s does not apply to %s (expected %s)',
                 $criteria::class,
                 $this->table->name,
                 $this->criteriaClass,
@@ -370,7 +371,7 @@ final class JsonQuery
     }
 
     /**
-     * As relações guardam o alvo numa closure sem tipo; os tipos são conferidos em addToOne/addToMany.
+     * Relations hold the target in an untyped closure; the types are checked in addToOne/addToMany.
      *
      * @param array{target: Closure} $relation
      * @return JsonQuery<object, object>
@@ -379,7 +380,7 @@ final class JsonQuery
     {
         $target = ($relation['target'])();
         if (!$target instanceof self) {
-            throw new LogicException('Alvo de relação não é uma JsonQuery');
+            throw new LogicException('Relation target is not a JsonQuery');
         }
 
         return $target;

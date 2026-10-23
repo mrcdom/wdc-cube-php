@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Cube\Remote;
 
-/** PBKDF2 na própria thread. Simples; trava o event loop enquanto calcula. */
+/** PBKDF2 on the current thread. Simple; blocks the event loop while computing. */
 final class DirectKeyDerivation implements KeyDerivation
 {
     public function derive(string $password, string $salt): string

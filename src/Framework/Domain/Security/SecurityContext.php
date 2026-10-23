@@ -6,7 +6,7 @@ namespace Wdc\Framework\Domain\Security;
 
 use OpenSSLAsymmetricKey;
 
-/** Quem está autenticado e o que pode fazer. */
+/** Who is authenticated and what they may do. */
 interface SecurityContext
 {
     public function userId(): int;
@@ -20,9 +20,9 @@ interface SecurityContext
 
     public function hasDataAll(): bool;
 
-    /** Chave privada RSA da sessão (decifra senhas enviadas pela API REST). */
+    /** The session's RSA private key (decrypts passwords sent through the REST API). */
     public function privateKey(): OpenSSLAsymmetricKey;
 
-    /** Chave pública da sessão, DER X.509 em Base64. */
+    /** The session's public key, X.509 DER in Base64. */
     public function publicKeyBase64(): string;
 }

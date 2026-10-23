@@ -8,19 +8,19 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Place;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 
-/** Keys do recibo: `receipt?rc-id=7`. */
+/** Receipt keys: `receipt?rc-id=7`. */
 final class ReceiptKeys extends HomeKeys
 {
-    /** Prefixo dos nomes deste arquivo - único na aplicação. */
+    /** Prefix of this file's names - unique in the application. */
     private const string PREFIX = 'rc';
 
-    /** Parâmetro: a compra do recibo. */
+    /** Parameter: the receipt's purchase. */
     private const string P_ID = self::PREFIX . '-id';
 
-    /** Atributo: "a compra acabou de ser feita" - o recibo mostra o aviso de sucesso. */
+    /** Attribute: "the purchase was just made" - the receipt shows the success notice. */
     private const string A_MADE = self::PREFIX . '-made';
 
-    /** A compra: inteiro não negativo, ou null se o endereço não traz uma utilizável. */
+    /** The purchase: a non-negative integer, or null if the address does not carry a usable one. */
     public ?int $purchaseId {
         get => $this->idParameter(self::P_ID);
         set (?int $value) {
@@ -28,7 +28,7 @@ final class ReceiptKeys extends HomeKeys
         }
     }
 
-    /** Se a navegação vem de uma compra recém-concluída (não vai para o endereço). */
+    /** Whether navigation comes from a just-completed purchase (not put in the address). */
     public bool $purchaseMade {
         get => $this->intent->getAttribute(self::A_MADE) === true;
         set (bool $value) {

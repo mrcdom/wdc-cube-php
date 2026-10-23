@@ -7,8 +7,8 @@ namespace Wdc\Shopping\Domain\Security;
 use Wdc\Framework\Domain\Security\PermissionModel;
 
 /**
- * Papéis e permissões. Enums PHP não têm
- * estado, então a tabela fica num `match`.
+ * Roles and permissions. PHP enums have no
+ * state, so the table lives in a `match`.
  */
 enum Role: string
 {
@@ -27,7 +27,7 @@ enum Role: string
     }
 
     /**
-     * "ADMIN, CUSTOMER" → [Role::ADMIN, Role::CUSTOMER]. Papel desconhecido é ignorado.
+     * "ADMIN, CUSTOMER" → [Role::ADMIN, Role::CUSTOMER]. Unknown roles are ignored.
      *
      * @return list<Role>
      */
@@ -38,7 +38,7 @@ enum Role: string
         }
         $result = [];
         foreach (explode(',', $roles) as $name) {
-            $role = self::tryFrom(trim($name));   // tryFrom: null se não existir (from() lançaria erro)
+            $role = self::tryFrom(trim($name));   // tryFrom: null if it does not exist (from() would throw)
             if ($role !== null && !in_array($role, $result, true)) {
                 $result[] = $role;
             }
@@ -48,7 +48,7 @@ enum Role: string
     }
 
     /**
-     * União das permissões (allow-wins).
+     * Union of the permissions (allow-wins).
      *
      * @param list<Role> $roles
      * @return list<string>

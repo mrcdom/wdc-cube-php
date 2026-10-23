@@ -11,25 +11,25 @@ use Wdc\Shopping\Presentation\Place;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Keys da raiz - a base de todas as keys do Shopping.
+ * Root keys - the base of every Shopping keys class.
  *
  * @extends CubeKeys<ShoppingApplication>
  */
 class RootKeys extends CubeKeys
 {
-    /** Prefixo dos nomes deste arquivo - único na aplicação. */
+    /** Prefix of this file's names - unique in the application. */
     private const string PREFIX = 'rt';
 
-    /** Parâmetro: o usuário da sessão (a raiz não aceita trocá-lo pelo endereço). */
+    /** Parameter: the session's user (the root does not accept switching it through the address). */
     private const string P_USER = self::PREFIX . '-user';
 
     /**
-     * Atributo: o slot de composição - o único nome reusado de propósito. Cada nível do caminho
-     * encaixa a sua view no slot que recebeu e o reoferece, com o MESMO nome, ao nível seguinte.
+     * Attribute: the composition slot - the only name reused on purpose. Each level of the path
+     * plugs its view into the slot it received and re-offers it, under the SAME name, to the next level.
      */
     private const string A_SLOT = self::PREFIX . '-slot';
 
-    /** O id do usuário publicado no endereço. */
+    /** The user id published in the address. */
     public ?int $userId {
         get => $this->idParameter(self::P_USER);
         set (?int $value) {
@@ -37,7 +37,7 @@ class RootKeys extends CubeKeys
         }
     }
 
-    /** Onde a view deste nível se encaixa; quem está acima o oferece a cada viagem. */
+    /** Where this level's view plugs in; the level above offers it on every trip. */
     public ?CubeViewSlot $ownerSlot {
         get => $this->intent->getViewSlot(self::A_SLOT);
         set (?CubeViewSlot $value) {

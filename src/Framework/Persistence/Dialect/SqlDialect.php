@@ -8,21 +8,21 @@ use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Persistence\Json\JsonDialect;
 
 /**
- * O que muda de um banco para outro. O resto do SQL dos repositórios não depende do banco.
+ * What differs from one database to another. The rest of the repositories' SQL is database-independent.
  */
 interface SqlDialect
 {
     public function name(): string;
 
-    /** Como montar JSON em SQL (a projeção da JsonQuery). */
+    /** How to build JSON in SQL (the JsonQuery projection). */
     public function json(): JsonDialect;
 
     public function nextval(Database $db, string $sequence): int;
 
-    /** A próxima chamada a nextval devolve $next. */
+    /** The next call to nextval returns $next. */
     public function restartSequence(Database $db, string $sequence, int $next): void;
 
-    /** " LIMIT n OFFSET m" (ou ""): limit 0 = sem limite, offset 0 = sem deslocamento. */
+    /** " LIMIT n OFFSET m" (or ""): limit 0 = no limit, offset 0 = no offset. */
     public function limit(int $limit, int $offset): string;
 
     public function tableExists(Database $db, string $table): bool;

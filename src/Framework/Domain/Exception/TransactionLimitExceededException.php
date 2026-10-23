@@ -6,7 +6,7 @@ namespace Wdc\Framework\Domain\Exception;
 
 use RuntimeException;
 
-/** Teto de transações remotas abertas atingido, global ou por dono (equivale a HTTP 429). */
+/** Cap on open remote transactions reached, globally or per owner (maps to HTTP 429). */
 class TransactionLimitExceededException extends RuntimeException
 {
 }

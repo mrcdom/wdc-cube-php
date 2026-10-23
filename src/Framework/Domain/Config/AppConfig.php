@@ -7,12 +7,12 @@ namespace Wdc\Framework\Domain\Config;
 use RuntimeException;
 
 /**
- * Configuração externa em TOML mínimo:
- * seções `[a.b]`, `chave = valor`, aspas removidas, `#` comentário, chaves achatadas
- * (`secao.chave`) e valores sempre string. `application.local.toml` na mesma pasta
- * sobrepõe o arquivo principal.
+ * External configuration in minimal TOML:
+ * `[a.b]` sections, `key = value`, quotes stripped, `#` comments, flattened keys
+ * (`section.key`) and values always strings. `application.local.toml` in the same folder
+ * overrides the main file.
  *
- * Resolução do caminho: variável de ambiente → padrão.
+ * Path resolution: environment variable → default.
  */
 final readonly class AppConfig
 {
@@ -39,7 +39,7 @@ final readonly class AppConfig
         $props = self::parseToml(self::read($real));
         $local = dirname($real) . DIRECTORY_SEPARATOR . self::LOCAL_OVERRIDE_FILE;
         if (is_file($local)) {
-            $props = array_merge($props, self::parseToml(self::read($local)));   // à direita vence
+            $props = array_merge($props, self::parseToml(self::read($local)));   // right-hand side wins
         }
 
         return new self($props, $real);

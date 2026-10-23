@@ -7,29 +7,29 @@ namespace Wdc\Framework\Domain\Repository;
 use Wdc\Framework\Domain\Pagination\Page;
 
 /**
- * Contrato genérico de repositório.
+ * Generic repository contract.
  *
- * PHP não tem sobrecarga de métodos, então as variações
- * `update(new)`, `update(new, old)` e `update(new, old, prj)` viram um só método
- * com parâmetros opcionais. O mesmo para `fetch`.
+ * PHP has no method overloading, so the variants
+ * `update(new)`, `update(new, old)` and `update(new, old, prj)` become a single method
+ * with optional parameters. Same for `fetch`.
  *
- * @template E of object  entidade
- * @template C of object  critério
+ * @template E of object  entity
+ * @template C of object  criteria
  */
 interface Repository
 {
     /**
-     * Insere; gera o id se for null e o grava no próprio bean.
+     * Inserts; generates the id if null and stores it in the bean itself.
      *
      * @param E $bean
      */
     public function insert(object $bean): bool;
 
     /**
-     * Atualiza só os campos projetados E alterados em relação a $oldBean.
+     * Updates only the fields that are projected AND changed relative to $oldBean.
      *
      * @param E      $newBean
-     * @param E|null $oldBean    null ⇒ todos os campos projetados
+     * @param E|null $oldBean    null ⇒ all projected fields
      * @param E|null $projection null ⇒ newProjection()
      */
     public function update(object $newBean, ?object $oldBean = null, ?object $projection = null): bool;
@@ -48,8 +48,8 @@ interface Repository
 
     /**
      * @param C $criteria
-     * @param int $offset 0 = sem deslocamento
-     * @param int $limit  0 = sem limite
+     * @param int $offset 0 = no offset
+     * @param int $limit  0 = no limit
      * @return list<E>
      */
     public function fetch(object $criteria, int $offset = 0, int $limit = 0): array;
@@ -66,6 +66,6 @@ interface Repository
      */
     public function fetchById(?int $id, ?object $projection = null): ?object;
 
-    /** @return E projeção padrão: todos os campos rasos */
+    /** @return E default projection: all shallow fields */
     public function newProjection(): object;
 }

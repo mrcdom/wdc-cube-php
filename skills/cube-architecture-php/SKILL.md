@@ -86,7 +86,7 @@ screen does the wrong thing. That is why the rules come with the why.
    `Domain/` (entities, criteria, codecs), `Persistence/` (repositories, schema, REST API),
    `Presentation/` (places, routes, presenters, view states, services), `RemoteHost/`
    (the WebSocket session) and `Server/`. Views in `frontend/shopping.shell.react/`.
-2. **The local conventions.** Read `README.md`, `docs/arquitetura.md` and the docblocks of
+2. **The local conventions.** Read `README.md`, `docs/architecture.md` and the docblocks of
    `Place.php`, `Routes.php` and the keys classes (`Presenter/RootKeys.php` and each `*Keys.php`).
 3. **Run the checks before and after**: `composer check` (PHPStan level 8 + PHPUnit; the
    tests need the PostgreSQL test database configured in `work/config/application.local.toml`).
@@ -175,7 +175,7 @@ final class OrderPresenter extends AbstractCubePresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('5f2c9a1e7b30', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('5f2c9a1e7b30', function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onCancel(),
                 default => Skeleton::unknownEvent($event),     // an unknown code must not vanish
@@ -205,7 +205,7 @@ view, wiring, tests) are in [references/patterns.md](references/patterns.md).
 3. **The `classId` and the event codes are a contract between two files.** The PHP
    `Skeleton('48b693f67410', ...)` and the React `BaseViewClass.FC(ProductViewClass,
    "48b693f67410")` must carry the same id, and every `bridge.submit(vsid, CODE)` in the view
-   must have a `match` arm. A wrong id makes the bridge throw `Nenhuma view registrada para a
+   must have a `match` arm. A wrong id makes the bridge throw `No view registered for
    viewId` (browser console) and the area is not drawn; a missing arm reaches
    `Skeleton::unknownEvent`, which throws `eventCode(N) not handled` - the session logs it
    and shows the unexpected-error alert. Keep the codes as named constants on both sides.
@@ -341,7 +341,7 @@ Report each finding with the symptom it produces, not only the rule.
 
 Start with [references/diagnosis.md](references/diagnosis.md). The most common:
 
-- **Area of the screen stays empty** (often with `Nenhuma view registrada para a viewId` in the
+- **Area of the screen stays empty** (often with `No view registered for viewId` in the
   console): `classId` mismatch between skeleton and React view, the view not registered in
   `registerComponents`, or the shell not rebuilt.
 - **Screen does not change after an action**: `update()` missing.

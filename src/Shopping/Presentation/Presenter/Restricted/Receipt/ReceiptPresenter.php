@@ -18,7 +18,7 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Recibo de uma compra (`receipt?rc-id=N`).
+ * A purchase's receipt (`receipt?rc-id=N`).
  *
  * @extends AbstractCubePresenter<ShoppingApplication>
  */
@@ -46,7 +46,7 @@ final class ReceiptPresenter extends AbstractCubePresenter
     {
         $keys = new ReceiptKeys($this->app, $intent);
         $this->state->notifySuccess = $keys->purchaseMade;
-        $purchaseId = $keys->purchaseId ?? throw new PurchaseNotFoundException();   // ausente ou inválido
+        $purchaseId = $keys->purchaseId ?? throw new PurchaseNotFoundException();   // missing or invalid
 
         if ($this->state->receipt === null || $purchaseId !== $this->purchaseId) {
             $this->state->receipt = $this->receiptService->loadReceipt($purchaseId) ?? throw new PurchaseNotFoundException();
@@ -54,10 +54,10 @@ final class ReceiptPresenter extends AbstractCubePresenter
             $this->update();
         }
         if ($initialization) {
-            $this->view = (self::$createView ?? throw new LogicException('ReceiptPresenter::$createView não configurado'))($this);
+            $this->view = (self::$createView ?? throw new LogicException('ReceiptPresenter::$createView not configured'))($this);
             $this->update();
         }
-        $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+        $this->ownerSlot = $keys->ownerSlot;   // on every trip: the owner above decides the slot
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -80,7 +80,7 @@ final class ReceiptPresenter extends AbstractCubePresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('e8d0bd8ae3bc', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('e8d0bd8ae3bc', function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onOpenProducts(),
                 default => Skeleton::unknownEvent($event),

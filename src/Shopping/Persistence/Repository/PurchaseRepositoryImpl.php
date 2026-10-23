@@ -24,16 +24,16 @@ use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Domain\User\UserRepository;
 
 /**
- * Relações: `user` (N:1 via EN_PURCHASE.USERID) e `items` (1:N via EN_PURCHASEITEM.PURCHASEID),
- * ambas resolvidas dentro do mesmo SELECT pela JsonQuery.
+ * Relations: `user` (N:1 via EN_PURCHASE.USERID) and `items` (1:N via EN_PURCHASEITEM.PURCHASEID),
+ * both resolved inside the same SELECT by JsonQuery.
  *
  * @extends AbstractRepository<Purchase, PurchaseCriteria>
  */
 final class PurchaseRepositoryImpl extends AbstractRepository implements PurchaseRepository
 {
     /*
-     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
-     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     * Table, sequence and column names - this repository owns them. They are public
+     * because other repositories use them too (EXISTS, cascading DELETE).
      */
     public const string TABLE = 'EN_PURCHASE';
     public const string SEQUENCE = 'SQ_PURCHASE';
@@ -45,8 +45,8 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     private readonly JsonQuery $query;
 
     /*
-     * Os repositórios de que este precisa: achados no Beans na primeira vez (na construção eles
-     * podem ainda não estar registrados) e guardados.
+     * The repositories this one needs: looked up in Beans the first time (at construction they
+     * may not be registered yet) and kept.
      */
     private ?UserRepositoryImpl $userRepository = null;
 
@@ -59,8 +59,8 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
             new Column('id', self::ID, ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
             new Column('buyDate', self::BUYDATE, ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
         ]);
-        // As consultas-alvo vêm em closures: compra → item → compra é um ciclo, e quando este
-        // construtor roda o repositório de itens ainda nem existe.
+        // The target queries come as closures: purchase → item → purchase is a cycle, and when this
+        // constructor runs the item repository does not exist yet.
         $this->query = new JsonQuery($table, PurchaseCriteria::class, 'pu', $db->dialect())
             ->withConditions($this->conditions(...))
             ->withOrdering($this->orderBy(...))
@@ -80,13 +80,13 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
             );
     }
 
-    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    /** Looked up in Beans on the first call and kept; later calls return the field. */
     private function userRepository(): UserRepositoryImpl
     {
         return $this->userRepository ??= self::repositoryOf(UserRepository::class, UserRepositoryImpl::class);
     }
 
-    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    /** Looked up in Beans on the first call and kept; later calls return the field. */
     private function purchaseItemRepository(): PurchaseItemRepositoryImpl
     {
         return $this->purchaseItemRepository ??= self::repositoryOf(PurchaseItemRepository::class, PurchaseItemRepositoryImpl::class);
@@ -102,10 +102,10 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
         return new Purchase()
             ->withId(PV::INT)
             ->withBuyDate(PV::dateTime())
-            ->withUser(new User()->withId(PV::INT));   // só o id: sai da coluna USERID, sem subconsulta
+            ->withUser(new User()->withId(PV::INT));   // only the id: comes from the USERID column, no subquery
     }
 
-    /** Insere a compra e, junto, os itens (cada item passa a apontar para ela). */
+    /** Inserts the purchase together with its items (each item is made to point to it). */
     public function insert(object $bean): bool
     {
         $inserted = $this->insertBean($bean, [self::USERID => $bean->userId()]);
@@ -125,7 +125,7 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
         ]);
     }
 
-    /** Sem ON DELETE CASCADE no schema: apaga os itens antes. */
+    /** No ON DELETE CASCADE in the schema: deletes the items first. */
     public function delete(object $criteria): int
     {
         $ctx = new QueryContext();
@@ -152,7 +152,7 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
         return Sql::and([
             CT::translate($c(self::ID), $criteria->purchaseId()),
             CT::translate($c(self::USERID), $criteria->userId()),
-            // ColumnType::formatDate(...) é a sintaxe "first-class callable": vira uma Closure
+            // ColumnType::formatDate(...) is the "first-class callable" syntax: it becomes a Closure
             CT::translate($c(self::BUYDATE), $criteria->buyDate(), ColumnType::formatDate(...)),
             $this->existsItemMatching($criteria, $a, $ctx),
         ]);
@@ -181,16 +181,16 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
         return new PurchaseCriteria()->purchaseId()->in($ids)->withProjection($projection);
     }
 
-    /** Campo virtual `productId`: existe item desta compra com o produto pedido. */
+    /** Virtual field `productId`: this purchase has an item with the requested product. */
     private function existsItemMatching(PurchaseCriteria $criteria, string $a, QueryContext $ctx): ?Sql
     {
         if (!$criteria->productId()->isSet()) {
-            return null;   // campo não pedido: nem reserva alias
+            return null;   // field not requested: do not even reserve an alias
         }
         $pi = $ctx->alias('pi');
         $i = Sql::alias($pi);
         $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId())
-            ?? throw new LogicException('critério preenchido sem condição');   // não acontece: isSet() acima
+            ?? throw new LogicException('criterion set but produced no condition');   // cannot happen: isSet() above
         $c = Sql::alias($a);
 
         return new Sql(

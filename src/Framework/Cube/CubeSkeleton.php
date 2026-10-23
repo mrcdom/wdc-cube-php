@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Lado servidor do "RPC" da view: recebe os eventos que o cliente dispara.
+ * Server side of the view "RPC": receives the events the client fires.
  */
 interface CubeSkeleton
 {
-    /** Identificador estável da tela (12 hex), compartilhado com o cliente. */
+    /** Stable screen identifier (12 hex), shared with the client. */
     public function classId(): string;
 
     /**
-     * @param array<string, mixed> $formData campos "p.xxx" são parâmetros do evento
+     * @param array<string, mixed> $formData "p.xxx" fields are event parameters
      */
-    public function submit(int $eventCode, int $eventQtde, array $formData): void;
+    public function submit(int $eventCode, int $eventCount, array $formData): void;
 
     /**
-     * Copia para o ViewState os campos que o cliente sincroniza (sem prefixo "p.").
+     * Copies into the ViewState the fields the client syncs (without the "p." prefix).
      *
      * @param array<string, mixed> $formData
      */

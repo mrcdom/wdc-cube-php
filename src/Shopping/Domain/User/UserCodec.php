@@ -15,8 +15,8 @@ use Wdc\Framework\Domain\Criteria\CriterionValue;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 
 /**
- * User no JSON: `id`, `userName`, `name`, `password`, `roles`. A API REST zera a senha antes de
- * escrever — o codec escreve o que a entidade tiver.
+ * User in JSON: `id`, `userName`, `name`, `password`, `roles`. The REST API clears the password before
+ * writing — the codec writes whatever the entity holds.
  *
  * @implements ModelCodec<User, UserCriteria>
  */

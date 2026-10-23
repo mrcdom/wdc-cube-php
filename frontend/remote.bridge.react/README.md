@@ -1,48 +1,48 @@
 # remote.bridge.react
 
-Bridge TypeScript/React para o protocolo Host/Shell do **Cube MVP Remoto**. Implementa o lado cliente (shell) do protocolo no browser — conecta ao servidor via WebSocket (`/dispatcher/{appId}`, subprotocolo `wdc`), faz o handshake de segurança RSA/AES-GCM, gerencia ViewStates e disponibiliza hooks React para os componentes de UI renderizarem estados e emitirem eventos.
+TypeScript/React bridge for the **Remote Cube MVP** Host/Shell protocol. It implements the client (shell) side of the protocol in the browser — connects to the server over WebSocket (`/dispatcher/{appId}`, `wdc` subprotocol), performs the RSA/AES-GCM security handshake, manages ViewStates and provides React hooks so UI components can render states and emit events.
 
-Consumido por `shopping.shell.react` (aplicação shopping) e qualquer outro shell React sobre o mesmo protocolo.
+Used by `shopping.shell.react` (the shopping application) and any other React shell over the same protocol.
 
-> Contém apenas código fonte TypeScript/React, sem build próprio: o shell o importa direto do fonte (alias `@wdc/remote-bridge-react` no `package.json` do shell).
+> Contains only TypeScript/React source code, with no build of its own: the shell imports it straight from source (alias `@wdc/remote-bridge-react` in the shell's `package.json`).
 
-## Estrutura
+## Layout
 
 ```
 src/
   bridge/
-    ViewStateCoordinator.ts   # Gerencia sessão WS, despacha eventos, distribui ViewState updates
-    ViewScope.ts              # Hook/context React: expõe ViewState reativo para componentes
-    DataSecurity.ts           # Handshake RSA + AES-GCM (Web Crypto API)
-    FlushRequestContext.ts    # Serialização e envio de eventos ao host
-    ReconnectController.ts    # Backoff progressivo em reconexão WS
-    ViewGarbageCollector.ts   # Cleanup de views desalocadas
-    types.ts                  # Tipos compartilhados (HostResponse, ViewStateSnapshot, ...)
-    constants.ts              # Constantes de protocolo
-    index.tsx                 # Entrypoint público do bridge
+    ViewStateCoordinator.ts   # Manages the WS session, dispatches events, distributes ViewState updates
+    ViewScope.ts              # React hook/context: exposes reactive ViewState to components
+    DataSecurity.ts           # RSA + AES-GCM handshake (Web Crypto API)
+    FlushRequestContext.ts    # Serializes and sends events to the host
+    ReconnectController.ts    # Progressive backoff on WS reconnection
+    ViewGarbageCollector.ts   # Cleans up released views
+    types.ts                  # Shared types (HostResponse, ViewStateSnapshot, ...)
+    constants.ts              # Protocol constants
+    index.tsx                 # Public entry point of the bridge
   utils/
     RSA.ts                    # RSA OAEP encrypt/decrypt via Web Crypto API
     Base64.ts                 # Base64 encode/decode
     UTF8.ts                   # TextEncoder/TextDecoder helpers
-    BigIntUtils.ts            # Operações BigInt para criptografia RSA
-    LangUtils.ts              # Utilitários gerais (throttle, etc.)
+    BigIntUtils.ts            # BigInt operations for RSA cryptography
+    LangUtils.ts              # General utilities (throttle, etc.)
 ```
 
-## Integração com um Shell React
+## Integrating with a React shell
 
 ```tsx
-// Inicializa o bridge
+// Initialize the bridge
 const coordinator = new ViewStateCoordinator(wsUrl)
 
-// Em um componente:
+// In a component:
 const viewState = ViewScope.use<LoginViewState>("login")
 coordinator.submit({ eventCode: "LOGIN", formData: { username, password } })
 ```
 
-## Segurança
+## Security
 
-O bridge implementa o protocolo de segurança do servidor:
+The bridge implements the server's security protocol:
 
-1. **Handshake**: RSA-OAEP (chave pública do servidor) para cifrar a senha AES
-2. **Dados sensíveis**: AES-256-GCM por sessão, chave derivada via PBKDF2 (250 000 iterações)
-3. **Assinatura de navegação**: parâmetro `sign` em cada intent, validado pelo host
+1. **Handshake**: RSA-OAEP (server public key) to encrypt the AES secret
+2. **Sensitive data**: per-session AES-256-GCM, key derived via PBKDF2 (250,000 iterations)
+3. **Navigation signature**: a `sign` parameter on every intent, validated by the host

@@ -85,21 +85,23 @@ class PurchasesPanelClass extends BaseViewClass<ViewProps, PurchasesPanelState> 
       <div className={clsx(Sel.purchasesPanel, Sel.purchasesSlot, className)}>
         <div className={Sel.purchasesHeaderRow}>
           <i className={clsx("bi bi-clock-history", Sel.purchasesHeaderIcon)}></i>
-          <span className={Sel.purchasesHeaderTitle}>Histórico</span>
+          <span className={Sel.purchasesHeaderTitle}>History</span>
         </div>
-        <span className={Sel.purchasesHint}>Toque para ver detalhes</span>
+        <span className={Sel.purchasesHint}>Tap to see details</span>
         <div ref={this.listRef} className={Sel.purchasesListContainer}>
-          {this.#renderCompras()}
+          {this.#renderPurchases()}
         </div>
         {totalCount > 0 && this.#renderPageNavigation()}
       </div>
     )
   }
 
-  #renderCompras(): React.ReactNode {
+  #renderPurchases(): React.ReactNode {
     const { vsid, state } = this
 
-    return (state.purchases ?? []).map((compra) => <PurchaseItemRow key={compra.id} vsid={vsid} purchase={compra} />)
+    return (state.purchases ?? []).map((purchase) => (
+      <PurchaseItemRow key={purchase.id} vsid={vsid} purchase={purchase} />
+    ))
   }
 
   #renderPageNavigation(): React.ReactNode {
@@ -127,7 +129,7 @@ class PurchasesPanelClass extends BaseViewClass<ViewProps, PurchasesPanelState> 
     )
   }
 
-  // :: Emissors
+  // :: Emitters
 
   readonly emitPageChange = (page: number) => {
     const { vsid } = this

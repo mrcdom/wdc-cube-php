@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Base dos presenters-filhos (painéis): não ocupam place; o pai os cria, guarda a view
- * deles no próprio ViewState e os libera.
+ * Base for child presenters (panels): they do not occupy a place; the parent creates them, keeps
+ * their view in its own ViewState, and releases them.
  *
  * @template A of CubeApplication
  */
@@ -25,7 +25,7 @@ abstract class AbstractChildPresenter implements PresenterBase
 
     abstract protected function onInitialize(): void;
 
-    /** Cria a view, inicializa e devolve a view (para o pai guardar no seu estado). */
+    /** Creates the view, initializes, and returns the view (for the parent to keep in its state). */
     final public function initialize(): CubeView
     {
         $view = $this->onCreateView();

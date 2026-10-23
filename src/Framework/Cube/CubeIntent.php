@@ -8,14 +8,14 @@ use Stringable;
 use Wdc\Framework\Cube\Util\QueryString;
 
 /**
- * "Vá para este place com estes parâmetros". Mapeia um-para-um com a URL.
+ * "Go to this place with these parameters". Maps one-to-one to the URL.
  *
- * - **parameters**: vão para a URL. A ordem de inserção importa (entra na assinatura da URL).
- *   Um array PHP já preserva a ordem de inserção, então serve direto como mapa ordenado.
- * - **attributes**: transientes, nunca vão para a URL (slots de view, flags entre presenters).
+ * - **parameters**: go into the URL. Insertion order matters (it is part of the URL signature).
+ *   A PHP array already preserves insertion order, so it works directly as an ordered map.
+ * - **attributes**: transient, never go into the URL (view slots, flags between presenters).
  *
- * PHP não tem sobrecarga de métodos: há um único `setParameter(mixed)` e um getter por tipo
- * de retorno.
+ * PHP has no method overloading: there is a single `setParameter(mixed)` and one getter per
+ * return type.
  */
 final class CubeIntent implements Stringable
 {
@@ -27,7 +27,7 @@ final class CubeIntent implements Stringable
     /** @var array<string, mixed> */
     private array $attributes = [];
 
-    /** "product?pr-id=3" → intent com GenericPlace('product') e o parâmetro (como string). */
+    /** "product?pr-id=3" → intent with GenericPlace('product') and the parameter (as a string). */
     public static function parse(?string $uri): self
     {
         $intent = new self();
@@ -68,7 +68,7 @@ final class CubeIntent implements Stringable
         return $this->attributes[$name] ?? null;
     }
 
-    /** Remove o atributo e devolve o valor que ele tinha (ou null). */
+    /** Removes the attribute and returns the value it had (or null). */
     public function removeAttribute(string $name): mixed
     {
         $value = $this->attributes[$name] ?? null;
@@ -92,7 +92,7 @@ final class CubeIntent implements Stringable
     // :: Parameters
 
     /**
-     * Define ou substitui um parâmetro. null remove.
+     * Sets or replaces a parameter. null removes it.
      *
      * @param scalar|list<scalar>|null $value
      */
@@ -134,7 +134,7 @@ final class CubeIntent implements Stringable
         return QueryString::asString($this->first($name)) ?? $default;
     }
 
-    /** Parâmetro como inteiro (int do PHP tem 64 bits, cobre também valores longos). */
+    /** Parameter as an integer (PHP's int is 64 bits, so it also covers long values). */
     public function getParameterAsInt(string $name, ?int $default = null): ?int
     {
         $value = $this->first($name);
@@ -173,7 +173,7 @@ final class CubeIntent implements Stringable
         return QueryString::build($this->parameters);
     }
 
-    /** "product" ou "product?pr-id=3" — sem barra inicial, como o protocolo espera. */
+    /** "product" or "product?pr-id=3" — no leading slash, as the protocol expects. */
     public function __toString(): string
     {
         $name = $this->place?->name() ?? '';
@@ -182,7 +182,7 @@ final class CubeIntent implements Stringable
         return $query === '' ? $name : "{$name}?{$query}";
     }
 
-    /** Parâmetro multivalorado ⇒ o primeiro valor. */
+    /** Multi-valued parameter ⇒ the first value. */
     private function first(string $name): mixed
     {
         $value = $this->parameters[$name] ?? null;

@@ -7,12 +7,12 @@ namespace Wdc\Shopping\Persistence\Security;
 use DateTimeImmutable;
 use Wdc\Framework\Commons\Lang\Uuid;
 
-/** Nonces de uso único com validade de 60 s, em memória. */
+/** In-memory single-use nonces valid for 60 s. */
 final class NonceStore
 {
     public const int TTL_SECONDS = 60;
 
-    /** @var array<string, DateTimeImmutable> nonce → expira em */
+    /** @var array<string, DateTimeImmutable> nonce → expires at */
     private array $nonces = [];
 
     public function generate(DateTimeImmutable $now): string
@@ -28,7 +28,7 @@ final class NonceStore
         return $this->nonces[$nonce] ?? null;
     }
 
-    /** Remove o nonce (mesmo se o login falhar depois) e diz se ainda valia. */
+    /** Removes the nonce (even if the login fails afterwards) and tells whether it was still valid. */
     public function consume(string $nonce, DateTimeImmutable $now): bool
     {
         $expiresAt = $this->nonces[$nonce] ?? null;

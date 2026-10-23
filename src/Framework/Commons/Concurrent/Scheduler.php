@@ -7,10 +7,10 @@ namespace Wdc\Framework\Commons\Concurrent;
 use Closure;
 
 /**
- * Agenda trabalho para depois (execução única ou periódica).
+ * Schedules work for later (one-off or periodic).
  *
- * No servidor a implementação usa o event loop (o trabalho roda na mesma thread, quando o
- * loop chegar lá); nos testes, um agendador manual que só executa quando mandado.
+ * On the server the implementation uses the event loop (the work runs on the same thread, when
+ * the loop gets there); in tests, a manual scheduler that only runs when told to.
  */
 interface Scheduler
 {

@@ -7,8 +7,8 @@ namespace Wdc\Framework\Persistence;
 use Closure;
 
 /**
- * Descrição de uma tabela: nome, fábrica do bean e colunas. A primeira coluna é a chave.
- * Usada na escrita (INSERT/UPDATE) e, pela JsonQuery, na leitura.
+ * Describes a table: name, bean factory and columns. The first column is the key.
+ * Used for writes (INSERT/UPDATE) and, through the JsonQuery, for reads.
  *
  * @template E of object
  */
@@ -16,7 +16,7 @@ final readonly class Table
 {
     /**
      * @param Closure(): E            $factory
-     * @param non-empty-list<Column<E>> $columns   a primeira é o ID
+     * @param non-empty-list<Column<E>> $columns   the first one is the ID
      */
     public function __construct(
         public string $name,
@@ -38,7 +38,7 @@ final readonly class Table
     }
 
     /**
-     * Colunas pedidas pela projeção (campo não-null); o ID entra sempre.
+     * Columns requested by the projection (non-null field); the ID is always included.
      *
      * @param E $projection
      * @return non-empty-list<Column<E>>
@@ -56,7 +56,7 @@ final readonly class Table
     }
 
     /**
-     * true quando a projeção não pede nenhuma coluna além do ID (as relações quem confere é a JsonQuery).
+     * true when the projection requests no column besides the ID (relations are checked by the JsonQuery).
      *
      * @param E $projection
      */

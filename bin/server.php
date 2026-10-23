@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 /*
- * Sobe o servidor do Shopping.
+ * Starts the Shopping server.
  *
- *   php bin/server.php [porta]
+ *   php bin/server.php [port]
  *
- * Porta: argumento > variável SERVER_PORT > server.port do application.toml > 8080.
- * Config: SHOPPING_CONFIG_FILE ou work/config/application.toml. Log: LOG_LEVEL (padrão info).
+ * Port: argument > SERVER_PORT variable > server.port from application.toml > 8080.
+ * Config: SHOPPING_CONFIG_FILE or work/config/application.toml. Log: LOG_LEVEL (default info).
  */
 
 use Psr\Log\LogLevel;
@@ -20,7 +20,7 @@ use function Amp\trapSignal;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-chdir(dirname(__DIR__));   // caminhos relativos da config são a partir da raiz do projeto
+chdir(dirname(__DIR__));   // relative paths in the config are resolved from the project root
 
 $logger = new ConsoleLogger(getenv('LOG_LEVEL') ?: LogLevel::INFO);
 $config = ShoppingConfig::load();
@@ -29,7 +29,7 @@ $port = (int) ($argv[1] ?? getenv('SERVER_PORT') ?: $config->config->getInt('ser
 $server = new ShoppingServer($config, $logger);
 $server->start($port);
 
-// o processo fica aqui, com o event loop rodando, até Ctrl+C (SIGINT) ou SIGTERM
+// the process stays here, with the event loop running, until Ctrl+C (SIGINT) or SIGTERM
 $signal = trapSignal([SIGINT, SIGTERM]);
-$logger->info("Sinal {$signal} recebido, encerrando");
+$logger->info("Signal {$signal} received, shutting down");
 $server->stop();

@@ -16,8 +16,8 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomePresenter;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Extrato de compras paginado. O tamanho da página vem da view, que mede quantos itens
- * cabem no espaço disponível.
+ * Paged purchase history. The page size comes from the view, which measures how many items
+ * fit in the available space.
  *
  * @extends AbstractChildPresenter<ShoppingApplication>
  */
@@ -43,7 +43,7 @@ final class PurchasesPanelPresenter extends AbstractChildPresenter
         $this->loadPurchases();
     }
 
-    /** A view informou quantos itens cabem sem rolagem. Só recarrega se mudou. */
+    /** The view reported how many items fit without scrolling. Reloads only if it changed. */
     public function onItemSizeCapacityChanged(int $capacity): void
     {
         $pageSize = max(1, $capacity);
@@ -67,7 +67,7 @@ final class PurchasesPanelPresenter extends AbstractChildPresenter
         }
         try {
             $result = $this->service->fetchPageOfUser($subject->id, $this->state->page, $this->state->pageSize);
-            // página além do fim: volta para a última
+            // page past the end: go back to the last one
             if ($result->items === [] && $result->totalPages > 0) {
                 $result = $this->service->fetchPageOfUser($subject->id, $result->totalPages - 1, $this->state->pageSize);
             }
@@ -82,7 +82,7 @@ final class PurchasesPanelPresenter extends AbstractChildPresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('b3c4d5e6f7a8', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('b3c4d5e6f7a8', function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onOpenReceipt(Coerce::asInt($form['p.purchaseId'] ?? null)),
                 2 => $this->onPageChange(Coerce::asInt($form['p.page'] ?? null) ?? 0),
@@ -94,10 +94,10 @@ final class PurchasesPanelPresenter extends AbstractChildPresenter
 
     protected function onCreateView(): CubeView
     {
-        return (self::$createView ?? throw new LogicException('PurchasesPanelPresenter::$createView não configurado'))($this);
+        return (self::$createView ?? throw new LogicException('PurchasesPanelPresenter::$createView not configured'))($this);
     }
 
-    /** Só desenha: a carga espera a view medir o espaço e chamar onItemSizeCapacityChanged(). */
+    /** Only renders: loading waits for the view to measure the space and call onItemSizeCapacityChanged(). */
     protected function onInitialize(): void
     {
         $this->update();

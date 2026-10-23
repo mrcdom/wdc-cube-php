@@ -32,11 +32,11 @@ export type ReceiptViewState = {
 }
 
 class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
-  // :: Renderes
+  // :: Renderers
 
   override render({ className }: ViewProps) {
     const { state } = this
-    const reciboItems = state.receipt?.items ?? []
+    const receiptItems = state.receipt?.items ?? []
 
     return (
       <div className={clsx(Sel.pageScrollRoot, className)}>
@@ -47,7 +47,7 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
               <span className={Sel.alertSuccessIcon}>
                 <i className="bi bi-check-circle-fill"></i>
               </span>
-              <span className={Sel.alertSuccessText}>Compra realizada com sucesso!</span>
+              <span className={Sel.alertSuccessText}>Purchase completed successfully!</span>
             </div>
           )}
 
@@ -59,7 +59,7 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
                 <i className={clsx("bi bi-receipt", Sel.cardHeaderIcon)}></i>
               </div>
               <div>
-                <h5 className={Sel.cardHeaderTitle}>Recibo de Compra</h5>
+                <h5 className={Sel.cardHeaderTitle}>Purchase Receipt</h5>
                 <span className={Sel.cardHeaderSubtitle}>WDC Shopping</span>
               </div>
             </div>
@@ -68,12 +68,12 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
             <div className={Sel.body}>
               {/* Date */}
               <div className={Sel.dateRow}>
-                <span className={Sel.dateLabel}>Data:</span>
+                <span className={Sel.dateLabel}>Date:</span>
                 <span className={Sel.dateValue}>
                   {state.receipt?.date
-                    ? new Date(state.receipt.date).toLocaleDateString("pt-BR") +
+                    ? new Date(state.receipt.date).toLocaleDateString("en-US") +
                       " " +
-                      new Date(state.receipt.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      new Date(state.receipt.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
                     : ""}
                 </span>
               </div>
@@ -81,11 +81,11 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
               {/* Items table */}
               <div className={Sel.tableHeader}>
                 <span className={Sel.colItem}>ITEM</span>
-                <span className={Sel.colQty}>QTD</span>
-                <span className={Sel.colValue}>VALOR</span>
+                <span className={Sel.colQty}>QTY</span>
+                <span className={Sel.colValue}>PRICE</span>
               </div>
               <div>
-                {reciboItems.map((item, idx) => (
+                {receiptItems.map((item, idx) => (
                   <div key={idx} className={Sel.itemRow}>
                     <span className={Sel.itemDesc}>{item.description}</span>
                     <span className={Sel.itemQty}>{NumberUtils.format(item.quantity, 0)}</span>
@@ -104,7 +104,7 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
             {/* Back button */}
             <ActionButton quiet className={Sel.backBtn} onClick={this.emitOpenProducts}>
               <i className={clsx("bi bi-arrow-left", Sel.mr4)}></i>
-              Voltar aos produtos
+              Back to products
             </ActionButton>
           </div>
         </div>
@@ -112,7 +112,7 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
     )
   }
 
-  // :: Emissors
+  // :: Emitters
 
   readonly emitOpenProducts = () => {
     const { vsid } = this

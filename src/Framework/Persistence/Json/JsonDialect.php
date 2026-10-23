@@ -7,7 +7,7 @@ namespace Wdc\Framework\Persistence\Json;
 use Wdc\Framework\Persistence\Sql;
 
 /**
- * Como cada banco monta JSON em SQL. Hoje há a implementação para PostgreSQL; outro banco entra como outra implementação.
+ * How each database builds JSON in SQL. Today there is a PostgreSQL implementation; another database comes in as another implementation.
  */
 interface JsonDialect
 {
@@ -15,12 +15,12 @@ interface JsonDialect
     public function jsonObject(array $fields): Sql;
 
     /**
-     * Agrega um objeto JSON por linha num array JSON, na ordem dada (DENTRO do agregado).
+     * Aggregates one JSON object per row into a JSON array, in the given order (INSIDE the aggregate).
      *
-     * @param string $order lista de ordenação ("c3.PRICE DESC, c3.ID ASC") ou ""
+     * @param string $order ordering list ("c3.PRICE DESC, c3.ID ASC") or ""
      */
     public function jsonArrayAgg(Sql $element, string $order): Sql;
 
-    /** Converte o que o dialeto pôs no JSON para os bytes originais de um BLOB. */
+    /** Converts what the dialect put into the JSON back to the original bytes of a BLOB. */
     public function decodeBinary(string $encoded): string;
 }

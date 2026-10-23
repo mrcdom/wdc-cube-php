@@ -72,10 +72,10 @@ public static function orders(ShoppingApplication $app, ?CubeIntent $intent = nu
 
 ```php
 // Presenter/Restricted/Orders/OrdersKeys.php - the ONLY file that knows these names
-/** Keys da lista de pedidos: `orders?or-status=paid&or-page=2`. */
+/** Keys of the order list: `orders?or-status=paid&or-page=2`. */
 final class OrdersKeys extends HomeKeys            // inherits userId and ownerSlot from the root
 {
-    /** Prefixo dos nomes deste arquivo - único na aplicação. Escolha um que ainda não exista. */
+    /** Prefix of the names in this file - unique in the application. Pick one not yet in use. */
     private const string PREFIX = 'or';
 
     private const string P_STATUS = self::PREFIX . '-status';   // parameter: goes to the address
@@ -125,7 +125,7 @@ tree: `RootKeys` → `OpenKeys` → `LoginKeys`; `RootKeys` → `RestrictedKeys`
 `CartKeys`/`ProductKeys`/`ReceiptKeys`. A keys without names only declares `place()`:
 
 ```php
-/** Keys do carrinho: `cart`. */
+/** Keys of the cart: `cart`. */
 final class CartKeys extends HomeKeys
 {
     public function place(): CubePlace
@@ -275,7 +275,7 @@ final class ProductPresenter extends AbstractCubePresenter
     {
         try {
             if ($quantity === null || $quantity < 1) {
-                $this->alert(2, 'A quantidade deve ser maior ou igual a 1.');   // expected: own state
+                $this->alert(2, 'Quantity must be at least 1.');   // expected: own state
                 return;
             }
             $this->app->cart()?->addProduct($this->state->product ?? throw new LogicException('No product'), $quantity);
@@ -287,7 +287,7 @@ final class ProductPresenter extends AbstractCubePresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('48b693f67410', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('48b693f67410', function (int $event, int $count, array $form): void {
             match ($event) {
                 self::EVENT_OPEN_PRODUCTS => $this->onOpenProducts(),
                 self::EVENT_ADD_TO_CART => $this->onAddToCart(Coerce::asInt($form['p.quantity'] ?? null)),
@@ -501,7 +501,7 @@ public function onOpenReceipt(?int $purchaseId): void
 {
     try {
         if ($purchaseId === null) {
-            $this->alert(7, 'Código do recibo é obrigatório.');
+            $this->alert(7, 'Receipt id is required.');
             return;
         }
         $receipt = ReceiptKeys::of($this->app);       // from the current state
@@ -509,7 +509,7 @@ public function onOpenReceipt(?int $purchaseId): void
         $receipt->purchaseMade = true;                // attribute: not in the address
         $receipt->go();
     } catch (PurchaseNotFoundException) {
-        $this->alert(5, 'Recibo não localizado.');                         // the screen stays here
+        $this->alert(5, 'Receipt not found.');                         // the screen stays here
     } catch (Throwable $caught) {
         $this->app->alertUnexpectedError("Opening receipt {$purchaseId}", $caught);
     }

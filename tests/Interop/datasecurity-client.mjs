@@ -1,9 +1,9 @@
-// Repete, com WebCrypto (a mesma API do browser), os passos de DataSecurity.ts do shell React:
-//   pwd    = base64url(12 bytes aleatórios)             (senha da sessão, como texto)
+// Replays, with WebCrypto (the same API as the browser), the steps of the React shell's DataSecurity.ts:
+//   pwd    = base64url(12 random bytes)                 (session password, as text)
 //   key    = PBKDF2-SHA256(pwd, salt[16], 250000) → AES-256-GCM
 //   secret = base36(RSA_e,n(bigint(UTF8(base64(UTF8(pwd)))))) . b64url(salt) . b64url(iv[12])
-// Uso: node datasecurity-client.mjs '<e:n base36>' '<texto para cifrar>' ['<base64 para decifrar>' '<secret anterior>' '<pwd anterior>']
-// Saída: JSON { secret, pwd, ciphered, deciphered? }
+// Usage: node datasecurity-client.mjs '<e:n base36>' '<text to encrypt>' ['<base64 to decrypt>' '<previous secret>' '<previous pwd>']
+// Output: JSON { secret, pwd, ciphered, deciphered? }
 import { webcrypto as crypto } from 'node:crypto'
 
 const [, , appSKey, plain, toDecipher, prevSecret, prevPwd] = process.argv

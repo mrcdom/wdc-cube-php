@@ -6,7 +6,7 @@ namespace Wdc\Tests\Shopping\RemoteHost;
 
 use Wdc\Framework\Cube\Remote\RemoteConnection;
 
-/** Conexão de teste: guarda o que o servidor mandou e como fechou. */
+/** Test connection: records what the server sent and how it closed. */
 final class RecordingConnection implements RemoteConnection
 {
     private static int $ids = 0;

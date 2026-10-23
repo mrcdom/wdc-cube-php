@@ -9,22 +9,22 @@ use stdClass;
 use Wdc\Framework\Domain\Exception\InvalidRequestException;
 
 /**
- * JSON do transporte REST.
+ * JSON for the REST transport.
  *
- * Decodifica com objetos (`stdClass`), não arrays associativos: assim `{}` e `[]` continuam
- * distintos — e o codec precisa disso para separar uma coleção projetada (objeto) de uma lista
- * de resultados (array) olhando o tipo do valor antes de lê-lo.
+ * Decodes into objects (`stdClass`), not associative arrays: that keeps `{}` and `[]` distinct —
+ * and the codec needs this to tell a projected collection (object) from a result list (array)
+ * by looking at the value's type before reading it.
  */
 final class Json
 {
     public const int ENCODE_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        | JSON_PRESERVE_ZERO_FRACTION;   // 10.0 sai "10.0": o cliente distingue decimal de inteiro
+        | JSON_PRESERVE_ZERO_FRACTION;   // 10.0 is written as "10.0": the client tells decimals from integers
 
     private function __construct()
     {
     }
 
-    /** Corpo vazio vale como `{}`. JSON inválido ⇒ InvalidRequestException (400). */
+    /** An empty body counts as `{}`. Invalid JSON ⇒ InvalidRequestException (400). */
     public static function decode(string $text): mixed
     {
         if (trim($text) === '') {
@@ -33,7 +33,7 @@ final class Json
         try {
             return json_decode($text, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            throw new InvalidRequestException('JSON inválido: ' . $e->getMessage(), 0, $e);
+            throw new InvalidRequestException('Invalid JSON: ' . $e->getMessage(), 0, $e);
         }
     }
 
@@ -43,28 +43,28 @@ final class Json
     }
 
     /**
-     * Os campos de um objeto JSON, na ordem em que vieram.
+     * The fields of a JSON object, in the order they arrived.
      *
      * @return array<string, mixed>
      */
-    public static function fields(mixed $value, string $what = 'corpo'): array
+    public static function fields(mixed $value, string $what = 'body'): array
     {
         if (!$value instanceof stdClass) {
-            throw new InvalidRequestException("Esperado um objeto JSON em {$what}");
+            throw new InvalidRequestException("Expected a JSON object in {$what}");
         }
 
         return get_object_vars($value);
     }
 
     /**
-     * Os elementos de um array JSON.
+     * The elements of a JSON array.
      *
      * @return list<mixed>
      */
     public static function elements(mixed $value, string $what): array
     {
         if (!is_array($value) || !array_is_list($value)) {
-            throw new InvalidRequestException("Esperado um array JSON em {$what}");
+            throw new InvalidRequestException("Expected a JSON array in {$what}");
         }
 
         return $value;

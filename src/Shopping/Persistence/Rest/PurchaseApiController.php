@@ -23,10 +23,10 @@ use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
 /**
- * `/api/repo/purchase/*`. Sem `data:all`, cada um só vê e altera as próprias compras.
+ * `/api/repo/purchase/*`. Without `data:all`, each user only sees and changes their own purchases.
  *
- * Toda operação confere o dono: o `update` recusa e o fetch-by-id esconde compras de outro
- * usuário, qualquer que seja a projeção pedida.
+ * Every operation checks the owner: `update` refuses and fetch-by-id hides another user's
+ * purchases, whatever projection is requested.
  */
 final class PurchaseApiController extends ApiController
 {
@@ -54,7 +54,7 @@ final class PurchaseApiController extends ApiController
         $add('GET', "{$base}/{id:\\d+}", $this->fetchById(...), false);
     }
 
-    /** id, data, usuário (id, nome) e itens (id, quantidade, preço, produto resumido). */
+    /** id, date, user (id, name) and items (id, amount, price, product summary). */
     public static function fullProjectionWithItems(): Purchase
     {
         $product = (new Product())->withId(PV::INT)->withName(PV::STR)->withPrice(PV::FLOAT);
@@ -63,7 +63,7 @@ final class PurchaseApiController extends ApiController
         return self::simpleProjection()->withItems([$item]);
     }
 
-    /** Sem os itens. */
+    /** Without the items. */
     public static function simpleProjection(): Purchase
     {
         return (new Purchase())
@@ -77,7 +77,7 @@ final class PurchaseApiController extends ApiController
         $context = $this->security->require('purchase', 'write');
         $purchase = $this->codec->readEntity($request->json());
         if ($context !== null && SecurityEnforcer::isScoped($context)) {
-            // a compra é sempre do próprio usuário
+            // the purchase always belongs to the user themselves
             $purchase->withUser(($purchase->user() ?? new User())->withId($context->userId()));
         }
         $success = $this->repo->insert($purchase);
@@ -157,7 +157,7 @@ final class PurchaseApiController extends ApiController
         return $this->fetchOne($context, $id, $projection ?? self::fullProjectionWithItems());
     }
 
-    /** De outro usuário = 404, como se não existisse. */
+    /** Another user's = 404, as if it did not exist. */
     private function fetchOne(?SecurityContext $context, ?int $id, Purchase $projection): Response
     {
         if ($context !== null && SecurityEnforcer::isScoped($context) && !self::owns($this->repo, $id, $context->userId())) {
@@ -168,7 +168,7 @@ final class PurchaseApiController extends ApiController
         return $purchase === null ? self::notFound() : RestResponse::json($this->codec->writeEntity($purchase));
     }
 
-    /** A compra existe e é do usuário? (consulta de contagem, pelo critério de dono) */
+    /** Does the purchase exist and belong to the user? (a count query, through the owner criterion) */
     public static function owns(PurchaseRepository $repo, ?int $purchaseId, int $userId): bool
     {
         return $purchaseId !== null
@@ -185,7 +185,7 @@ final class PurchaseApiController extends ApiController
     /** @param array<string, mixed> $args */
     private static function defaultProjection(array $args): Purchase
     {
-        // includeItems: true se ausente; presente, só true conta como true
+        // includeItems: true if absent; when present, only true counts as true
         $includeItems = !array_key_exists('includeItems', $args) || InputCoerce::asBool($args['includeItems']) === true;
 
         return $includeItems ? self::fullProjectionWithItems() : self::simpleProjection();

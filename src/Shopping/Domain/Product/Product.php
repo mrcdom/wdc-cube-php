@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Shopping\Domain\Product;
 
 /**
- * Produto. API fluente: `campo()` lê, `withCampo()` grava e devolve $this.
- * Todos os campos são anuláveis: null = "não carregado / não projetado".
+ * Product. Fluent API: `field()` reads, `withField()` writes and returns $this.
+ * Every field is nullable: null = "not loaded / not projected".
  */
 final class Product
 {
@@ -15,7 +15,7 @@ final class Product
     private ?float $price = null;
     /** HTML (<ul><li>...) */
     private ?string $description = null;
-    /** PNG em bytes; não vai nas projeções padrão */
+    /** PNG bytes; not included in the default projections */
     private ?string $image = null;
 
     public function id(): ?int

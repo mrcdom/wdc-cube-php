@@ -19,11 +19,11 @@ use Wdc\Tests\Shopping\Presentation\Mock\ShoppingApplicationMock;
 use Wdc\Tests\Support\TestDatabase;
 
 /**
- * Base dos testes de apresentação: banco novo com o seed a cada
- * teste, autenticação real (desafio HMAC + JWT) e agendador de relógio manual.
+ * Base for the presentation tests: a fresh seeded database for every
+ * test, real authentication (HMAC challenge + JWT) and a manual-clock scheduler.
  *
- * Rodam com AuthenticationService, como o servidor; o caminho sem ele (login direto pelo
- * repositório) tem teste próprio.
+ * They run with AuthenticationService, like the server; the path without it (login straight through
+ * the repository) has its own test.
  */
 abstract class PresentationTestCase extends TestCase
 {

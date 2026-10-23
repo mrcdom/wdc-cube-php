@@ -20,18 +20,18 @@ use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityFilter;
 
 /**
- * A API REST de repositório: clientes que não usam o WebSocket (apps nativos, SPAs) acessam
- * os dados por ela.
+ * The repository REST API: clients that do not use the WebSocket (native apps, SPAs) access
+ * the data through it.
  *
- * | rota                                         | o quê                                   |
+ * | route                                        | what                                    |
  * |----------------------------------------------|-----------------------------------------|
- * | `/api/auth/{challenge,login,refresh,logout}` | login por desafio HMAC, JWT             |
- * | `/api/repo/<entidade>/<operação>`            | user, product, purchase, purchase-item  |
- * | `/api/repo/product/{id}/image`               | imagem (GET público, PUT protegido)     |
- * | `/api/tx/{begin,commit,rollback,status}`     | transação remota dirigida pelo cliente  |
+ * | `/api/auth/{challenge,login,refresh,logout}` | HMAC challenge login, JWT               |
+ * | `/api/repo/<entity>/<operation>`             | user, product, purchase, purchase-item  |
+ * | `/api/repo/product/{id}/image`               | image (public GET, protected PUT)       |
+ * | `/api/tx/{begin,commit,rollback,status}`     | client-driven remote transaction        |
  *
- * Com AuthenticationService, `/api/repo/*` e `/api/tx/*` exigem um Bearer JWT. Sem ele
- * (segurança desligada), as rotas de auth nem existem e nada é conferido.
+ * With an AuthenticationService, `/api/repo/*` and `/api/tx/*` require a Bearer JWT. Without it
+ * (security off), the auth routes do not even exist and nothing is checked.
  */
 final class RepositoryApiRoutes
 {
@@ -63,8 +63,8 @@ final class RepositoryApiRoutes
     }
 
     /**
-     * Registra as rotas sob um prefixo: '' (raiz) ou o de um frontend (`/{ctx:...}`), para que
-     * uma SPA servida num contexto chame a API sem CORS.
+     * Registers the routes under a prefix: '' (root) or a frontend's (`/{ctx:...}`), so that
+     * an SPA served under a context calls the API without CORS.
      */
     public function configure(Router $router, string $prefix = ''): void
     {
@@ -79,7 +79,7 @@ final class RepositoryApiRoutes
     }
 
     /**
-     * As rotas protegidas (`/api/repo/*`, `/api/tx/*`), sem servidor HTTP — também para testes.
+     * The protected routes (`/api/repo/*`, `/api/tx/*`), without an HTTP server — also for tests.
      *
      * @return list<array{0: string, 1: string, 2: RestHandler}>
      */
@@ -99,13 +99,13 @@ final class RepositoryApiRoutes
     }
 
     /**
-     * Envolve um endpoint de **escrita** numa transação:
+     * Wraps a **write** endpoint in a transaction:
      *
-     * - com `X-Tx-Id`: junta-se à transação remota do cliente (resume/suspend), sem commit — a
-     *   fronteira é do cliente;
-     * - sem `X-Tx-Id`, mas com transação remota aberta para o solicitante: o cabeçalho se perdeu
-     *   no caminho → 409, em vez de gravar fora da transação (quebraria a atomicidade do bloco);
-     * - senão, uma transação por requisição (commit no retorno, rollback na exceção).
+     * - with `X-Tx-Id`: joins the client's remote transaction (resume/suspend), without commit — the
+     *   boundary belongs to the client;
+     * - without `X-Tx-Id`, but with a remote transaction open for the requester: the header got lost
+     *   on the way → 409, instead of writing outside the transaction (it would break the block's atomicity);
+     * - otherwise, one transaction per request (commit on return, rollback on exception).
      *
      * @param Closure(RestRequest): Response $endpoint
      * @return Closure(RestRequest): Response
@@ -126,8 +126,8 @@ final class RepositoryApiRoutes
             if ($this->coordinator !== null) {
                 $owner = TxApiController::currentOwnerKey($request);
                 if ($owner !== null && $this->coordinator->hasOpenTransactionForOwner($owner)) {
-                    throw new TransactionConflictException('Escrita sem ' . TxApiController::TX_HEADER
-                        . ' enquanto há transação remota aberta para o solicitante — abortada para preservar atomicidade');
+                    throw new TransactionConflictException('Write without ' . TxApiController::TX_HEADER
+                        . ' while a remote transaction is open for the requester — aborted to preserve atomicity');
                 }
             }
 

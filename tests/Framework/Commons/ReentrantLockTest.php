@@ -21,22 +21,22 @@ final class ReentrantLockTest extends TestCase
         $log = [];
 
         await([
-            // `function () use (&$log)`, não `fn`: a arrow function copiaria $log
+            // `function () use (&$log)`, not `fn`: an arrow function would copy $log
             async(function () use ($lock, &$log): void {
                 $lock->run(function () use (&$log): void {
-                    $log[] = 'A entra';
-                    delay(0.05);   // suspende segurando o lock
-                    $log[] = 'A sai';
+                    $log[] = 'A enters';
+                    delay(0.05);   // suspends while holding the lock
+                    $log[] = 'A leaves';
                 });
             }),
             async(function () use ($lock, &$log): void {
                 $lock->run(function () use (&$log): void {
-                    $log[] = 'B entra';
+                    $log[] = 'B enters';
                 });
             }),
         ]);
 
-        self::assertSame(['A entra', 'A sai', 'B entra'], $log);
+        self::assertSame(['A enters', 'A leaves', 'B enters'], $log);
     }
 
     #[Test]
@@ -44,9 +44,9 @@ final class ReentrantLockTest extends TestCase
     {
         $lock = new ReentrantLock();
 
-        $result = $lock->run(fn () => $lock->run(fn () => $lock->isHeldByCurrentFiber() ? 'reentrou' : 'não'));
+        $result = $lock->run(fn () => $lock->run(fn () => $lock->isHeldByCurrentFiber() ? 'reentered' : 'no'));
 
-        self::assertSame('reentrou', $result);
+        self::assertSame('reentered', $result);
         self::assertFalse($lock->isHeldByCurrentFiber());
     }
 }

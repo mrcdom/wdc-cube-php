@@ -24,11 +24,11 @@ use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Domain\User\UserCodec;
 
 /**
- * Purchase no JSON: `id`, `buyDate` (ISO-8601 com deslocamento), `user`, `items`.
+ * Purchase in JSON: `id`, `buyDate` (ISO-8601 with offset), `user`, `items`.
  *
- * `items` serve os dois sentidos: lista de resultados (array) ou coleção projetada (objeto
- * `{shape, where, limit, offset}`, ver {@see ProjectionCollectionCodec}). Os itens dentro de uma
- * compra não repetem o `purchaseId` — a compra é o objeto em volta.
+ * `items` works both ways: a list of results (array) or a projected collection (object
+ * `{shape, where, limit, offset}`, see {@see ProjectionCollectionCodec}). Items inside a
+ * purchase do not repeat the `purchaseId` — the purchase is the enclosing object.
  *
  * @implements ModelCodec<Purchase, PurchaseCriteria>
  */
@@ -42,7 +42,7 @@ final class PurchaseCodec implements ModelCodec
             $out->id = $entity->id();
         }
         if (!$graph->track($entity)) {
-            return $out;   // já escrita neste grafo: só a chave
+            return $out;   // already written in this graph: key only
         }
         if ($entity->buyDate() !== null) {
             $out->buyDate = IsoDateTime::format($entity->buyDate());
@@ -181,7 +181,7 @@ final class PurchaseCodec implements ModelCodec
         return true;
     }
 
-    /** Item dentro de uma compra: sem `purchaseId` (a compra é o objeto em volta). */
+    /** Item inside a purchase: no `purchaseId` (the purchase is the enclosing object). */
     private static function writeItem(PurchaseItem $item, EntityGraph $graph): stdClass
     {
         $out = new stdClass();
@@ -204,7 +204,7 @@ final class PurchaseCodec implements ModelCodec
         return $out;
     }
 
-    /** A volta para a compra vai como stub (só a chave), sem ciclo no grafo. */
+    /** The back-reference to the purchase goes as a stub (key only), with no cycle in the graph. */
     private static function readItem(mixed $in, Purchase $parent): PurchaseItem
     {
         $item = new PurchaseItem();

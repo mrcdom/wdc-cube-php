@@ -8,8 +8,8 @@ use Wdc\Framework\Persistence\ColumnType;
 use Wdc\Framework\Persistence\Sql;
 
 /**
- * Uma chave do objeto JSON: nome, expressão SQL e tipo. Tipo null = a expressão já
- * produz JSON (subconsulta de relação) e entra sem conversão.
+ * A key of the JSON object: name, SQL expression and type. A null type means the expression
+ * already produces JSON (a relation subquery) and goes in without conversion.
  */
 final readonly class JsonField
 {

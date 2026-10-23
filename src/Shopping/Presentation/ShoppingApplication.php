@@ -15,10 +15,10 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartManager;
 use Wdc\Shopping\Presentation\Presenter\RootPresenter;
 
 /**
- * Uma sessão do Shopping: quem está logado, o carrinho e o acesso aos serviços.
+ * A Shopping session: who is logged in, the cart and access to the services.
  *
- * Abstrata: o host remoto e o mock de teste completam o que depende do ambiente
- * (cifra da sessão, armazenamento do cliente, histórico/URL).
+ * Abstract: the remote host and the test mock fill in what depends on the environment
+ * (session cipher, client storage, history/URL).
  */
 abstract class ShoppingApplication extends CubeApplication
 {
@@ -31,7 +31,7 @@ abstract class ShoppingApplication extends CubeApplication
         parent::__construct($logger ?? $context->logger);
     }
 
-    /** Cifra um texto com a chave da sessão (AES-GCM) e devolve Base64. */
+    /** Encrypts a text with the session key (AES-GCM) and returns Base64. */
     abstract public function b64Cipher(string $text): string;
 
     abstract public function b64Decipher(string $b64Text): string;
@@ -78,7 +78,7 @@ abstract class ShoppingApplication extends CubeApplication
         return $this->context->scheduler;
     }
 
-    // :: Navegação por nome ("cart", "product?pr-id=3"...)
+    // :: Navigation by name ("cart", "product?pr-id=3"...)
 
     public function go(string|CubeIntent $target): bool
     {

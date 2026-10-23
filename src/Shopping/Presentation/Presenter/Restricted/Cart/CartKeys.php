@@ -8,7 +8,7 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\Place;
 
-/** Keys do carrinho: `cart`. */
+/** Cart keys: `cart`. */
 final class CartKeys extends HomeKeys
 {
     public function place(): CubePlace

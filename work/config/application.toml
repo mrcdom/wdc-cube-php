@@ -1,20 +1,20 @@
-# WeDoCode Shopping (PHP) - configuração da aplicação
-# Caminho padrão: work/config/application.toml (relativo à raiz do projeto)
-# Outro arquivo: SHOPPING_CONFIG_FILE=/caminho/application.toml
-# Sobrescritas locais (fora do git): application.local.toml nesta mesma pasta.
+# WeDoCode Shopping (PHP) - application configuration
+# Default path: work/config/application.toml (relative to the project root)
+# Another file: SHOPPING_CONFIG_FILE=/path/application.toml
+# Local overrides (not in git): application.local.toml in this same folder.
 
 [app]
-# Pasta base de runtime (data, log, temp, frontend), relativa a ESTE arquivo.
+# Runtime base folder (data, log, temp, frontend), relative to THIS file.
 basedir = ".."
 
 [database]
-# PostgreSQL. Usuário e senha ficam no application.local.toml (fora do git):
+# PostgreSQL. Username and password live in application.local.toml (not in git):
 #   [database]
 #   username = "postgres"
 #   password = "..."
-# Se o banco não existir, o servidor tenta criá-lo; o schema e o seed são criados na primeira subida.
+# If the database does not exist, the server tries to create it; the schema and seed are created on first start.
 url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php"
-# conexões simultâneas com o banco (cada consulta em andamento ocupa uma)
+# concurrent database connections (each in-flight query takes one)
 pool.maxConnections = 16
 
 [server]
@@ -25,5 +25,5 @@ devMode = true
 jwt.secret = "wdc-shopping-jwt-s3cr3t-k3y-ch4ng3-1n-pr0duct10n"
 
 [simulation]
-# Simula login lento (3 s) no LoginPresenter
+# Simulates a slow login (3 s) in LoginPresenter
 slowLogin = false

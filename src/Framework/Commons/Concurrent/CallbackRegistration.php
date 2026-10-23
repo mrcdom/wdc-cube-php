@@ -16,7 +16,7 @@ final class CallbackRegistration implements Registration
     public function remove(): void
     {
         $callback = $this->onRemove;
-        $this->onRemove = null;   // remover duas vezes não faz nada
+        $this->onRemove = null;   // removing twice does nothing
         if ($callback !== null) {
             $callback();
         }

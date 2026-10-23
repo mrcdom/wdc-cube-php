@@ -9,8 +9,8 @@ use Wdc\Framework\Domain\Criteria\ComparableCriterion;
 use Wdc\Framework\Domain\Criteria\Criteria;
 
 /**
- * Critério de busca de Purchase. Cada campo filtrável é um Criterion que já nasce criado
- * (nunca null): use hasPurchaseId() para saber se foi informado.
+ * Search criterion for Purchase. Each filterable field is a Criterion created up front
+ * (never null): use hasPurchaseId() to tell whether it was set.
  */
 final class PurchaseCriteria implements Criteria
 {
@@ -24,13 +24,13 @@ final class PurchaseCriteria implements Criteria
     private readonly ComparableCriterion $userId;
     /** @var ComparableCriterion<self, DateTimeImmutable> */
     private readonly ComparableCriterion $buyDate;
-    /** @var ComparableCriterion<self, int>  campo virtual: existe item com este produto (EXISTS) */
+    /** @var ComparableCriterion<self, int>  virtual field: an item with this product exists (EXISTS) */
     private readonly ComparableCriterion $productId;
 
     public function __construct()
     {
-        // Em PHP o valor inicial de uma propriedade precisa ser constante;
-        // objetos que dependem de $this são criados no construtor.
+        // In PHP a property's initial value must be a constant;
+        // objects that depend on $this are created in the constructor.
         $this->purchaseId = new ComparableCriterion($this, 'purchaseId');
         $this->userId = new ComparableCriterion($this, 'userId');
         $this->buyDate = new ComparableCriterion($this, 'buyDate');
@@ -72,7 +72,7 @@ final class PurchaseCriteria implements Criteria
         return $this->purchaseId->isSet();
     }
 
-    /** Atalho para purchaseId()->eq($value). */
+    /** Shortcut for purchaseId()->eq($value). */
     public function withPurchaseId(?int $value): static
     {
         return $value === null ? $this : $this->purchaseId->eq($value);
@@ -89,7 +89,7 @@ final class PurchaseCriteria implements Criteria
         return $this->userId->isSet();
     }
 
-    /** Atalho para userId()->eq($value). */
+    /** Shortcut for userId()->eq($value). */
     public function withUserId(?int $value): static
     {
         return $value === null ? $this : $this->userId->eq($value);
@@ -106,7 +106,7 @@ final class PurchaseCriteria implements Criteria
         return $this->buyDate->isSet();
     }
 
-    /** Atalho para buyDate()->eq($value). */
+    /** Shortcut for buyDate()->eq($value). */
     public function withBuyDate(?DateTimeImmutable $value): static
     {
         return $value === null ? $this : $this->buyDate->eq($value);
@@ -123,7 +123,7 @@ final class PurchaseCriteria implements Criteria
         return $this->productId->isSet();
     }
 
-    /** Atalho para productId()->eq($value). */
+    /** Shortcut for productId()->eq($value). */
     public function withProductId(?int $value): static
     {
         return $value === null ? $this : $this->productId->eq($value);

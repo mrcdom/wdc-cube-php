@@ -22,7 +22,7 @@ use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
-/** Repositório de compras: consultas, critérios, projeções, fusos e escrita sobre o seed. */
+/** Purchase repository: queries, criteria, projections, time zones and writes over the seed. */
 final class PurchaseRepositoryTest extends RepositoryTestCase
 {
     private function repo(): PurchaseRepository
@@ -73,7 +73,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     private static function listOf(Purchase $purchase): array
     {
         $items = $purchase->items();
-        self::assertIsArray($items, 'resultado é sempre lista, nunca ProjectionList');
+        self::assertIsArray($items, 'the result is always a list, never a ProjectionList');
 
         return $items;
     }
@@ -96,7 +96,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
         self::assertNotNull($purchase);
         self::assertEquals(self::utc('2010-01-01 14:30:00'), $purchase->buyDate());
         self::assertSame(Seed::ADMIN_ID, $purchase->user()?->id());
-        self::assertNull($purchase->user()->name(), 'só o id do usuário foi pedido');
+        self::assertNull($purchase->user()->name(), 'only the user id was requested');
     }
 
     #[Test]
@@ -110,7 +110,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     {
         $prj = new Purchase()->withId(PV::INT)->withUser(new User()->withId(PV::INT)->withName(PV::STR));
         $purchase = $this->repo()->fetchById(Seed::ADMIN_FIRST_PURCHASE_ID, $prj);
-        self::assertSame('João da Silva', $purchase?->user()?->name());
+        self::assertSame('John Smith', $purchase?->user()?->name());
     }
 
     #[Test]
@@ -125,7 +125,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
         self::assertCount(2, $purchases);
         $second = $purchases[1]->items();
         self::assertIsArray($second);
-        self::assertSame(['Bola Wilson', 'Fita veda rosca'], array_map(static fn (PurchaseItem $i) => $i->product()?->name(), $second));
+        self::assertSame(['Wilson ball', 'Thread seal tape'], array_map(static fn (PurchaseItem $i) => $i->product()?->name(), $second));
     }
 
     #[Test]
@@ -141,13 +141,13 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchByUserId_noResults(): void
     {
-        self::assertSame([], $this->repo()->fetch(new PurchaseCriteria()->withUserId(Seed::FULANO_ID)));
+        self::assertSame([], $this->repo()->fetch(new PurchaseCriteria()->withUserId(Seed::JOHN_ID)));
     }
 
     #[Test]
     public function fetchByProductId_usesExists(): void
     {
-        $purchases = $this->repo()->fetch(new PurchaseCriteria()->withProductId(Seed::BOLA_WILSON_ID));
+        $purchases = $this->repo()->fetch(new PurchaseCriteria()->withProductId(Seed::WILSON_BALL_ID));
         self::assertCount(1, $purchases);
         self::assertSame(Seed::ADMIN_SECOND_PURCHASE_ID, $purchases[0]->id());
     }
@@ -168,10 +168,10 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     #[Test]
     public function insert_newPurchase(): void
     {
-        $purchase = new Purchase()->withBuyDate(new DateTimeImmutable())->withUser(new User()->withId(Seed::FULANO_ID));
+        $purchase = new Purchase()->withBuyDate(new DateTimeImmutable())->withUser(new User()->withId(Seed::JOHN_ID));
         self::assertTrue($this->repo()->insert($purchase));
         self::assertSame(2, $purchase->id());
-        self::assertSame(Seed::FULANO_ID, $this->repo()->fetchById($purchase->id(), self::projectionWithUser())?->user()?->id());
+        self::assertSame(Seed::JOHN_ID, $this->repo()->fetchById($purchase->id(), self::projectionWithUser())?->user()?->id());
     }
 
     #[Test]
@@ -179,27 +179,27 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     {
         $purchase = new Purchase()
             ->withBuyDate(new DateTimeImmutable())
-            ->withUser(new User()->withId(Seed::FULANO_ID))
+            ->withUser(new User()->withId(Seed::JOHN_ID))
             ->withItems([
-                new PurchaseItem()->withAmount(2)->withPrice(16.0)->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID)),
-                new PurchaseItem()->withAmount(1)->withPrice(2.67)->withProduct(new Product()->withId(Seed::FITA_VEDA_ROSCA_ID)),
+                new PurchaseItem()->withAmount(2)->withPrice(16.0)->withProduct(new Product()->withId(Seed::FLASH_DRIVE2GB_ID)),
+                new PurchaseItem()->withAmount(1)->withPrice(2.67)->withProduct(new Product()->withId(Seed::THREAD_SEAL_TAPE_ID)),
             ]);
         self::assertTrue($this->repo()->insert($purchase));
 
         $items = Beans::of(PurchaseItemRepository::class)->fetch(new PurchaseItemCriteria()->withPurchaseId($purchase->id()));
         self::assertCount(2, $items);
-        self::assertSame([3, 4], self::ids($items), 'ids gerados pela sequência de itens');
+        self::assertSame([3, 4], self::ids($items), 'ids generated by the item sequence');
     }
 
     #[Test]
     public function insert_keepsTheInstantAcrossTimezones(): void
     {
         $saoPaulo = new DateTimeImmutable('2024-05-10 21:00:00', new DateTimeZone('America/Sao_Paulo'));
-        $purchase = new Purchase()->withBuyDate($saoPaulo)->withUser(new User()->withId(Seed::FULANO_ID));
+        $purchase = new Purchase()->withBuyDate($saoPaulo)->withUser(new User()->withId(Seed::JOHN_ID));
         $this->repo()->insert($purchase);
 
         $fetched = $this->repo()->fetchById($purchase->id());
-        self::assertEquals($saoPaulo, $fetched?->buyDate(), 'mesmo instante, sem perder o fuso');
+        self::assertEquals($saoPaulo, $fetched?->buyDate(), 'same instant, without losing the time zone');
     }
 
     #[Test]
@@ -207,10 +207,10 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     {
         $original = $this->repo()->fetchById(Seed::ADMIN_FIRST_PURCHASE_ID, self::projectionWithUser());
         self::assertNotNull($original);
-        $updated = new Purchase()->withId($original->id())->withBuyDate(new DateTimeImmutable())->withUser(new User()->withId(Seed::BEOTRANO_ID));
+        $updated = new Purchase()->withId($original->id())->withBuyDate(new DateTimeImmutable())->withUser(new User()->withId(Seed::JANE_ID));
 
         self::assertTrue($this->repo()->update($updated, $original));
-        self::assertSame(Seed::BEOTRANO_ID, $this->repo()->fetchById(Seed::ADMIN_FIRST_PURCHASE_ID, self::projectionWithUser())?->user()?->id());
+        self::assertSame(Seed::JANE_ID, $this->repo()->fetchById(Seed::ADMIN_FIRST_PURCHASE_ID, self::projectionWithUser())?->user()?->id());
     }
 
     #[Test]
@@ -306,15 +306,15 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     #[Test]
     public function collection_filtersBySubCriteria(): void
     {
-        $result = $this->itemsOfSecondPurchase(PV::singletonList(self::itemProjection(), new PurchaseItemCriteria()->withProductId(Seed::BOLA_WILSON_ID)));
+        $result = $this->itemsOfSecondPurchase(PV::singletonList(self::itemProjection(), new PurchaseItemCriteria()->withProductId(Seed::WILSON_BALL_ID)));
         self::assertCount(1, $result);
-        self::assertSame(Seed::BOLA_WILSON_ID, $result[0]->product()?->id());
+        self::assertSame(Seed::WILSON_BALL_ID, $result[0]->product()?->id());
     }
 
     #[Test]
     public function collection_subCriteriaComposesWithSlice(): void
     {
-        $criteria = new PurchaseItemCriteria()->withProductId(Seed::BOLA_WILSON_ID)->withOrderBy(PurchaseItemOrderBy::OLDEST_FIRST);
+        $criteria = new PurchaseItemCriteria()->withProductId(Seed::WILSON_BALL_ID)->withOrderBy(PurchaseItemOrderBy::OLDEST_FIRST);
         self::assertSame([Seed::ADMIN_SECOND_PURCHASE_ITEM0_ID],
             self::ids($this->itemsOfSecondPurchase(PV::singletonList(self::itemProjection(), $criteria)->withLimit(5))));
     }
@@ -323,7 +323,7 @@ final class PurchaseRepositoryTest extends RepositoryTestCase
     public function filterByBuyDate_range(): void
     {
         $purchases = $this->repo()->fetch(new PurchaseCriteria()->buyDate()->between(self::utc('2010-01-01T00:00:00Z'), self::utc('2011-12-31T23:59:59Z')));
-        self::assertCount(2, $purchases, 'as duas compras do seed estão nesse intervalo');
+        self::assertCount(2, $purchases, 'both seed purchases fall in this range');
     }
 
     #[Test]

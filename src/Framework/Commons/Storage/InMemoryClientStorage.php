@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Commons\Storage;
 
-/** ClientStorage em memória — para testes e para quando não há cliente. */
+/** In-memory ClientStorage — for tests and for when there is no client. */
 final class InMemoryClientStorage implements ClientStorage
 {
     /** @var array<string, string> */

@@ -10,10 +10,10 @@ use Wdc\Framework\Cube\Remote\RemoteDispatcher;
 use Wdc\Shopping\RemoteHost\ShoppingRemoteHost;
 
 /**
- * Faz o papel do shell React do lado do cliente:
- * - handshake igual ao DataSecurity.ts (senha aleatória, PBKDF2, RSA do `app_skey`);
- * - mensagens no formato do FlushRequestContext.ts (`event`, formData por view, `requestId`);
- * - aplica as respostas: `states` (substitui por id), `uri`, `storage` (decifra), `releasedViews`.
+ * Plays the role of the React shell on the client side:
+ * - handshake just like DataSecurity.ts (random password, PBKDF2, RSA from `app_skey`);
+ * - messages in the FlushRequestContext.ts format (`event`, formData per view, `requestId`);
+ * - applies the responses: `states` (replaced by id), `uri`, `storage` (decrypted), `releasedViews`.
  */
 final class FakeBrowser
 {
@@ -25,7 +25,7 @@ final class FakeBrowser
 
     public RecordingConnection $connection;
 
-    /** @var array<string, array<string, mixed>> views conhecidas, por id */
+    /** @var array<string, array<string, mixed>> known views, by id */
     public array $views = [];
 
     public ?string $uri = null;
@@ -33,7 +33,7 @@ final class FakeBrowser
     /** @var list<string> */
     public array $released = [];
 
-    /** @var list<array<string, mixed>> mensagens recebidas desde o último `take()` */
+    /** @var list<array<string, mixed>> messages received since the last `take()` */
     public array $inbox = [];
 
     private int $requestId = 0;
@@ -41,19 +41,19 @@ final class FakeBrowser
     private ClientCrypto $crypto;
 
     /**
-     * @param array<string, array<string, string>> $storage o que o browser já guardava (em claro)
+     * @param array<string, array<string, string>> $storage what the browser already stored (in plain text)
      */
     public function __construct(
         private readonly ShoppingRemoteHost $host,
         private readonly RemoteDispatcher $dispatcher,
         public array $storage = ['session' => [], 'persistent' => [], 'persistent-secure' => []],
     ) {
-        $this->appId = $host->security->newAppId();   // o cookie `app_id` do index.html
+        $this->appId = $host->security->newAppId();   // the `app_id` cookie from index.html
         $this->connection = new RecordingConnection();
         $this->handshake();
     }
 
-    /** O handshake do DataSecurity.ts (ver ClientCrypto), com a chave que viria no cookie `app_skey`. */
+    /** The DataSecurity.ts handshake (see ClientCrypto), with the key that would come in the `app_skey` cookie. */
     public function handshake(): void
     {
         $this->crypto = ClientCrypto::handshake($this->host->security->webKey());
@@ -79,7 +79,7 @@ final class FakeBrowser
         $this->dispatcher->onClose($this->appId, $this->connection);
     }
 
-    /** Evento -1 do Browser: o boot do shell, com handshake e o storage do browser. */
+    /** Browser event -1: the shell boot, with the handshake and the browser storage. */
     public function start(string $path = '/'): void
     {
         $bootstrap = [];
@@ -117,7 +117,7 @@ final class FakeBrowser
         $this->receive();
     }
 
-    /** Aplica o que o servidor mandou (o processamento do FlushRequestContext.onmessage). */
+    /** Applies what the server sent (the FlushRequestContext.onmessage processing). */
     public function receive(): void
     {
         while ($this->connection->sent !== []) {
@@ -132,7 +132,7 @@ final class FakeBrowser
                 $this->uri = $message['uri'];
             }
             foreach ($message['states'] ?? [] as $state) {
-                $this->views[$state['#']] = $state;   // substitui o estado inteiro da view
+                $this->views[$state['#']] = $state;   // replaces the view's whole state
             }
             foreach ($message['storage'] ?? [] as $scope => $values) {
                 foreach ($values as $k => $v) {
@@ -158,14 +158,14 @@ final class FakeBrowser
     /** @return array<string, mixed> */
     public function state(?string $vsid): array
     {
-        Assert::assertNotNull($vsid, 'view esperada não está no estado');
-        Assert::assertArrayHasKey($vsid, $this->views, "o cliente não conhece a view {$vsid}");
+        Assert::assertNotNull($vsid, 'expected view is not in the state');
+        Assert::assertArrayHasKey($vsid, $this->views, "the client does not know view {$vsid}");
 
         return $this->views[$vsid];
     }
 
     /**
-     * A tela dentro da raiz: login ou home.
+     * The screen inside the root: login or home.
      *
      * @return array<string, mixed>
      */

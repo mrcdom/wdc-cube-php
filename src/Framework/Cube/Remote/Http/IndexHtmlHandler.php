@@ -16,18 +16,18 @@ use Wdc\Framework\Cube\Remote\RemoteAppSecurity;
 use function Amp\File\read;
 
 /**
- * Serve o `index.html` de um shell e planta os cookies da sessão (o IndexHtmlController):
- * - `app_id`: id novo, assinado pelo servidor, válido por 10 s (o shell o lê e apaga);
- * - `app_skey`: a chave pública do handshake ("e:n" em base 36).
+ * Serves a shell's `index.html` and sets the session cookies:
+ * - `app_id`: a new id, signed by the server, valid for 10 s (the shell reads and deletes it);
+ * - `app_skey`: the handshake public key ("e:n" in base 36).
  *
- * Os dois precisam ser legíveis por JavaScript (sem HttpOnly). `Secure` só em HTTPS (direto ou
- * via proxy): em HTTP puro o browser recusaria o cookie e o shell entraria em loop de reload.
+ * Both must be readable by JavaScript (no HttpOnly). `Secure` only on HTTPS (direct or
+ * via proxy): on plain HTTP the browser would reject the cookie and the shell would loop reloading.
  */
 final readonly class IndexHtmlHandler implements RequestHandler
 {
     /**
-     * O nome de um frontend (a pasta em `work/frontend/` e o primeiro segmento da URL). Começa
-     * por letra ou dígito: como vira parte de um caminho de arquivo, `..` nunca pode casar.
+     * The name of a frontend (the folder in `work/frontend/` and the first URL segment). It starts
+     * with a letter or digit: since it becomes part of a file path, `..` must never match.
      */
     public const string CONTEXT_PATTERN = '[A-Za-z0-9][A-Za-z0-9._-]*';
 
@@ -51,7 +51,7 @@ final readonly class IndexHtmlHandler implements RequestHandler
             'cache-control' => 'no-cache, no-store',
             'pragma' => 'no-cache',
             'expires' => '0',
-        ], read($file));   // Amp\File\read: lê sem travar o event loop
+        ], read($file));   // Amp\File\read: reads without blocking the event loop
 
         $attributes = CookieAttributes::empty()->withPath('/');
         if (self::isHttps($request)) {

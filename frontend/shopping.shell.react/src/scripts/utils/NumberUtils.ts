@@ -4,7 +4,7 @@ export function format(value: number | undefined, decimalPoint = 2) {
   }
 
   if (isNaN(value)) {
-    console.error("Valor informado não é de tipo numérico!")
+    console.error("The given value is not a number!")
     return ""
   }
 

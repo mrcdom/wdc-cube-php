@@ -40,7 +40,7 @@ final class CubeIntentTest extends TestCase
 
         $intent->setParameter('userId', 1);
         $intent->setParameter('productId', 42);
-        self::assertSame('page?userId=1&productId=42', (string) $intent, 'ordem de inserção');
+        self::assertSame('page?userId=1&productId=42', (string) $intent, 'insertion order');
     }
 
     #[Test]
@@ -61,10 +61,10 @@ final class CubeIntentTest extends TestCase
         self::assertSame(42, $intent->getParameterAsInt('i'));
         self::assertSame(-1, $intent->getParameterAsInt('bad', -1));
         self::assertNull($intent->getParameterAsInt('missing'));
-        self::assertSame(0, $intent->getParameterAsInt('missing', 0), 'id 0 é válido: use === null, nunca !$id');
+        self::assertSame(0, $intent->getParameterAsInt('missing', 0), 'id 0 is valid: use === null, never !$id');
         self::assertSame(2.5, $intent->getParameterAsFloat('f'));
         self::assertTrue($intent->getParameterAsBool('b'));
-        self::assertSame(7, $intent->getParameterAsInt('multi'), 'multivalorado ⇒ primeiro valor');
+        self::assertSame(7, $intent->getParameterAsInt('multi'), 'multi-valued ⇒ first value');
     }
 
     #[Test]
@@ -78,7 +78,7 @@ final class CubeIntentTest extends TestCase
 
         self::assertSame('root', (string) $intent);
         self::assertSame($slot, $intent->getViewSlot('owner'));
-        self::assertNull($intent->getViewSlot('flag'), 'atributo que não é slot');
+        self::assertNull($intent->getViewSlot('flag'), 'attribute that is not a slot');
         self::assertTrue($intent->removeAttribute('flag'));
         self::assertNull($intent->getAttribute('flag'));
     }

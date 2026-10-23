@@ -14,7 +14,7 @@ use Wdc\Shopping\Domain\User\UserOrderBy;
 use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
-/** Repositório de usuários: consultas, critérios, inserção, atualização e remoção sobre o seed. */
+/** User repository: queries, criteria, insert, update and delete over the seed. */
 final class UserRepositoryTest extends RepositoryTestCase
 {
     private function repo(): UserRepository
@@ -45,7 +45,7 @@ final class UserRepositoryTest extends RepositoryTestCase
         $user = $this->repo()->fetchById(Seed::ADMIN_ID);
         self::assertNotNull($user);
         self::assertSame('admin', $user->userName());
-        self::assertSame('João da Silva', $user->name());
+        self::assertSame('John Smith', $user->name());
         self::assertSame(PasswordUtil::hashPassword('admin'), $user->password());
     }
 
@@ -66,9 +66,9 @@ final class UserRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchByCriteria_userName(): void
     {
-        $users = $this->repo()->fetch(new UserCriteria()->withUserName('fulano'));
+        $users = $this->repo()->fetch(new UserCriteria()->withUserName('john'));
         self::assertCount(1, $users);
-        self::assertSame(Seed::FULANO_ID, $users[0]->id());
+        self::assertSame(Seed::JOHN_ID, $users[0]->id());
     }
 
     #[Test]
@@ -76,7 +76,7 @@ final class UserRepositoryTest extends RepositoryTestCase
     {
         $users = $this->repo()->fetch(new UserCriteria()->withOrderBy(UserOrderBy::OLDEST_FIRST), 1, 1);
         self::assertCount(1, $users);
-        self::assertSame(Seed::FULANO_ID, $users[0]->id());
+        self::assertSame(Seed::JOHN_ID, $users[0]->id());
     }
 
     #[Test]
@@ -94,10 +94,10 @@ final class UserRepositoryTest extends RepositoryTestCase
         $original = $this->repo()->fetchById(Seed::ADMIN_ID);
         self::assertNotNull($original);
         $updated = clone $original;
-        $updated->withName('Nome Alterado');
+        $updated->withName('Changed Name');
 
         self::assertTrue($this->repo()->update($updated, $original));
-        self::assertSame('Nome Alterado', $this->repo()->fetchById(Seed::ADMIN_ID)?->name());
+        self::assertSame('Changed Name', $this->repo()->fetchById(Seed::ADMIN_ID)?->name());
     }
 
     #[Test]
@@ -105,12 +105,12 @@ final class UserRepositoryTest extends RepositoryTestCase
     {
         $original = $this->repo()->fetchById(Seed::ADMIN_ID);
         self::assertNotNull($original);
-        $updated = new User()->withId($original->id())->withName('Nome Parcial');
+        $updated = new User()->withId($original->id())->withName('Partial Name');
 
         self::assertTrue($this->repo()->update($updated, $original, new User()->withId(PV::INT)->withName(PV::STR)));
 
         $fetched = $this->repo()->fetchById(Seed::ADMIN_ID);
-        self::assertSame('Nome Parcial', $fetched?->name());
+        self::assertSame('Partial Name', $fetched?->name());
         self::assertSame($original->userName(), $fetched->userName());
         self::assertSame($original->password(), $fetched->password());
     }
@@ -133,7 +133,7 @@ final class UserRepositoryTest extends RepositoryTestCase
     #[Test]
     public function deleteByUserId_noFkDependency(): void
     {
-        self::assertSame(1, $this->repo()->delete(new UserCriteria()->withUserId(Seed::BEOTRANO_ID)));
+        self::assertSame(1, $this->repo()->delete(new UserCriteria()->withUserId(Seed::JANE_ID)));
         self::assertSame(2, $this->repo()->count(new UserCriteria()));
         self::assertSame(0, $this->repo()->delete(new UserCriteria()->withUserId(PHP_INT_MAX)));
     }
@@ -148,9 +148,9 @@ final class UserRepositoryTest extends RepositoryTestCase
     #[Test]
     public function containing_matchesAnywhere(): void
     {
-        $users = $this->repo()->fetch(new UserCriteria()->userName()->containing('ulan'));
+        $users = $this->repo()->fetch(new UserCriteria()->userName()->containing('oh'));
         self::assertCount(1, $users);
-        self::assertSame('fulano', $users[0]->userName());
+        self::assertSame('john', $users[0]->userName());
     }
 
     #[Test]
@@ -178,7 +178,7 @@ final class UserRepositoryTest extends RepositoryTestCase
     {
         $criteria = new UserCriteria();
         $criteria->userName()->or()->eq('admin');
-        $criteria->userName()->eq('fulano');
+        $criteria->userName()->eq('john');
         self::assertSame(2, $this->found($criteria));
     }
 
@@ -187,13 +187,13 @@ final class UserRepositoryTest extends RepositoryTestCase
     {
         $criteria = new UserCriteria();
         $criteria->userName()->startingWith('');
-        self::assertSame(3, $this->found($criteria), 'texto vazio não acrescenta pedido');
+        self::assertSame(3, $this->found($criteria), 'empty text adds no request');
     }
 
     #[Test]
     public function filterByNameAndRoles(): void
     {
-        self::assertSame(1, $this->found(new UserCriteria()->name()->containing('Silva')));
+        self::assertSame(1, $this->found(new UserCriteria()->name()->containing('Smith')));
         self::assertSame(1, $this->found(new UserCriteria()->roles()->eq('ADMIN')));
         self::assertSame(2, $this->found(new UserCriteria()->roles()->eq('CUSTOMER')));
         self::assertSame(1, $this->found(new UserCriteria()->roles()->containing('ADMIN')));
@@ -203,7 +203,7 @@ final class UserRepositoryTest extends RepositoryTestCase
     public function orderBy_loginAToZ_differsFromName(): void
     {
         $byLogin = $this->userNamesOrderedBy(UserOrderBy::LOGIN_A_TO_Z);
-        self::assertSame(['admin', 'beotrano', 'fulano'], $byLogin);
-        self::assertSame(['beotrano', 'fulano', 'admin'], $this->userNamesOrderedBy(UserOrderBy::NAME_A_TO_Z));
+        self::assertSame(['admin', 'jane', 'john'], $byLogin);
+        self::assertSame(['jane', 'john', 'admin'], $this->userNamesOrderedBy(UserOrderBy::NAME_A_TO_Z));
     }
 }

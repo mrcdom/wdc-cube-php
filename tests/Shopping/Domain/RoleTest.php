@@ -24,8 +24,8 @@ final class RoleTest extends TestCase
     {
         $perms = Role::effectivePermissions([Role::CUSTOMER, Role::MANAGER]);
 
-        self::assertTrue(PermissionModel::grants($perms, 'product', 'write'), 'MANAGER concede');
-        self::assertTrue(PermissionModel::grants($perms, 'purchase', 'write'), 'CUSTOMER concede');
+        self::assertTrue(PermissionModel::grants($perms, 'product', 'write'), 'MANAGER grants');
+        self::assertTrue(PermissionModel::grants($perms, 'purchase', 'write'), 'CUSTOMER grants');
         self::assertFalse(PermissionModel::grants($perms, 'user', 'read'));
         self::assertFalse(PermissionModel::hasDataAll($perms));
     }

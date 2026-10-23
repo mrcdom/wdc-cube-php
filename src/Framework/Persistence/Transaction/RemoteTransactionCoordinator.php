@@ -5,32 +5,31 @@ declare(strict_types=1);
 namespace Wdc\Framework\Persistence\Transaction;
 
 /**
- * Transação dirigida pelo cliente, por cima de HTTP: `begin` devolve um txId; as escritas que
- * o trazem (cabeçalho `X-Tx-Id`) rodam todas na mesma transação física; `commit`/`rollback`
- * a encerram.
+ * Client-driven transaction over HTTP: `begin` returns a txId; the writes that carry it
+ * (`X-Tx-Id` header) all run in the same physical transaction; `commit`/`rollback` end it.
  *
- * O dono (`ownerKey`, ex.: "user:42") é fixado no begin e conferido em toda operação. Dono
- * null = transação sem dono (segurança desligada e cliente sem `X-Client-Id`).
+ * The owner (`ownerKey`, e.g. "user:42") is fixed at begin and checked on every operation. A null
+ * owner means an ownerless transaction (security disabled and client without `X-Client-Id`).
  */
 interface RemoteTransactionCoordinator
 {
     /**
-     * @throws \Wdc\Framework\Domain\Exception\TransactionLimitExceededException teto atingido
+     * @throws \Wdc\Framework\Domain\Exception\TransactionLimitExceededException limit reached
      */
     public function begin(?string $ownerKey): string;
 
-    /** Liga a transação à requisição corrente: o SQL seguinte roda nela. */
+    /** Binds the transaction to the current request: subsequent SQL runs in it. */
     public function resume(string $txId, ?string $ownerKey): void;
 
-    /** Desliga a transação da requisição; ela segue aberta para a próxima. */
+    /** Unbinds the transaction from the request; it stays open for the next one. */
     public function suspend(string $txId): void;
 
-    /** Idempotente: repetir o mesmo desfecho é no-op; o desfecho oposto dá conflito (409). */
+    /** Idempotent: repeating the same outcome is a no-op; the opposite outcome is a conflict (409). */
     public function commit(string $txId, ?string $ownerKey): void;
 
     public function rollback(string $txId, ?string $ownerKey): void;
 
-    /** "open", "committed", "rolledback" ou "unknown" — desfaz a dúvida de uma resposta perdida. */
+    /** "open", "committed", "rolledback" or "unknown" — resolves the doubt left by a lost response. */
     public function status(string $txId, ?string $ownerKey): string;
 
     public function exists(?string $txId): bool;

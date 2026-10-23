@@ -16,10 +16,10 @@ use Wdc\Framework\Rest\RestResponse;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
 /**
- * Base dos controllers de entidade: as rotas e o que se repete na leitura dos corpos.
+ * Base of the entity controllers: the routes and what repeats when reading request bodies.
  *
- * Todas as rotas seguem o mesmo molde (`/api/repo/<entidade>/<operação>`), com as mesmas
- * formas de pedido e de resposta — o que muda é o codec, a projeção padrão e a regra de escopo.
+ * Every route follows the same pattern (`/api/repo/<entity>/<operation>`), with the same
+ * request and response shapes — what changes is the codec, the default projection and the scoping rule.
  */
 abstract class ApiController
 {
@@ -28,7 +28,7 @@ abstract class ApiController
     }
 
     /**
-     * Registra as rotas. `$add(método, caminho, endpoint, transacional)`.
+     * Registers the routes. `$add(method, path, endpoint, transactional)`.
      *
      * @param Closure(string, string, Closure(RestRequest): Response, bool): void $add
      */
@@ -52,7 +52,7 @@ abstract class ApiController
     }
 
     /**
-     * Um corpo que é só critério (delete, count).
+     * A body that is only criteria (delete, count).
      *
      * @template E of object
      * @template C of object
@@ -70,15 +70,15 @@ abstract class ApiController
     }
 
     /**
-     * Um corpo de busca: `projection`, os argumentos pedidos (offset/limit, page/pageSize...) e
-     * os campos de critério. Campo desconhecido é ignorado.
+     * A search body: `projection`, the requested arguments (offset/limit, page/pageSize...) and
+     * the criteria fields. Unknown fields are ignored.
      *
      * @template E of object
      * @template C of object
      * @param ModelCodec<E, C> $codec
      * @param C $criteria
      * @param list<string> $argNames
-     * @return array{0: E|null, 1: array<string, mixed>} [projeção, argumentos]
+     * @return array{0: E|null, 1: array<string, mixed>} [projection, arguments]
      */
     protected static function readQuery(mixed $json, ModelCodec $codec, object $criteria, array $argNames): array
     {
@@ -98,7 +98,7 @@ abstract class ApiController
     }
 
     /**
-     * Corpo do fetch-by-id em POST: `{id, projection}`.
+     * Body of the POST fetch-by-id: `{id, projection}`.
      *
      * @template E of object
      * @template C of object
@@ -121,7 +121,7 @@ abstract class ApiController
     }
 
     /**
-     * `{"items": [...]}` ou, com total, `{"items": [...], "totalItems": n}`.
+     * `{"items": [...]}` or, with a total, `{"items": [...], "totalItems": n}`.
      *
      * @template E of object
      * @param list<E> $items

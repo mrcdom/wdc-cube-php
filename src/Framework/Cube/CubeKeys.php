@@ -5,24 +5,24 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Leitura tipada de um intent: o único lugar que conhece os NOMES dos parâmetros e atributos
- * de um place.
+ * Typed reading of an intent: the only place that knows the NAMES of a place's parameters and
+ * attributes.
  *
- * Cada place que lê ou publica algo tem a sua classe de keys, que herda das keys de quem está
- * acima no caminho - assim um place mais fundo pode LER o que um ancestral publica. Cada
- * arquivo declara um prefixo de duas letras, único na aplicação, e os seus nomes numa tabela
- * local de constantes, todos começando pelo prefixo:
+ * Each place that reads or publishes something has its own keys class, which extends the keys of
+ * the place above it on the path - so a deeper place can READ what an ancestor publishes. Each
+ * file declares a two-letter prefix, unique in the application, and its names in a local table
+ * of constants, all starting with the prefix:
  *
  *     private const string PREFIX = 'pr';
- *     private const string P_ID = self::PREFIX . '-id';           // parâmetro: vai para o endereço
- *     private const string A_ROW = self::PREFIX . '-row';         // atributo: não vai
+ *     private const string P_ID = self::PREFIX . '-id';           // parameter: goes into the address
+ *     private const string A_ROW = self::PREFIX . '-row';         // attribute: does not
  *
- * A unicidade importa porque uma navegação passa o MESMO intent por todos os `applyParameters`,
- * da raiz à folha: dois donos do mesmo nome sobrescreveriam o valor um do outro no caminho, sem
- * erro. O teste `KeysNamesTest` garante a regra varrendo os arquivos `*Keys.php`.
+ * Uniqueness matters because a navigation passes the SAME intent through every `applyParameters`,
+ * from root to leaf: two owners of the same name would overwrite each other's value along the
+ * way, silently. The `KeysNamesTest` test enforces the rule by scanning the `*Keys.php` files.
  *
- * Os valores são expostos como propriedades com hooks (`get`/`set`), que validam na leitura -
- * o endereço é entrada de fora - e omitem o valor padrão na escrita.
+ * Values are exposed as properties with hooks (`get`/`set`), which validate on read - the
+ * address is outside input - and omit the default value on write.
  *
  * @template A of CubeApplication
  * @phpstan-consistent-constructor
@@ -33,8 +33,8 @@ abstract class CubeKeys
 
     /**
      * @param A               $app
-     * @param CubeIntent|null $intent o intent de uma navegação em curso; null = nasce do ESTADO
-     *                                atual (cada presenter vivo publica o que mostra)
+     * @param CubeIntent|null $intent the intent of a navigation in progress; null = built from
+     *                                the current STATE (each live presenter publishes what it shows)
      */
     public function __construct(protected readonly CubeApplication $app, ?CubeIntent $intent = null)
     {
@@ -46,7 +46,7 @@ abstract class CubeKeys
     }
 
     /**
-     * Keys de uma viagem que parte do estado atual: `ProductKeys::of($app)` e depois `->go()`.
+     * Keys for a trip that starts from the current state: `ProductKeys::of($app)` and then `->go()`.
      *
      * @param A $app
      */
@@ -55,13 +55,13 @@ abstract class CubeKeys
         return new static($app);
     }
 
-    /** O place destas keys (o destino de `go()`). */
+    /** The place of these keys (the destination of `go()`). */
     abstract public function place(): CubePlace;
 
-    /** Navega para o place destas keys, com o intent que elas montaram. */
+    /** Navigates to the place of these keys, with the intent they built. */
     abstract public function go(): bool;
 
-    /** Inteiro não negativo (ids começam em 0), ou null quando o endereço não traz um utilizável. */
+    /** A non-negative integer (ids start at 0), or null when the address does not carry a usable one. */
     protected function idParameter(string $name): ?int
     {
         $value = $this->intent->getParameterAsInt($name);

@@ -7,7 +7,9 @@ namespace Wdc\Tests\Shopping\Persistence\Security;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\Test;
 use Wdc\Framework\Commons\Beans;
+use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Framework\Domain\Security\PasswordUtil;
+use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
 use Wdc\Shopping\Persistence\Security\JwtUtil;
@@ -16,7 +18,7 @@ use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
 
 final class AuthenticationServiceTest extends RepositoryTestCase
 {
-    private const string SECRET = 'segredo-de-teste';
+    private const string SECRET = 'test-secret';
 
     private DateTimeImmutable $now;
 
@@ -29,7 +31,7 @@ final class AuthenticationServiceTest extends RepositoryTestCase
         $this->auth = new AuthenticationServiceImpl(self::SECRET, clock: fn () => $this->now);
     }
 
-    /** O que um cliente faz: hash da senha + HMAC sobre (login + nonce). */
+    /** What a client does: password hash + HMAC over (login + nonce). */
     private static function digest(string $user, string $password, string $nonce): string
     {
         return PasswordUtil::computeHmac(PasswordUtil::hashPassword($password), $user . $nonce);
@@ -39,39 +41,43 @@ final class AuthenticationServiceTest extends RepositoryTestCase
     public function login_withTheRightDigest_opensASession(): void
     {
         $nonce = $this->auth->challenge()->nonce;
-        $result = $this->auth->login('fulano', self::digest('fulano', 'fulano', $nonce), $nonce);
+        $result = $this->auth->login('john', self::digest('john', 'john', $nonce), $nonce);
 
         self::assertNotNull($result);
-        self::assertSame(Seed::FULANO_ID, $result->userId);
+        self::assertSame(Seed::JOHN_ID, $result->userId);
         $context = $this->auth->resolveToken($result->accessToken);
         self::assertNotNull($context);
-        self::assertSame('fulano', $context->userName());
-        self::assertTrue($context->hasPermission('purchase', 'write'), 'CUSTOMER compra');
-        self::assertFalse($context->hasDataAll(), 'CUSTOMER só vê os próprios dados');
+        self::assertSame('john', $context->userName());
+        self::assertTrue($context->hasPermission('purchase', 'write'), 'CUSTOMER can buy');
+        self::assertFalse($context->hasDataAll(), 'CUSTOMER sees only their own data');
     }
 
     #[Test]
     public function login_withNegativeHash_works(): void
     {
-        // o hash de "beotrano" é um inteiro negativo em base 36 ("-17ms..."): tem de casar igual
+        // the hash of "shopping" is a negative base-36 integer ("-4k4g..."): it must match as-is
+        $users = Beans::of(UserRepository::class);
+        $jane = new User()->withId(Seed::JANE_ID)->withPassword(PasswordUtil::hashPassword('shopping'));
+        self::assertTrue($users->update($jane, null, new User()->withId(PV::INT)->withPassword(PV::STR)));
+
         $nonce = $this->auth->challenge()->nonce;
-        self::assertNotNull($this->auth->login('beotrano', self::digest('beotrano', 'beotrano', $nonce), $nonce));
+        self::assertNotNull($this->auth->login('jane', self::digest('jane', 'shopping', $nonce), $nonce));
     }
 
     #[Test]
     public function login_wrongPassword_isRejected(): void
     {
         $nonce = $this->auth->challenge()->nonce;
-        self::assertNull($this->auth->login('admin', self::digest('admin', 'errada', $nonce), $nonce));
+        self::assertNull($this->auth->login('admin', self::digest('admin', 'wrong', $nonce), $nonce));
     }
 
     #[Test]
     public function nonce_isSingleUse_evenWhenTheLoginFails(): void
     {
         $nonce = $this->auth->challenge()->nonce;
-        $this->auth->login('admin', 'digest-errado', $nonce);
+        $this->auth->login('admin', 'wrong-digest', $nonce);
 
-        self::assertNull($this->auth->login('admin', self::digest('admin', 'admin', $nonce), $nonce), 'replay recusado');
+        self::assertNull($this->auth->login('admin', self::digest('admin', 'admin', $nonce), $nonce), 'replay rejected');
     }
 
     #[Test]
@@ -100,23 +106,23 @@ final class AuthenticationServiceTest extends RepositoryTestCase
     #[Test]
     public function jwt_tampered_isRejected(): void
     {
-        $token = JwtUtil::create(Seed::FULANO_ID, 'fulano', 60, self::SECRET, $this->now);
+        $token = JwtUtil::create(Seed::JOHN_ID, 'john', 60, self::SECRET, $this->now);
         [$header, , $signature] = explode('.', $token);
         $forged = $header . '.' . rtrim(strtr(base64_encode('{"sub":0,"usr":"admin","iat":0,"exp":9999999999}'), '+/', '-_'), '=') . '.' . $signature;
 
         self::assertNotNull(JwtUtil::validate($token, self::SECRET, $this->now));
-        self::assertNull(JwtUtil::validate($forged, self::SECRET, $this->now), 'payload trocado');
-        self::assertNull(JwtUtil::validate($token, 'outro-segredo', $this->now), 'segredo errado');
+        self::assertNull(JwtUtil::validate($forged, self::SECRET, $this->now), 'payload swapped');
+        self::assertNull(JwtUtil::validate($token, 'other-secret', $this->now), 'wrong secret');
     }
 
     #[Test]
     public function persistentToken_opensANewSession_whileTheUserExists(): void
     {
-        $token = $this->auth->createPersistentToken(Seed::BEOTRANO_ID, 'beotrano');
-        self::assertSame(Seed::BEOTRANO_ID, $this->auth->loginWithPersistentToken($token)?->userId);
+        $token = $this->auth->createPersistentToken(Seed::JANE_ID, 'jane');
+        self::assertSame(Seed::JANE_ID, $this->auth->loginWithPersistentToken($token)?->userId);
 
         $this->now = $this->now->modify('+31 days');
-        self::assertNull($this->auth->loginWithPersistentToken($token), 'vale 30 dias');
+        self::assertNull($this->auth->loginWithPersistentToken($token), 'valid for 30 days');
     }
 
     #[Test]
@@ -129,10 +135,10 @@ final class AuthenticationServiceTest extends RepositoryTestCase
         $second = $this->auth->refresh($first->refreshToken);
         self::assertNotNull($second);
         self::assertNotSame($first->refreshToken, $second->refreshToken);
-        self::assertNull($this->auth->refresh($first->refreshToken), 'o antigo deixou de valer');
+        self::assertNull($this->auth->refresh($first->refreshToken), 'the old one is no longer valid');
 
         $this->auth->logout($second->refreshToken);
-        self::assertNull($this->auth->resolveToken($second->accessToken), 'sem sessão, o JWT sozinho não basta');
+        self::assertNull($this->auth->resolveToken($second->accessToken), 'without a session, the JWT alone is not enough');
     }
 
     #[Test]

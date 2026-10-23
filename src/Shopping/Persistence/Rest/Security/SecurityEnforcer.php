@@ -11,8 +11,8 @@ use Wdc\Framework\Domain\Security\CurrentSecurityContext;
 use Wdc\Framework\Domain\Security\SecurityContext;
 
 /**
- * Confere permissões nos endpoints REST. Sem AuthenticationService (segurança desligada:
- * testes, uso local) nada é conferido e o contexto devolvido é null.
+ * Checks permissions on the REST endpoints. Without an AuthenticationService (security off:
+ * tests, local use) nothing is checked and the returned context is null.
  */
 final readonly class SecurityEnforcer
 {
@@ -25,7 +25,7 @@ final readonly class SecurityEnforcer
         return $this->auth !== null;
     }
 
-    /** Exige só um usuário autenticado. */
+    /** Requires just an authenticated user. */
     public function requireAuthenticated(): ?SecurityContext
     {
         if ($this->auth === null) {
@@ -35,7 +35,7 @@ final readonly class SecurityEnforcer
         return CurrentSecurityContext::get() ?? throw new AccessDeniedException('Authentication required');
     }
 
-    /** Exige a permissão `entidade:operação` (ex.: `purchase:write`). */
+    /** Requires the `entity:operation` permission (e.g. `purchase:write`). */
     public function require(string $entity, string $operation): ?SecurityContext
     {
         $context = $this->requireAuthenticated();
@@ -46,18 +46,18 @@ final readonly class SecurityEnforcer
         return $context;
     }
 
-    /** O usuário só enxerga os próprios dados? (autenticado e sem `data:all`) */
+    /** Does the user see only their own data? (authenticated and without `data:all`) */
     public static function isScoped(?SecurityContext $context): bool
     {
         return $context !== null && !$context->hasDataAll();
     }
 
     /**
-     * Restringe o critério de dono ao usuário do contexto.
+     * Restricts the owner criterion to the context's user.
      *
-     * Se o cliente marcou o campo como disjuntivo (`"or": true`), os pedidos dele são descartados
-     * antes: acrescentar `= meu id` a um OR alargaria a busca em vez de restringi-la —
-     * `{"userId": {"or": true, "p": [{"o": "EQ", "v": [outro]}]}}` devolveria os dados do outro.
+     * If the client marked the field as disjunctive (`"or": true`), its predicates are discarded
+     * first: appending `= my id` to an OR would widen the search instead of narrowing it —
+     * `{"userId": {"or": true, "p": [{"o": "EQ", "v": [other]}]}}` would return the other user's data.
      *
      * @param ComparableCriterion<*, int> $owner
      */

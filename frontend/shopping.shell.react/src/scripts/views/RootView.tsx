@@ -9,7 +9,7 @@ export type RootViewState = {
 }
 
 class RootViewClass extends BaseViewClass<ViewProps, RootViewState> {
-  // :: Renderes
+  // :: Renderers
 
   override render({ className }: ViewProps) {
     const { state } = this
@@ -34,7 +34,7 @@ class RootViewClass extends BaseViewClass<ViewProps, RootViewState> {
         <span className={GlobalSel.alertErrorIcon}>
           <i className="bi bi-exclamation-circle"></i>
         </span>
-        <span className={GlobalSel.alertErrorText}>Falta conteúdo para a página inicial</span>
+        <span className={GlobalSel.alertErrorText}>Missing content for the home page</span>
       </div>
     )
   }

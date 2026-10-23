@@ -7,8 +7,8 @@ namespace Wdc\Framework\Persistence;
 use Closure;
 
 /**
- * Pedaço de SQL com seus parâmetros posicionais (?).
- * `null` no lugar de uma Sql significa "sem condição".
+ * A piece of SQL with its positional parameters (?).
+ * `null` in place of a Sql means "no condition".
  */
 final readonly class Sql
 {
@@ -22,7 +22,7 @@ final readonly class Sql
     }
 
     /**
-     * Junta com AND, descartando nulls. Nenhuma condição ⇒ null (= TRUE, nunca FALSE).
+     * Joins with AND, dropping nulls. No conditions ⇒ null (= TRUE, never FALSE).
      *
      * @param iterable<Sql|null> $conditions
      */
@@ -38,9 +38,9 @@ final readonly class Sql
     }
 
     /**
-     * Prefixador de colunas de um alias: `$c = Sql::alias('pi2'); $c(self::PRICE)` → `pi2.PRICE`.
-     * Interpolável numa string: `"{$c(self::PRICE)} DESC, {$c(self::ID)} ASC"` - o PHP não
-     * interpola constantes, mas interpola a chamada de uma closure guardada numa variável.
+     * Column prefixer for an alias: `$c = Sql::alias('pi2'); $c(self::PRICE)` → `pi2.PRICE`.
+     * Works inside string interpolation: `"{$c(self::PRICE)} DESC, {$c(self::ID)} ASC"` - PHP does
+     * not interpolate constants, but it does interpolate a call to a closure held in a variable.
      *
      * @return Closure(string): string
      */
@@ -50,7 +50,7 @@ final readonly class Sql
     }
 
     /**
-     * " WHERE ..." pronto para concatenar, ou "" sem condição.
+     * " WHERE ..." ready to concatenate, or "" when there is no condition.
      *
      * @return array{string, list<mixed>}
      */

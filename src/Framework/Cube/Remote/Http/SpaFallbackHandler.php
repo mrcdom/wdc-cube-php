@@ -10,8 +10,8 @@ use Amp\Http\Server\RequestHandler;
 use Amp\Http\Server\Response;
 
 /**
- * O que não foi rota nem arquivo estático: `/<shell>/qualquer-coisa` volta para o `index.html`
- * daquele shell (a navegação interna é pelo hash, então o servidor não conhece as telas).
+ * Whatever was neither a route nor a static file: `/<shell>/anything` goes back to that shell's
+ * `index.html` (internal navigation uses the hash, so the server does not know the screens).
  */
 final readonly class SpaFallbackHandler implements RequestHandler
 {

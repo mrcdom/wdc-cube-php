@@ -8,7 +8,7 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Presenter\Restricted\RestrictedKeys;
 use Wdc\Shopping\Presentation\Place;
 
-/** Keys da home: `home` - a base das telas que abrem dentro dela. */
+/** Home keys: `home` - the base of the screens that open inside it. */
 class HomeKeys extends RestrictedKeys
 {
     public function place(): CubePlace

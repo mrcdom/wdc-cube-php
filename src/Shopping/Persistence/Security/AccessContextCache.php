@@ -7,7 +7,7 @@ namespace Wdc\Shopping\Persistence\Security;
 use DateTimeImmutable;
 use Wdc\Framework\Commons\Lang\Uuid;
 
-/** Sessões em memória, indexadas pelo refresh token (um usuário pode ter várias). */
+/** In-memory sessions, indexed by refresh token (a user may have several). */
 final class AccessContextCache
 {
     public const int ACCESS_TOKEN_TTL_SECONDS = 30 * 60;
@@ -36,7 +36,7 @@ final class AccessContextCache
         return $context;
     }
 
-    /** Troca o refresh token (rotação): o antigo deixa de valer. */
+    /** Replaces the refresh token (rotation): the old one stops being valid. */
     public function refresh(string $refreshToken, DateTimeImmutable $now): ?AccessContext
     {
         $existing = $this->byRefreshToken[$refreshToken] ?? null;
@@ -48,7 +48,7 @@ final class AccessContextCache
         return $this->createSession($existing->userId(), $existing->userName(), $existing->permissions(), $now);
     }
 
-    /** Qualquer sessão ainda válida do usuário. */
+    /** Any still-valid session of the user. */
     public function get(int $userId, DateTimeImmutable $now): ?AccessContext
     {
         foreach ($this->byRefreshToken as $context) {

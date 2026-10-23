@@ -8,7 +8,7 @@ use Wdc\Framework\Cube\CubePlace;
 use Wdc\Shopping\Presentation\Presenter\Open\OpenKeys;
 use Wdc\Shopping\Presentation\Place;
 
-/** Keys do login: `login`. */
+/** Login keys: `login`. */
 final class LoginKeys extends OpenKeys
 {
     public function place(): CubePlace

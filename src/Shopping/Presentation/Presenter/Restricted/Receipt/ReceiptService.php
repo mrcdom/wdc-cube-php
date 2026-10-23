@@ -27,7 +27,7 @@ final class ReceiptService
         $projection = new Purchase()->withBuyDate(PV::dateTime())->withItems([ReceiptItem::projection()]);
         $receipt = self::toReceipt($this->purchases->fetchById($purchaseId, $projection));
         if ($receipt !== null) {
-            usort($receipt->items, static fn (ReceiptItem $a, ReceiptItem $b): int => $a->id <=> $b->id);   // <=> "nave espacial": -1, 0 ou 1
+            usort($receipt->items, static fn (ReceiptItem $a, ReceiptItem $b): int => $a->id <=> $b->id);   // <=> "spaceship": -1, 0 or 1
         }
 
         return $receipt;

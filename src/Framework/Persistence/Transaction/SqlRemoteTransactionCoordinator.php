@@ -15,30 +15,30 @@ use Wdc\Framework\Domain\Exception\TransactionLimitExceededException;
 use Wdc\Framework\Persistence\Database;
 
 /**
- * Coordenador de transação remota sobre o {@see Database}.
+ * Remote transaction coordinator on top of {@see Database}.
  *
- * Cada txId guarda uma **conexão própria**, fora do pool, com a transação aberta e mantida viva
- * entre requisições. `resume()` liga a transação à Fiber da requisição — o SQL dela vai para a
- * transação — e `suspend()` a desliga. As outras requisições, nas suas Fibers, continuam no pool:
- * nenhuma escreve sem querer dentro desta transação.
+ * Each txId holds a **dedicated connection**, outside the pool, with the transaction open and kept
+ * alive between requests. `resume()` binds the transaction to the request's Fiber — its SQL goes
+ * to the transaction — and `suspend()` unbinds it. Other requests, on their own Fibers, keep using
+ * the pool: none of them writes into this transaction by accident.
  *
- * Transações ociosas ou velhas demais são revertidas na varredura feita a cada `begin()`.
+ * Idle or too-old transactions are rolled back by the sweep run on every `begin()`.
  */
 final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordinator
 {
-    /** @var array<string, RemoteTransactionEntry> txId → transação aberta */
+    /** @var array<string, RemoteTransactionEntry> txId → open transaction */
     private array $open = [];
 
-    /** @var array<string, int> dono → nº de transações abertas (donos null não entram) */
+    /** @var array<string, int> owner → number of open transactions (null owners are not counted) */
     private array $openByOwner = [];
 
-    /** @var array<string, array{committed: bool, owner: ?string, at: float}> desfechos recentes */
+    /** @var array<string, array{committed: bool, owner: ?string, at: float}> recent outcomes */
     private array $outcomes = [];
 
     private readonly Closure $clock;
 
     /**
-     * @param (Closure(): float)|null $clock relógio em milissegundos (testes)
+     * @param (Closure(): float)|null $clock clock in milliseconds (tests)
      */
     public function __construct(
         private readonly Database $db,
@@ -51,30 +51,30 @@ final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordina
 
     public function begin(?string $ownerKey): string
     {
-        $this->reapExpired();   // libera as expiradas antes de avaliar os tetos
+        $this->reapExpired();   // release expired ones before checking the limits
         $this->enforceLimits($ownerKey);
         try {
             $connection = $this->db->newConnection();
             $transaction = $connection->beginTransaction();
         } catch (Throwable $e) {
-            throw new TransactionSystemException('Falha ao abrir transação remota: ' . $e->getMessage(), 0, $e);
+            throw new TransactionSystemException('Failed to open remote transaction: ' . $e->getMessage(), 0, $e);
         }
         $txId = Uuid::v4();
         $this->open[$txId] = new RemoteTransactionEntry($connection, $transaction, $ownerKey, $this->now());
         if ($ownerKey !== null) {
             $this->openByOwner[$ownerKey] = ($this->openByOwner[$ownerKey] ?? 0) + 1;
         }
-        $this->logger->debug("tx remota aberta: {$txId} (dono={$ownerKey}, abertas=" . count($this->open) . ')');
+        $this->logger->debug("remote tx opened: {$txId} (owner={$ownerKey}, open=" . count($this->open) . ')');
 
         return $txId;
     }
 
     public function resume(string $txId, ?string $ownerKey): void
     {
-        $entry = $this->open[$txId] ?? throw new TransactionSystemException("Transação remota desconhecida ou expirada: {$txId}");
+        $entry = $this->open[$txId] ?? throw new TransactionSystemException("Unknown or expired remote transaction: {$txId}");
         self::verifyOwner($entry->owner, $ownerKey);
         if ($entry->inUse) {
-            throw new TransactionSystemException("Transação remota em uso concorrente: {$txId}");
+            throw new TransactionSystemException("Remote transaction in concurrent use: {$txId}");
         }
         $entry->inUse = true;
         $entry->lastUsedAt = $this->now();
@@ -132,7 +132,7 @@ final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordina
         return $ownerKey !== null && isset($this->openByOwner[$ownerKey]);
     }
 
-    /** Reverte e fecha todas as transações abertas (fim do servidor ou dos testes). */
+    /** Rolls back and closes all open transactions (server or test shutdown). */
     public function close(): void
     {
         foreach ($this->open as $txId => $entry) {
@@ -140,14 +140,14 @@ final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordina
             try {
                 $entry->transaction->rollback();
             } catch (Throwable) {
-                // melhor esforço
+                // best effort
             } finally {
                 $entry->connection->close();
             }
         }
     }
 
-    /** Quantas estão abertas (observabilidade e testes). */
+    /** How many are open (observability and tests). */
     public function openCount(): int
     {
         return count($this->open);
@@ -166,34 +166,34 @@ final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordina
         try {
             $rollback ? $entry->transaction->rollback() : $entry->transaction->commit();
         } catch (Throwable $e) {
-            throw new TransactionSystemException("Falha ao finalizar transação remota {$txId}: " . $e->getMessage(), 0, $e);
+            throw new TransactionSystemException("Failed to finish remote transaction {$txId}: " . $e->getMessage(), 0, $e);
         } finally {
             $entry->connection->close();
         }
         $this->outcomes[$txId] = ['committed' => !$rollback, 'owner' => $entry->owner, 'at' => $this->now()];
-        $this->logger->debug('tx remota finalizada (' . ($rollback ? 'rollback' : 'commit') . "): {$txId}");
+        $this->logger->debug('remote tx finished (' . ($rollback ? 'rollback' : 'commit') . "): {$txId}");
     }
 
-    /** Retry: a transação já não está aberta. Mesmo desfecho = no-op; o oposto = conflito. */
+    /** Retry: the transaction is no longer open. Same outcome = no-op; the opposite = conflict. */
     private function finishAlreadyFinalized(string $txId, ?string $ownerKey, bool $rollback): void
     {
-        $prior = $this->outcomes[$txId] ?? throw new TransactionSystemException("Transação remota desconhecida ou expirada: {$txId}");
+        $prior = $this->outcomes[$txId] ?? throw new TransactionSystemException("Unknown or expired remote transaction: {$txId}");
         self::verifyOwner($prior['owner'], $ownerKey);
         if ($prior['committed'] === $rollback) {
-            throw new TransactionConflictException("Transação {$txId} já finalizada como "
-                . ($prior['committed'] ? 'committed' : 'rolledback') . '; não aceita o desfecho oposto');
+            throw new TransactionConflictException("Transaction {$txId} already finished as "
+                . ($prior['committed'] ? 'committed' : 'rolledback') . '; the opposite outcome is not accepted');
         }
     }
 
     private function enforceLimits(?string $ownerKey): void
     {
         if (count($this->open) >= $this->options->maxOpen) {
-            $this->logger->warning("teto GLOBAL de transações remotas atingido ({$this->options->maxOpen})");
-            throw new TransactionLimitExceededException("Limite global de transações remotas abertas atingido ({$this->options->maxOpen})");
+            $this->logger->warning("GLOBAL remote transaction limit reached ({$this->options->maxOpen})");
+            throw new TransactionLimitExceededException("Global limit of open remote transactions reached ({$this->options->maxOpen})");
         }
         if ($ownerKey !== null && ($this->openByOwner[$ownerKey] ?? 0) >= $this->options->maxOpenPerOwner) {
-            $this->logger->warning("teto POR DONO de transações remotas atingido ({$this->options->maxOpenPerOwner}): {$ownerKey}");
-            throw new TransactionLimitExceededException("Limite de transações remotas abertas por dono atingido ({$this->options->maxOpenPerOwner})");
+            $this->logger->warning("PER-OWNER remote transaction limit reached ({$this->options->maxOpenPerOwner}): {$ownerKey}");
+            throw new TransactionLimitExceededException("Per-owner limit of open remote transactions reached ({$this->options->maxOpenPerOwner})");
         }
     }
 
@@ -208,13 +208,13 @@ final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordina
                 try {
                     $entry->transaction->rollback();
                 } catch (Throwable) {
-                    // melhor esforço: a transação foi abandonada
+                    // best effort: the transaction was abandoned
                 } finally {
                     $entry->connection->close();
                 }
-                // revertida pela varredura = rolledback (desfaz a dúvida de um retry)
+                // rolled back by the sweep = rolledback (resolves a retry's doubt)
                 $this->outcomes[$txId] = ['committed' => false, 'owner' => $entry->owner, 'at' => $now];
-                $this->logger->info('tx remota abandonada revertida (' . ($lifetimeExpired ? 'lifetime' : 'idle') . "): {$txId}");
+                $this->logger->info('abandoned remote tx rolled back (' . ($lifetimeExpired ? 'lifetime' : 'idle') . "): {$txId}");
             }
         }
         foreach ($this->outcomes as $txId => $outcome) {
@@ -238,11 +238,11 @@ final class SqlRemoteTransactionCoordinator implements RemoteTransactionCoordina
         }
     }
 
-    /** Se a transação tem dono, a operação precisa apresentar a mesma chave. */
+    /** If the transaction has an owner, the operation must present the same key. */
     private static function verifyOwner(?string $owner, ?string $requesterKey): void
     {
         if ($owner !== null && $owner !== $requesterKey) {
-            throw new AccessDeniedException('Transação remota não pertence ao solicitante');
+            throw new AccessDeniedException('Remote transaction does not belong to the requester');
         }
     }
 

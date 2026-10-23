@@ -17,8 +17,8 @@ use function Amp\Future\await;
 use function Amp\async;
 
 /**
- * O acesso ao banco não bloqueia o event loop: uma consulta lenta suspende só a Fiber que a fez,
- * e as consultas de outras Fibers (outras sessões) seguem — inclusive em paralelo no banco.
+ * Database access does not block the event loop: a slow query suspends only the Fiber that issued
+ * it, and queries from other Fibers (other sessions) proceed — even in parallel in the database.
  */
 final class DatabaseConcurrencyTest extends RepositoryTestCase
 {
@@ -33,7 +33,7 @@ final class DatabaseConcurrencyTest extends RepositoryTestCase
         $slow->await();
 
         self::assertSame(4, $count);
-        self::assertLessThan(0.3, $quick, 'a consulta rápida não esperou a lenta');
+        self::assertLessThan(0.3, $quick, 'the quick query did not wait for the slow one');
     }
 
     #[Test]
@@ -46,29 +46,29 @@ final class DatabaseConcurrencyTest extends RepositoryTestCase
             async(fn () => $this->db->fetchValue('SELECT pg_sleep(0.4)')),
         ]);
 
-        self::assertLessThan(0.9, microtime(true) - $start, 'três de 0,4 s ao mesmo tempo, não 1,2 s em fila');
+        self::assertLessThan(0.9, microtime(true) - $start, 'three 0.4 s queries at once, not 1.2 s in sequence');
     }
 
-    /** A transação é da Fiber que a abriu: o que outra Fiber grava no meio dela fica de fora. */
+    /** The transaction belongs to the Fiber that opened it: what another Fiber writes meanwhile stays outside. */
     #[Test]
     public function aTransaction_doesNotCaptureOtherFibersWrites(): void
     {
         $inside = async(function (): void {
             try {
                 Beans::of(TransactionService::class)->required(function (): void {
-                    $this->insert('Dentro');
-                    $this->db->fetchValue('SELECT pg_sleep(0.3)');   // cede a vez no meio da transação
-                    throw new RuntimeException('desfaz');
+                    $this->insert('Inside');
+                    $this->db->fetchValue('SELECT pg_sleep(0.3)');   // yields in the middle of the transaction
+                    throw new RuntimeException('undo');
                 });
             } catch (RuntimeException) {
-                // esperado: a transação é revertida
+                // expected: the transaction is rolled back
             }
         });
-        $outside = async(fn () => $this->insert('Fora'));
+        $outside = async(fn () => $this->insert('Outside'));
         await([$inside, $outside]);
 
-        self::assertSame(0, $this->named('Dentro'), 'revertido com a transação');
-        self::assertSame(1, $this->named('Fora'), 'gravado fora dela, apesar de rodar durante');
+        self::assertSame(0, $this->named('Inside'), 'rolled back with the transaction');
+        self::assertSame(1, $this->named('Outside'), 'written outside it, despite running meanwhile');
     }
 
     private function insert(string $name): void

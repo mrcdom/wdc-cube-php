@@ -10,11 +10,12 @@ use Closure;
 use Fiber;
 
 /**
- * Exclusão mútua entre Fibers, reentrante: a Fiber que já tem o lock pode pegá-lo de novo (uma
- * chamada protegida que chama outra). As outras esperam — suspensas, sem travar o event loop.
+ * Reentrant mutual exclusion between Fibers: the Fiber that already holds the lock can take it
+ * again (a guarded call that calls another one). The others wait — suspended, without blocking
+ * the event loop.
  *
- * Só faz diferença quando o trabalho protegido suspende a Fiber (uma consulta ao banco, por
- * exemplo): sem isso, outra Fiber poderia mexer no mesmo estado no meio do caminho.
+ * It only matters when the guarded work suspends the Fiber (a database query, for example):
+ * without it, another Fiber could touch the same state halfway through.
  */
 final class ReentrantLock
 {

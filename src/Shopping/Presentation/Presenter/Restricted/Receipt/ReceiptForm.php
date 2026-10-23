@@ -6,7 +6,7 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Receipt;
 
 final class ReceiptForm
 {
-    /** data da compra em milissegundos desde 1970 */
+    /** purchase date in milliseconds since 1970 */
     public ?int $date = null;
 
     /** @var list<ReceiptItem> */

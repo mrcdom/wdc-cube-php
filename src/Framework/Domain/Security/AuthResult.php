@@ -7,10 +7,10 @@ namespace Wdc\Framework\Domain\Security;
 use DateTimeImmutable;
 
 /**
- * Resultado de um login bem-sucedido.
+ * Result of a successful login.
  *
- * `publicKey()` é um método (e não um campo) para que o par RSA da
- * sessão só seja gerado se alguém de fato pedir a chave — hoje, só a API REST.
+ * `publicKey()` is a method (not a field) so that the session's RSA key pair
+ * is generated only if someone actually asks for the key — currently only the REST API.
  */
 final readonly class AuthResult
 {
@@ -23,7 +23,7 @@ final readonly class AuthResult
     ) {
     }
 
-    /** Chave pública RSA da sessão, DER X.509 em Base64. */
+    /** The session's RSA public key, X.509 DER in Base64. */
     public function publicKey(): string
     {
         return $this->session->publicKeyBase64();

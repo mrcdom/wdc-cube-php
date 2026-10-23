@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Criteria;
 
 /**
- * Um pedido de comparação: o operador e os valores que o acompanham.
+ * A comparison request: the operator and the values that go with it.
  *
  * @template T
  */
@@ -20,7 +20,7 @@ final readonly class Predicate
     ) {
     }
 
-    /** @return T|null primeiro valor — atalho para operadores de um valor só */
+    /** @return T|null first value — shortcut for single-value operators */
     public function value(): mixed
     {
         return $this->values[0] ?? null;

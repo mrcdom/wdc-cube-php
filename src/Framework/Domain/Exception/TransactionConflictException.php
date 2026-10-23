@@ -7,8 +7,8 @@ namespace Wdc\Framework\Domain\Exception;
 use RuntimeException;
 
 /**
- * Conflito de estado transacional (equivale a HTTP 409): escrita sem `X-Tx-Id` com transação
- * remota aberta, ou commit de uma transação já revertida (e vice-versa).
+ * Transactional state conflict (maps to HTTP 409): a write without `X-Tx-Id` while a remote
+ * transaction is open, or a commit of an already rolled-back transaction (and vice versa).
  */
 class TransactionConflictException extends RuntimeException
 {

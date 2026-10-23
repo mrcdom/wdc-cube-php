@@ -15,17 +15,17 @@ use Wdc\Framework\Rest\RestResponse;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
 /**
- * `/api/tx/*` — a transação remota dirigida pelo cliente: `begin` → txId; as escritas com o
- * cabeçalho `X-Tx-Id` entram nela; `commit` ou `rollback` a encerram; `status` desfaz a dúvida
- * de uma resposta perdida.
+ * `/api/tx/*` — the client-driven remote transaction: `begin` → txId; writes carrying the
+ * `X-Tx-Id` header join it; `commit` or `rollback` ends it; `status` resolves the doubt left by
+ * a lost response.
  *
- * O dono é o próprio coordenador quem guarda e confere: outro usuário não consegue usar o txId.
+ * The coordinator itself stores and checks the owner: another user cannot use the txId.
  */
 final readonly class TxApiController
 {
     public const string TX_HEADER = 'X-Tx-Id';
 
-    /** Id opaco da instância do app cliente: dono das transações quando não há usuário. */
+    /** Opaque id of the client app instance: owns the transactions when there is no user. */
     public const string CLIENT_HEADER = 'X-Client-Id';
 
     public function __construct(
@@ -44,9 +44,9 @@ final readonly class TxApiController
     }
 
     /**
-     * A chave de dono do solicitante, em espaços separados para um anônimo não se passar por um
-     * usuário: autenticado → `user:<id>` (o X-Client-Id é ignorado); sem usuário → `anon:<X-Client-Id>`,
-     * ou null sem o cabeçalho.
+     * The requester's owner key, in separate namespaces so an anonymous client cannot pass as a
+     * user: authenticated → `user:<id>` (X-Client-Id is ignored); no user → `anon:<X-Client-Id>`,
+     * or null without the header.
      */
     public static function currentOwnerKey(RestRequest $request): ?string
     {
@@ -89,7 +89,7 @@ final readonly class TxApiController
     {
         $txId = $request->header(self::TX_HEADER);
         if ($txId === null || trim($txId) === '') {
-            throw new AccessDeniedException('Cabeçalho ' . self::TX_HEADER . ' ausente');
+            throw new AccessDeniedException('Missing ' . self::TX_HEADER . ' header');
         }
 
         return $txId;
@@ -97,6 +97,6 @@ final readonly class TxApiController
 
     private function coordinator(): RemoteTransactionCoordinator
     {
-        return $this->coordinator ?? throw new RuntimeException('Coordenador de transação remota não inicializado');
+        return $this->coordinator ?? throw new RuntimeException('Remote transaction coordinator not initialized');
     }
 }

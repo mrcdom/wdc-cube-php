@@ -11,18 +11,18 @@ use Throwable;
 use Wdc\Framework\Commons\Storage\ClientStorage;
 
 /**
- * Raiz de uma sessão: guarda os presenters ativos (um por place da cadeia corrente),
- * os atributos da sessão e o último place navegado.
+ * Root of a session: holds the active presenters (one per place in the current chain),
+ * the session attributes, and the last place navigated to.
  *
- * Threading: tudo roda num único event loop — nada roda em paralelo, então arrays
- * comuns bastam e não há locks. Uma Fiber só cede a vez em pontos explícitos de espera (I/O, delay).
+ * Threading: everything runs on a single event loop — nothing runs in parallel, so plain arrays
+ * are enough and there are no locks. A Fiber only yields at explicit wait points (I/O, delay).
  */
 abstract class CubeApplication
 {
-    /** Acima disto, redirecionamentos aninhados são tratados como laço. */
+    /** Beyond this, nested redirects are treated as a loop. */
     public const int MAX_REFLOW = 10;
 
-    /** @var array<int, CubePresenter> id do place → presenter */
+    /** @var array<int, CubePresenter> place id → presenter */
     private array $presenters = [];
 
     /** @var array<string, mixed> */
@@ -43,16 +43,16 @@ abstract class CubeApplication
 
     abstract public function rootPlace(): CubePlace;
 
-    /** Chamado ao fim de toda navegação (commit ou rollback): é onde a URL é reescrita. */
+    /** Called at the end of every navigation (commit or rollback): this is where the URL is rewritten. */
     abstract public function updateHistory(): void;
 
-    /** Armazenamento de sessão (vive enquanto a app vive). */
+    /** Session storage (lives as long as the app lives). */
     abstract public function clientSessionStore(): ClientStorage;
 
-    /** Armazenamento persistente; `secure()` para a variante cifrada. */
+    /** Persistent storage; `secure()` for the encrypted variant. */
     abstract public function clientPersistentStore(): ClientStorage;
 
-    /** Libera todos os presenters, da folha para a raiz. */
+    /** Releases all presenters, from leaf to root. */
     public function release(): void
     {
         $presenters = $this->presenters;
@@ -88,12 +88,12 @@ abstract class CubeApplication
             try {
                 $presenter->commitComputedState();
             } catch (Throwable $e) {
-                $this->logger->error('commitComputedState em ' . $presenter::class . ': ' . $e->getMessage());
+                $this->logger->error('commitComputedState in ' . $presenter::class . ': ' . $e->getMessage());
             }
         }
     }
 
-    /** Intent que descreve o estado atual: último place + parâmetros publicados. */
+    /** Intent describing the current state: last place + published parameters. */
     public function newIntent(): CubeIntent
     {
         $intent = new CubeIntent();
@@ -104,10 +104,10 @@ abstract class CubeApplication
     }
 
     /**
-     * Começa uma navegação: `$app->navigate()->step(A)->step(B)->execute($intent)`.
+     * Starts a navigation: `$app->navigate()->step(A)->step(B)->execute($intent)`.
      *
-     * Se outra navegação estiver em curso (um presenter redirecionou de dentro do seu
-     * applyParameters), ela é interrompida e a nova herda os presenters que ela já criou.
+     * If another navigation is in progress (a presenter redirected from inside its
+     * applyParameters), it is interrupted and the new one inherits the presenters it already created.
      */
     public function navigate(): CubeNavigation
     {
@@ -115,8 +115,8 @@ abstract class CubeApplication
         if ($current !== null) {
             $current->interrupt();
             if ($current->reflowCount() > self::MAX_REFLOW) {
-                // Laço de redirecionamentos: a navegação é abandonada (e esquecida) para que a
-                // próxima comece do zero e a sessão continue navegável.
+                // Redirect loop: the navigation is abandoned (and forgotten) so that the next
+                // one starts from scratch and the session stays navigable.
                 $this->navigation = null;
                 $current->abandon();
                 throw new LogicException('Navigation recursion detected');
@@ -131,7 +131,7 @@ abstract class CubeApplication
         return $this->logger;
     }
 
-    /** O presenter ativo de um place, se houver. Útil em testes e para depuração. */
+    /** The active presenter of a place, if any. Useful in tests and for debugging. */
     public function presenterOf(CubePlace $place): ?CubePresenter
     {
         return $this->presenters[$place->id()] ?? null;
@@ -160,9 +160,9 @@ abstract class CubeApplication
         return $old;
     }
 
-    // :: Uso interno de CubeNavigation
+    // :: Internal use by CubeNavigation
     //
-    // PHP não tem visibilidade de pacote, então são públicos e marcados @internal.
+    // PHP has no package visibility, so these are public and marked @internal.
 
     /**
      * @internal
@@ -188,19 +188,19 @@ abstract class CubeApplication
     }
 
     /**
-     * Libera em ordem decrescente de id (folha → raiz). Erros são registrados e não interrompem.
+     * Releases in descending id order (leaf → root). Errors are logged and do not interrupt.
      *
      * @internal
      * @param array<int, CubePresenter> $presenters
      */
     public function releaseAll(array $presenters): void
     {
-        krsort($presenters);   // ordena pelas chaves, decrescente
+        krsort($presenters);   // sorts by key, descending
         foreach ($presenters as $presenter) {
             try {
                 $presenter->release();
             } catch (Throwable $e) {
-                $this->logger->error('release de ' . $presenter::class . ': ' . $e->getMessage());
+                $this->logger->error('release of ' . $presenter::class . ': ' . $e->getMessage());
             }
         }
     }

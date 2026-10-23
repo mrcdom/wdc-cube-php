@@ -15,7 +15,7 @@ use Wdc\Shopping\Domain\Product\ProductOrderBy;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 
-/** Repositório de produtos: consultas, critérios, projeções e escrita sobre o seed. */
+/** Product repository: queries, criteria, projections and writes over the seed. */
 final class ProductRepositoryTest extends RepositoryTestCase
 {
     private function repo(): ProductRepository
@@ -50,11 +50,11 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchById_returnsCorrectProduct(): void
     {
-        $product = $this->repo()->fetchById(Seed::CAFETEIRA_ID);
+        $product = $this->repo()->fetchById(Seed::COFFEE_MAKER_ID);
         self::assertNotNull($product);
-        self::assertSame('Cafeteira design italiano', $product->name());
+        self::assertSame('Italian design coffee maker', $product->name());
         self::assertSame(199.99, $product->price());
-        self::assertNull($product->image(), 'imagem não está na projeção padrão');
+        self::assertNull($product->image(), 'image is not in the default projection');
     }
 
     #[Test]
@@ -66,9 +66,9 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchWithProjection_onlyRequestedFields(): void
     {
-        $product = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID, new Product()->withId(PV::INT)->withName(PV::STR));
+        $product = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID, new Product()->withId(PV::INT)->withName(PV::STR));
         self::assertNotNull($product);
-        self::assertSame(Seed::PEN_DRIVE2GB_ID, $product->id());
+        self::assertSame(Seed::FLASH_DRIVE2GB_ID, $product->id());
         self::assertNotNull($product->name());
         self::assertNull($product->price());
         self::assertNull($product->description());
@@ -77,9 +77,9 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchByCriteria_productId(): void
     {
-        $products = $this->repo()->fetch(new ProductCriteria()->withProductId(Seed::BOLA_WILSON_ID));
+        $products = $this->repo()->fetch(new ProductCriteria()->withProductId(Seed::WILSON_BALL_ID));
         self::assertCount(1, $products);
-        self::assertSame(Seed::BOLA_WILSON_ID, $products[0]->id());
+        self::assertSame(Seed::WILSON_BALL_ID, $products[0]->id());
     }
 
     #[Test]
@@ -102,7 +102,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
         self::assertSame(4, $page->totalItems);
         self::assertSame(2, $page->totalPages);
         self::assertCount(1, $page->items);
-        self::assertSame(Seed::PEN_DRIVE2GB_ID, $page->items[0]->id());
+        self::assertSame(Seed::FLASH_DRIVE2GB_ID, $page->items[0]->id());
     }
 
     #[Test]
@@ -123,7 +123,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function countByProductId_returnsOne(): void
     {
-        self::assertSame(1, $this->repo()->count(new ProductCriteria()->withProductId(Seed::CAFETEIRA_ID)));
+        self::assertSame(1, $this->repo()->count(new ProductCriteria()->withProductId(Seed::COFFEE_MAKER_ID)));
     }
 
     #[Test]
@@ -135,7 +135,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchImage_returnsPngForSeededProduct(): void
     {
-        $image = $this->repo()->fetchImage(Seed::CAFETEIRA_ID);
+        $image = $this->repo()->fetchImage(Seed::COFFEE_MAKER_ID);
         self::assertNotNull($image);
         self::assertStringStartsWith("\x89PNG", $image);
     }
@@ -150,7 +150,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function fetchWithImageProjection_bringsBytes(): void
     {
-        $product = $this->repo()->fetchById(Seed::BOLA_WILSON_ID, new Product()->withImage(PV::BIN));
+        $product = $this->repo()->fetchById(Seed::WILSON_BALL_ID, new Product()->withImage(PV::BIN));
         self::assertNotNull($product);
         self::assertStringStartsWith("\x89PNG", (string) $product->image());
     }
@@ -158,46 +158,46 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function updateImage_replacesBytes(): void
     {
-        self::assertTrue($this->repo()->updateImage(Seed::BOLA_WILSON_ID, "\x00\x01\x02"));
-        self::assertSame("\x00\x01\x02", $this->repo()->fetchImage(Seed::BOLA_WILSON_ID));
+        self::assertTrue($this->repo()->updateImage(Seed::WILSON_BALL_ID, "\x00\x01\x02"));
+        self::assertSame("\x00\x01\x02", $this->repo()->fetchImage(Seed::WILSON_BALL_ID));
     }
 
     #[Test]
     public function insert_newProduct(): void
     {
-        $product = new Product()->withName('Teclado USB')->withPrice(89.90)->withDescription('Teclado mecanico');
+        $product = new Product()->withName('USB keyboard')->withPrice(89.90)->withDescription('Mechanical keyboard');
         self::assertTrue($this->repo()->insert($product));
-        self::assertSame(4, $product->id(), 'id gerado pela sequência (seed reinicia em 4)');
+        self::assertSame(4, $product->id(), 'id generated by the sequence (the seed restarts it at 4)');
 
         $fetched = $this->repo()->fetchById($product->id());
         self::assertNotNull($fetched);
-        self::assertSame('Teclado USB', $fetched->name());
+        self::assertSame('USB keyboard', $fetched->name());
         self::assertEqualsWithDelta(89.90, $fetched->price(), 0.001);
-        self::assertStringContainsString('Teclado', (string) $fetched->description());
+        self::assertStringContainsString('keyboard', (string) $fetched->description());
     }
 
     #[Test]
     public function update_existingProduct(): void
     {
-        $original = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
+        $original = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
         self::assertNotNull($original);
         $updated = new Product()
             ->withId($original->id())
-            ->withName('Pen Drive 4GB')
+            ->withName('Flash drive 4GB')
             ->withPrice(35.0)
             ->withDescription($original->description());
 
         self::assertTrue($this->repo()->update($updated, $original));
 
-        $fetched = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
-        self::assertSame('Pen Drive 4GB', $fetched?->name());
+        $fetched = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
+        self::assertSame('Flash drive 4GB', $fetched?->name());
         self::assertEqualsWithDelta(35.0, $fetched->price(), 0.001);
     }
 
     #[Test]
     public function update_withoutChanges_returnsFalse(): void
     {
-        $original = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
+        $original = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
         self::assertNotNull($original);
         self::assertFalse($this->repo()->update(clone $original, $original));
     }
@@ -205,14 +205,14 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function update_partialFields_onlyChangesSpecifiedFields(): void
     {
-        $original = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
+        $original = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
         self::assertNotNull($original);
-        $updated = new Product()->withId($original->id())->withName('Pen Drive Renomeado');
+        $updated = new Product()->withId($original->id())->withName('Flash drive renamed');
 
         self::assertTrue($this->repo()->update($updated, $original, new Product()->withId(PV::INT)->withName(PV::STR)));
 
-        $fetched = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
-        self::assertSame('Pen Drive Renomeado', $fetched?->name());
+        $fetched = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
+        self::assertSame('Flash drive renamed', $fetched?->name());
         self::assertSame($original->price(), $fetched->price());
         self::assertSame($original->description(), $fetched->description());
     }
@@ -220,13 +220,13 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function update_nullOutsideProjection_isIgnored(): void
     {
-        $original = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
+        $original = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
         self::assertNotNull($original);
         $updated = new Product()->withId($original->id())->withPrice(99.99)->withDescription(null);
 
         self::assertTrue($this->repo()->update($updated, $original, new Product()->withId(PV::INT)->withPrice(PV::FLOAT)));
 
-        $fetched = $this->repo()->fetchById(Seed::PEN_DRIVE2GB_ID);
+        $fetched = $this->repo()->fetchById(Seed::FLASH_DRIVE2GB_ID);
         self::assertSame($original->description(), $fetched?->description());
         self::assertEqualsWithDelta(99.99, $fetched?->price(), 0.001);
     }
@@ -234,7 +234,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function deleteByProductId(): void
     {
-        self::assertSame(1, $this->repo()->delete(new ProductCriteria()->withProductId(Seed::PEN_DRIVE2GB_ID)));
+        self::assertSame(1, $this->repo()->delete(new ProductCriteria()->withProductId(Seed::FLASH_DRIVE2GB_ID)));
         self::assertSame(3, $this->repo()->count(new ProductCriteria()));
     }
 
@@ -249,8 +249,8 @@ final class ProductRepositoryTest extends RepositoryTestCase
     {
         try {
             $this->repo()->delete(new ProductCriteria());
-            self::fail('delete sem chave deveria ser recusado');
-        } catch (LogicException) {   // PHP 8: catch sem variável quando ela não é usada
+            self::fail('delete without a key should be refused');
+        } catch (LogicException) {   // PHP 8: catch without a variable when it is not used
             self::assertSame(4, $this->repo()->count(new ProductCriteria()));
         }
     }
@@ -258,7 +258,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function in_bringsOnlyTheListedOnes(): void
     {
-        self::assertCount(2, $this->repo()->fetch(new ProductCriteria()->productId()->in([Seed::CAFETEIRA_ID, Seed::PEN_DRIVE2GB_ID])));
+        self::assertCount(2, $this->repo()->fetch(new ProductCriteria()->productId()->in([Seed::COFFEE_MAKER_ID, Seed::FLASH_DRIVE2GB_ID])));
     }
 
     #[Test]
@@ -270,21 +270,21 @@ final class ProductRepositoryTest extends RepositoryTestCase
     #[Test]
     public function between_isInclusiveOnBothEnds(): void
     {
-        self::assertCount(3, $this->repo()->fetch(new ProductCriteria()->productId()->between(Seed::BOLA_WILSON_ID, Seed::PEN_DRIVE2GB_ID)));
+        self::assertCount(3, $this->repo()->fetch(new ProductCriteria()->productId()->between(Seed::WILSON_BALL_ID, Seed::FLASH_DRIVE2GB_ID)));
     }
 
     #[Test]
     public function ne_excludesTheOne(): void
     {
-        self::assertCount(3, $this->repo()->fetch(new ProductCriteria()->productId()->ne(Seed::CAFETEIRA_ID)));
+        self::assertCount(3, $this->repo()->fetch(new ProductCriteria()->productId()->ne(Seed::COFFEE_MAKER_ID)));
     }
 
     #[Test]
     public function twoNe_excludeBoth(): void
     {
         $criteria = new ProductCriteria();
-        $criteria->productId()->ne(Seed::CAFETEIRA_ID);
-        $criteria->productId()->ne(Seed::BOLA_WILSON_ID);
+        $criteria->productId()->ne(Seed::COFFEE_MAKER_ID);
+        $criteria->productId()->ne(Seed::WILSON_BALL_ID);
         self::assertCount(2, $this->repo()->fetch($criteria));
     }
 
@@ -292,21 +292,21 @@ final class ProductRepositoryTest extends RepositoryTestCase
     public function or_turnsRequestsIntoAlternatives(): void
     {
         $criteria = new ProductCriteria();
-        $criteria->productId()->or()->eq(Seed::CAFETEIRA_ID);
-        $criteria->productId()->eq(Seed::BOLA_WILSON_ID);
+        $criteria->productId()->or()->eq(Seed::COFFEE_MAKER_ID);
+        $criteria->productId()->eq(Seed::WILSON_BALL_ID);
         self::assertCount(2, $this->repo()->fetch($criteria));
     }
 
     #[Test]
     public function gt_comparesByOrder(): void
     {
-        self::assertCount(2, $this->repo()->fetch(new ProductCriteria()->productId()->gt(Seed::BOLA_WILSON_ID)));
+        self::assertCount(2, $this->repo()->fetch(new ProductCriteria()->productId()->gt(Seed::WILSON_BALL_ID)));
     }
 
     #[Test]
     public function betweenWithOpenEnd_becomesASingleBound(): void
     {
-        self::assertCount(2, $this->repo()->fetch(new ProductCriteria()->productId()->between(Seed::FITA_VEDA_ROSCA_ID, null)));
+        self::assertCount(2, $this->repo()->fetch(new ProductCriteria()->productId()->between(Seed::THREAD_SEAL_TAPE_ID, null)));
     }
 
     #[Test]
@@ -321,13 +321,13 @@ final class ProductRepositoryTest extends RepositoryTestCase
     {
         $criteria = new ProductCriteria();
         $criteria->productId()->eq(null);
-        self::assertCount(4, $this->repo()->fetch($criteria), 'valor nulo não acrescenta pedido');
+        self::assertCount(4, $this->repo()->fetch($criteria), 'a null value adds no request');
     }
 
     #[Test]
     public function clear_undoesWhatWasAsked(): void
     {
-        $criteria = new ProductCriteria()->withProductId(Seed::CAFETEIRA_ID);
+        $criteria = new ProductCriteria()->withProductId(Seed::COFFEE_MAKER_ID);
         self::assertCount(1, $this->repo()->fetch($criteria));
         $criteria->productId()->clear();
         self::assertCount(4, $this->repo()->fetch($criteria));
@@ -338,15 +338,15 @@ final class ProductRepositoryTest extends RepositoryTestCase
     {
         $products = $this->repo()->fetch(new ProductCriteria()->name()->containing('wilson'));
         self::assertCount(1, $products);
-        self::assertSame(Seed::BOLA_WILSON_ID, $products[0]->id());
+        self::assertSame(Seed::WILSON_BALL_ID, $products[0]->id());
     }
 
     #[Test]
     public function filterByName_eq_isCaseSensitive(): void
     {
-        // NAME é TEXT comum no DDL: a igualdade diferencia maiúsculas
-        self::assertCount(0, $this->repo()->fetch(new ProductCriteria()->withName('BOLA WILSON')));
-        self::assertCount(1, $this->repo()->fetch(new ProductCriteria()->withName('Bola Wilson')));
+        // NAME is plain TEXT in the DDL: equality is case-sensitive
+        self::assertCount(0, $this->repo()->fetch(new ProductCriteria()->withName('WILSON BALL')));
+        self::assertCount(1, $this->repo()->fetch(new ProductCriteria()->withName('Wilson ball')));
     }
 
     #[Test]
@@ -365,7 +365,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     {
         $products = $this->repo()->fetch(new ProductCriteria()->price()->gt(100.0));
         self::assertCount(1, $products);
-        self::assertSame(Seed::CAFETEIRA_ID, $products[0]->id());
+        self::assertSame(Seed::COFFEE_MAKER_ID, $products[0]->id());
     }
 
     #[Test]
@@ -373,7 +373,7 @@ final class ProductRepositoryTest extends RepositoryTestCase
     {
         $products = $this->repo()->fetch(new ProductCriteria()->description()->containing('Teflon'));
         self::assertCount(1, $products);
-        self::assertSame(Seed::FITA_VEDA_ROSCA_ID, $products[0]->id());
+        self::assertSame(Seed::THREAD_SEAL_TAPE_ID, $products[0]->id());
     }
 
     #[Test]

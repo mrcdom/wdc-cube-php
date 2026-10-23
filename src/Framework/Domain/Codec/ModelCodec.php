@@ -8,10 +8,10 @@ use stdClass;
 use Wdc\Framework\Commons\Serialization\EntityGraph;
 
 /**
- * Codec JSON de uma entidade e do seu critério, com os nomes de campo do protocolo.
+ * JSON codec for an entity and its criteria, using the protocol's field names.
  *
- * Aqui ficam só as operações que o servidor REST usa; as do lado cliente
- * (`writeEntityProjected`, `computeProjection`...) ficam para quando houver um cliente PHP.
+ * Only the operations the REST server uses live here; the client-side ones
+ * (`writeEntityProjected`, `computeProjection`...) will come when there is a PHP client.
  *
  * @template E of object
  * @template C of object
@@ -19,7 +19,7 @@ use Wdc\Framework\Commons\Serialization\EntityGraph;
 interface ModelCodec
 {
     /**
-     * Campo null não é escrito. Uma instância já vista no grafo sai só com o id.
+     * Null fields are not written. An instance already seen in the graph is written with its id only.
      *
      * @param E $entity
      */
@@ -38,7 +38,7 @@ interface ModelCodec
     public function writeCriteriaFields(object $criteria): array;
 
     /**
-     * Lê o campo de critério $name, se for um; false = não é campo de critério.
+     * Reads criteria field $name, if it is one; false = not a criteria field.
      *
      * @param C $criteria
      */

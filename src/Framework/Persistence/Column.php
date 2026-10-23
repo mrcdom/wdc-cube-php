@@ -7,7 +7,7 @@ namespace Wdc\Framework\Persistence;
 use Closure;
 
 /**
- * Mapeamento campo do bean ⇄ coluna.
+ * Mapping between a bean field and a column.
  *
  * @template E of object
  */
@@ -29,7 +29,7 @@ final readonly class Column
     /** @param E $bean */
     public function read(object $bean): mixed
     {
-        return ($this->get)($bean);   // parênteses: chamar a closure guardada na propriedade
+        return ($this->get)($bean);   // parentheses: call the closure stored in the property
     }
 
     /** @param E $bean */

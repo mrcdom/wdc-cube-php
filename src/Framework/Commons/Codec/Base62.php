@@ -7,12 +7,12 @@ namespace Wdc\Framework\Commons\Codec;
 use InvalidArgumentException;
 
 /**
- * Base62 com o alfabeto do GMP (0-9 A-Z a-z).
+ * Base62 with the GMP alphabet (0-9 A-Z a-z).
  *
- * Por que não `gmp_strval(gmp_import($bytes), 62)`? Mesmo alfabeto, mas o GMP descarta os
- * zeros à esquerda; este algoritmo preserva um dígito "0" para cada byte 0x00 inicial
- * (menos o último). Ids e assinaturas são trocados com os clientes, então a saída tem de ficar
- * estável byte a byte: o formato é parte do protocolo.
+ * Why not `gmp_strval(gmp_import($bytes), 62)`? Same alphabet, but GMP drops leading zeros;
+ * this algorithm keeps one "0" digit for each leading 0x00 byte (except the last one). Ids and
+ * signatures are exchanged with clients, so the output must stay stable byte for byte: the
+ * format is part of the protocol.
  */
 final class Base62
 {
@@ -41,9 +41,9 @@ final class Base62
     }
 
     /**
-     * Mudança de base por divisões sucessivas.
+     * Base conversion by repeated division.
      *
-     * @param list<int> $source dígitos na base de origem, mais significativo primeiro
+     * @param list<int> $source digits in the source base, most significant first
      * @return list<int>
      */
     private static function convert(array $source, int $sourceBase, int $targetBase, int $length): array
@@ -64,7 +64,7 @@ final class Base62
             $out[] = $remainder;
             $source = $quotient;
         }
-        // um zero para cada zero inicial da mensagem (menos o último)
+        // one zero for each leading zero of the message (except the last one)
         for ($i = 0; $i < $length - 1 && $original[$i] === 0; $i++) {
             $out[] = 0;
         }

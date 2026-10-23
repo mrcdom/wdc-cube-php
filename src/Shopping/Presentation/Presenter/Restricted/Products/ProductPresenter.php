@@ -21,10 +21,10 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Detalhe do produto (`product?pr-id=N`).
+ * Product detail (`product?pr-id=N`).
  *
- * Produto inexistente ⇒ ProductNotFoundException dentro do applyParameters ⇒ a navegação
- * desfaz tudo (rollback) e relança; quem pediu (a home) mostra o erro.
+ * Missing product ⇒ ProductNotFoundException inside applyParameters ⇒ navigation undoes
+ * everything (rollback) and rethrows; the caller (the home) shows the error.
  *
  * @extends AbstractCubePresenter<ShoppingApplication>
  */
@@ -50,7 +50,7 @@ final class ProductPresenter extends AbstractCubePresenter
     {
         $keys = new ProductKeys($this->app, $intent);
         $oldId = $this->state->product?->id;
-        $newId = $keys->productId ?? throw new ProductNotFoundException();   // ausente ou inválido
+        $newId = $keys->productId ?? throw new ProductNotFoundException();   // missing or invalid
 
         if ($this->state->product === null || $newId !== $oldId) {
             $this->state->product = $this->productService->loadProductById($newId);
@@ -59,10 +59,10 @@ final class ProductPresenter extends AbstractCubePresenter
         if ($initialization) {
             $this->state->errorCode = 0;
             $this->state->errorMessage = null;
-            $this->view = (self::$createView ?? throw new LogicException('ProductPresenter::$createView não configurado'))($this);
+            $this->view = (self::$createView ?? throw new LogicException('ProductPresenter::$createView not configured'))($this);
             $this->update();
         }
-        $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+        $this->ownerSlot = $keys->ownerSlot;   // on every trip: the owner above decides the slot
         $this->ownerSlot?->setView($this->view);
 
         return true;
@@ -80,21 +80,21 @@ final class ProductPresenter extends AbstractCubePresenter
     {
         try {
             if ($quantity === null) {
-                $this->alert(3, 'Codificação errada da quantidade.');
+                $this->alert(3, 'Wrong quantity encoding.');
 
                 return;
             }
             if ($quantity < 1) {
-                $this->alert(2, 'A quantidade de itens no carrinho deve ser maior ou igual a 1 (um).');
+                $this->alert(2, 'The quantity of items in the cart must be greater than or equal to 1 (one).');
 
                 return;
             }
-            $product = $this->state->product ?? throw new LogicException('Sem produto carregado');
-            $cart = $this->app->cart() ?? throw new LogicException('Carrinho não inicializado');
+            $product = $this->state->product ?? throw new LogicException('No product loaded');
+            $cart = $this->app->cart() ?? throw new LogicException('Cart not initialized');
             $cart->addProduct($product, $quantity);
             CartKeys::of($this->app)->go();
         } catch (OfflineException $caught) {
-            $this->alert(1, 'Carrinho não acessível. Aguarde alguns instantes e tente novamente.');
+            $this->alert(1, 'Cart not accessible. Please wait a moment and try again.');
             $this->app->logger()->error('onAddToCart', ['exception' => $caught]);
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Adding an item to cart', $caught);
@@ -112,7 +112,7 @@ final class ProductPresenter extends AbstractCubePresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('48b693f67410', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('48b693f67410', function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onOpenProducts(),
                 2 => $this->onAddToCart(Coerce::asInt($form['p.quantity'] ?? null)),

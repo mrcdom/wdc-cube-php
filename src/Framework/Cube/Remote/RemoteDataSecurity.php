@@ -10,14 +10,14 @@ use RuntimeException;
 use Throwable;
 
 /**
- * A cifra do canal de uma sessão.
+ * The channel encryption of a session.
  *
- * O cliente sorteia uma senha, deriva dela a chave AES (PBKDF2-SHA256, 250 mil iterações) e
- * manda a senha cifrada com a RSA do handshake no `secret` = `base36(RSA(senha)).b64url(sal).b64url(iv)`.
- * O servidor faz o caminho inverso e chega à mesma chave.
+ * The client picks a random password, derives the AES key from it (PBKDF2-SHA256, 250k iterations) and
+ * sends the password encrypted with the handshake RSA key in `secret` = `base36(RSA(password)).b64url(salt).b64url(iv)`.
+ * The server goes the reverse way and arrives at the same key.
  *
- * AES-256-GCM com tag de 128 bits anexada; o IV é fixo por sessão (o do handshake) — fraqueza
- * conhecida do protocolo, mantida para interoperar com o shell.
+ * AES-256-GCM with an appended 128-bit tag; the IV is fixed per session (the handshake one) — a known
+ * weakness of the protocol, kept to interoperate with the shell.
  */
 final class RemoteDataSecurity
 {
@@ -29,7 +29,7 @@ final class RemoteDataSecurity
 
     private ?string $iv = null;
 
-    /** O último `secret` aplicado: o mesmo de novo não refaz o PBKDF2 (~180 ms de CPU). */
+    /** The last applied `secret`: the same one again does not redo the PBKDF2 (~180 ms of CPU). */
     private ?string $appliedSecret = null;
 
     public function __construct(
@@ -39,7 +39,7 @@ final class RemoteDataSecurity
     ) {
     }
 
-    /** Erros são registrados e engolidos: a sessão segue com a chave anterior. */
+    /** Errors are logged and swallowed: the session keeps the previous key. */
     public function updateSecret(string $secret): void
     {
         if ($secret === $this->appliedSecret) {
@@ -48,18 +48,18 @@ final class RemoteDataSecurity
         try {
             $parts = explode('.', $secret);
             if (count($parts) !== 3) {
-                throw new RuntimeException('secret malformado');
+                throw new RuntimeException('malformed secret');
             }
-            // 1. abre a senha: RSA → bytes do texto Base64 → senha
+            // 1. open the password: RSA → bytes of the Base64 text → password
             $message = $this->security->rsa->decrypt(gmp_init($parts[0], 36));
-            $password = base64_decode(gmp_export($message), true);   // gmp_export: inteiro → bytes big-endian
+            $password = base64_decode(gmp_export($message), true);   // gmp_export: integer → big-endian bytes
             if ($password === false) {
-                throw new RuntimeException('senha do secret não é Base64');
+                throw new RuntimeException('secret password is not Base64');
             }
-            // 2. sal e IV
+            // 2. salt and IV
             $salt = self::b64UrlDecode($parts[1]);
             $iv = self::b64UrlDecode($parts[2]);
-            // 3. a mesma derivação do cliente (no servidor, num processo à parte)
+            // 3. the same derivation as the client (on the server, in a separate process)
             $this->key = $this->keyDerivation->derive($password, $salt);
             $this->iv = $iv;
             $this->appliedSecret = $secret;
@@ -78,17 +78,17 @@ final class RemoteDataSecurity
         [$key, $iv] = $this->material();
         $cipherText = openssl_encrypt($plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', self::TAG_LENGTH);
         if ($cipherText === false) {
-            throw new RuntimeException('Falha ao cifrar: ' . openssl_error_string());
+            throw new RuntimeException('Failed to encrypt: ' . openssl_error_string());
         }
 
-        return $cipherText . $tag;   // o WebCrypto do browser também anexa a tag no fim
+        return $cipherText . $tag;   // the browser's WebCrypto also appends the tag at the end
     }
 
     public function decipher(string $data): string
     {
         [$key, $iv] = $this->material();
         if (strlen($data) < self::TAG_LENGTH) {
-            throw new RuntimeException('Texto cifrado curto demais');
+            throw new RuntimeException('Ciphertext too short');
         }
         $plain = openssl_decrypt(
             substr($data, 0, -self::TAG_LENGTH),
@@ -99,7 +99,7 @@ final class RemoteDataSecurity
             substr($data, -self::TAG_LENGTH),
         );
         if ($plain === false) {
-            throw new RuntimeException('Falha ao decifrar (chave errada ou dado adulterado)');
+            throw new RuntimeException('Failed to decrypt (wrong key or tampered data)');
         }
 
         return $plain;
@@ -114,7 +114,7 @@ final class RemoteDataSecurity
     {
         $data = base64_decode($b64Text, true);
         if ($data === false) {
-            throw new RuntimeException('Texto cifrado não é Base64');
+            throw new RuntimeException('Ciphertext is not Base64');
         }
 
         return $this->decipher($data);
@@ -124,7 +124,7 @@ final class RemoteDataSecurity
     private function material(): array
     {
         if ($this->key === null || $this->iv === null) {
-            throw new RuntimeException('Canal sem chave: o handshake (secret) ainda não aconteceu');
+            throw new RuntimeException('Channel has no key: the handshake (secret) has not happened yet');
         }
 
         return [$this->key, $this->iv];
@@ -132,9 +132,9 @@ final class RemoteDataSecurity
 
     private static function b64UrlDecode(string $text): string
     {
-        $bytes = base64_decode(strtr($text, '-_', '+/'), true);   // padding opcional
+        $bytes = base64_decode(strtr($text, '-_', '+/'), true);   // padding is optional
         if ($bytes === false) {
-            throw new RuntimeException('Base64 URL-safe inválido');
+            throw new RuntimeException('Invalid URL-safe Base64');
         }
 
         return $bytes;

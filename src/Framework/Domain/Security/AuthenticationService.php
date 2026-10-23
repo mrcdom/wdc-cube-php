@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Security;
 
 /**
- * Autenticação por desafio HMAC, sessões e tokens (JWT).
+ * HMAC challenge authentication, sessions and tokens (JWT).
  *
- * Fluxo: `challenge()` dá um nonce de uso único; o cliente manda
- * `hex(HMAC-SHA256(key = hashPassword(senha), data = userName + nonce))` em `login()`.
- * A senha nunca trafega.
+ * Flow: `challenge()` hands out a single-use nonce; the client sends
+ * `hex(HMAC-SHA256(key = hashPassword(password), data = userName + nonce))` to `login()`.
+ * The password never travels over the wire.
  */
 interface AuthenticationService
 {
@@ -23,7 +23,7 @@ interface AuthenticationService
 
     public function resolveToken(string $jwtToken): ?SecurityContext;
 
-    /** Token de longa duração para o "lembrar-me" (auto-login). */
+    /** Long-lived token for "remember me" (auto-login). */
     public function createPersistentToken(int $userId, string $userName): string;
 
     public function loginWithPersistentToken(string $persistentToken): ?AuthResult;

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Interface marcadora: o estado público de uma tela. Os campos `public` do ViewState são
- * o que a view desenha (e o que o host remoto serializa para o cliente).
+ * Marker interface: the public state of a screen. The ViewState's `public` fields are
+ * what the view draws (and what the remote host serializes to the client).
  */
 interface ViewState
 {

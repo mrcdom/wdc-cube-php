@@ -26,8 +26,8 @@ use Wdc\Shopping\Domain\User\UserRepository;
 final class UserRepositoryImpl extends AbstractRepository implements UserRepository
 {
     /*
-     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
-     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     * Table, sequence and column names - this repository owns them. They are public
+     * because other repositories use them too (EXISTS, cascading DELETE).
      */
     public const string TABLE = 'EN_USER';
     public const string SEQUENCE = 'SQ_USER';
@@ -83,7 +83,7 @@ final class UserRepositoryImpl extends AbstractRepository implements UserReposit
     public function delete(object $criteria): int
     {
         if (!$criteria->hasUserId()) {
-            throw new LogicException('User delete requires userId (proteção contra DELETE sem WHERE)');
+            throw new LogicException('User delete requires userId (guard against DELETE without WHERE)');
         }
         return $this->deleteWhere($criteria);
     }

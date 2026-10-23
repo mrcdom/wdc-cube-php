@@ -15,7 +15,7 @@ final class LoginService
 {
     private readonly UserRepository $users;
 
-    /** null ⇒ sem autenticação configurada: confere a senha direto no repositório */
+    /** null ⇒ no authentication configured: checks the password directly against the repository */
     private readonly ?AuthenticationService $auth;
 
     public function __construct()
@@ -24,7 +24,7 @@ final class LoginService
         $this->auth = Beans::find(AuthenticationService::class);
     }
 
-    /** null = credenciais inválidas. */
+    /** null = invalid credentials. */
     public function fetchSubject(?string $userName, ?string $password): ?LoginResult
     {
         if ($userName === null || $password === null) {
@@ -37,21 +37,21 @@ final class LoginService
     }
 
     /**
-     * O mesmo desafio HMAC que um cliente remoto faria, só que todo aqui no servidor: a senha
-     * já chegou cifrada pelo canal da sessão (AES-GCM).
+     * The same HMAC challenge a remote client would perform, only all of it here on the server:
+     * the password already arrived encrypted over the session channel (AES-GCM).
      */
     private function authenticateViaAuthService(AuthenticationService $auth, string $userName, string $password): ?LoginResult
     {
-        $passwordHash = PasswordUtil::hashPassword($password);                     // 1. hash como no banco
-        $challenge = $auth->challenge();                                           // 2. nonce de uso único
+        $passwordHash = PasswordUtil::hashPassword($password);                     // 1. hash as in the database
+        $challenge = $auth->challenge();                                           // 2. single-use nonce
         $digest = PasswordUtil::computeHmac($passwordHash, $userName . $challenge->nonce);   // 3. HMAC
-        $result = $auth->login($userName, $digest, $challenge->nonce);            // 4. autentica
+        $result = $auth->login($userName, $digest, $challenge->nonce);            // 4. authenticate
         if ($result === null) {
             return null;
         }
 
-        $persistentToken = $auth->createPersistentToken($result->userId, $userName);   // 5. "lembrar-me"
-        $subject = Subject::create($this->users->fetch(new UserCriteria()          // 6. nome de exibição
+        $persistentToken = $auth->createPersistentToken($result->userId, $userName);   // 5. "remember me"
+        $subject = Subject::create($this->users->fetch(new UserCriteria()          // 6. display name
             ->withUserId($result->userId)
             ->withProjection(Subject::projection()), 0, 1)[0] ?? null);
 
@@ -59,8 +59,8 @@ final class LoginService
     }
 
     /**
-     * Sem AuthenticationService (ambientes sem segurança configurada): busca pelo login e
-     * compara o hash aqui — a senha nunca é critério de busca.
+     * Without an AuthenticationService (environments with no security configured): looks up by
+     * login and compares the hash here — the password is never a search criterion.
      */
     private function authenticateViaRepository(string $userName, string $password): ?LoginResult
     {

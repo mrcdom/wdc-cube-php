@@ -7,9 +7,9 @@ namespace Wdc\Framework\Commons\Serialization;
 use SplObjectStorage;
 
 /**
- * Entidades já escritas numa serialização, por **identidade de instância** (`===`), para cortar
- * ciclos: a mesma instância vista de novo é escrita só com a chave. Duas instâncias com o mesmo
- * id são independentes. Uma instância por operação de topo.
+ * Entities already written during a serialization, by **instance identity** (`===`), to break
+ * cycles: the same instance seen again is written with its key only. Two instances with the same
+ * id are independent. One instance per top-level operation.
  */
 final class EntityGraph
 {
@@ -21,7 +21,7 @@ final class EntityGraph
         $this->seen = new SplObjectStorage();
     }
 
-    /** true na 1ª vez; false se esta instância já passou (use um stub só com a chave). */
+    /** true the first time; false if this instance was already seen (write a key-only stub). */
     public function track(?object $entity): bool
     {
         if ($entity === null) {

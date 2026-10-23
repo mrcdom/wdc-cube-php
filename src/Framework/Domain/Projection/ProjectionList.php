@@ -10,10 +10,10 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * Projeção de uma coleção 1:N: a forma do item ($shape) + critério do filho (filtro e
- * ordem) + recorte opcional (limit/offset), aplicado POR PAI.
+ * Projection of a 1:N collection: the item shape ($shape) + child criteria (filter and
+ * order) + optional slice (limit/offset), applied PER PARENT.
  *
- * Um array PHP não carrega metadados, então aqui é uma classe que se comporta como coleção (iterável e contável).
+ * A PHP array carries no metadata, so this is a class that behaves like a collection (iterable and countable).
  *
  * @template E of object
  * @implements IteratorAggregate<int, E>

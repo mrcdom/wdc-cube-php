@@ -7,11 +7,11 @@ namespace Wdc\Framework\Commons\Security;
 use GMP;
 
 /**
- * RSA "de livro" (sem padding). Usada só no handshake do canal:
- * o cliente cifra a senha da sessão com `m^e mod n` e o servidor a abre com `c^d mod n`.
+ * "Textbook" RSA (no padding). Used only in the channel handshake:
+ * the client encrypts the session password with `m^e mod n` and the server opens it with `c^d mod n`.
  *
- * Não use para mais nada — RSA sem padding não é seguro em geral; aqui o conteúdo cifrado
- * é aleatório e de uso único, e o formato é o contrato com o shell React.
+ * Do not use it for anything else — unpadded RSA is not secure in general; here the encrypted
+ * content is random and single-use, and the format is the contract with the React shell.
  */
 final readonly class Rsa
 {
@@ -24,14 +24,14 @@ final readonly class Rsa
     ) {
     }
 
-    /** Gera um par de ~$bits bits (dois primos de $bits/2). */
+    /** Generates a ~$bits-bit key pair (two $bits/2-bit primes). */
     public static function generate(int $bits = 512): self
     {
         $e = gmp_init(self::PUBLIC_EXPONENT);
         do {
             $p = self::randomPrime(intdiv($bits, 2));
             $q = self::randomPrime(intdiv($bits, 2));
-            $phi = ($p - 1) * ($q - 1);   // GMP sobrecarrega os operadores aritméticos
+            $phi = ($p - 1) * ($q - 1);   // GMP overloads the arithmetic operators
         } while ($p == $q || gmp_cmp(gmp_gcd($e, $phi), 1) !== 0);
 
         $d = gmp_invert($e, $phi);
@@ -40,7 +40,7 @@ final readonly class Rsa
         return new self($e, $d, $p * $q);
     }
 
-    /** "e:n" em base 36 (pública) e "d" em base 36 (privada) — o formato do protocolo. */
+    /** "e:n" in base 36 (public) and "d" in base 36 (private) — the protocol format. */
     public static function fromBase36(string $publicKey, string $privateKey): self
     {
         [$e, $n] = explode(':', $publicKey, 2) + [1 => '0'];
@@ -71,7 +71,7 @@ final readonly class Rsa
     private static function randomPrime(int $bits): GMP
     {
         $candidate = gmp_import(random_bytes(max(1, intdiv($bits, 8))));
-        $candidate = gmp_or($candidate, gmp_pow(2, $bits - 1));   // garante o tamanho
+        $candidate = gmp_or($candidate, gmp_pow(2, $bits - 1));   // guarantees the bit length
 
         return gmp_nextprime($candidate);
     }

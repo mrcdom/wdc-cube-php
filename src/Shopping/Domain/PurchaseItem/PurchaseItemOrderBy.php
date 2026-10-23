@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Shopping\Domain\PurchaseItem;
 
 /**
- * Ordenações provisionadas de PurchaseItem.
- * PHP não tem tipos aninhados, então o enum mora ao lado de PurchaseItemCriteria.
+ * Provisioned orderings for PurchaseItem.
+ * PHP has no nested types, so the enum lives next to PurchaseItemCriteria.
  */
 enum PurchaseItemOrderBy
 {

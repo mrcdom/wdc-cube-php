@@ -9,8 +9,8 @@ use Amp\Parallel\Worker\Task;
 use Amp\Sync\Channel;
 
 /**
- * A tarefa enviada ao processo-worker. Ela atravessa a fronteira entre processos serializada
- * (por isso só leva strings) e a classe precisa ser carregável pelo autoload do Composer.
+ * The task sent to the worker process. It crosses the process boundary serialized
+ * (that is why it only carries strings) and the class must be loadable by Composer's autoloader.
  *
  * @implements Task<string, never, never>
  */

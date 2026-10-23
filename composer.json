@@ -1,6 +1,6 @@
 {
     "name": "wedocode/wdc-cube-php",
-    "description": "Cube MVP em PHP: presenters no servidor, cliente fino por WebSocket — com a aplicação de demonstração Shopping",
+    "description": "Cube MVP in PHP: server-side presenters, thin client over WebSocket — with the Shopping demo application",
     "type": "project",
     "license": "MIT",
     "require": {

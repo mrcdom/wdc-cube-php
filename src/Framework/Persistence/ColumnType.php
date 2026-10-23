@@ -9,14 +9,14 @@ use DateTimeInterface;
 use DateTimeZone;
 
 /**
- * Tipo lógico de uma coluna e a conversão banco ⇄ PHP.
+ * Logical type of a column and the database ⇄ PHP conversion.
  */
 enum ColumnType
 {
     case Int;
     case Float;
     case Text;
-    /** Gravado como 'Y-m-d H:i:s' em UTC (coluna TIMESTAMP; a sessão do banco também está em UTC). */
+    /** Stored as 'Y-m-d H:i:s' in UTC (TIMESTAMP column; the database session is also in UTC). */
     case DateTime;
     case Blob;
 
@@ -44,7 +44,7 @@ enum ColumnType
         }
 
         return match ($this) {
-            self::Float => round((float) $value, 2),   // coluna NUMERIC(20,2)
+            self::Float => round((float) $value, 2),   // NUMERIC(20,2) column
             self::DateTime => self::formatDate($value),
             self::Blob => new Blob((string) $value),
             default => $value,
@@ -52,8 +52,8 @@ enum ColumnType
     }
 
     /**
-     * Converte data para o formato do banco, sempre em UTC.
-     * (A coluna não guarda fuso: convertemos para UTC antes de descartá-lo.)
+     * Converts a date to the database format, always in UTC.
+     * (The column stores no time zone: we convert to UTC before dropping it.)
      */
     public static function formatDate(mixed $value): mixed
     {

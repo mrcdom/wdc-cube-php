@@ -8,34 +8,34 @@ use LogicException;
 use Throwable;
 
 /**
- * Uma navegação é uma transação sobre a cadeia de presenters:
+ * A navigation is a transaction over the presenter chain:
  *
- * 1. percorre os steps da raiz para a folha; reaproveita o presenter ativo do place ou
- *    cria um novo, e chama `applyParameters($intent, $initialization, $deepest)`;
- * 2. um presenter que devolve false para a caminhada (guarda/redirecionamento);
- * 3. **commit**: ficam os presenters aceitos; os que saíram da cadeia e os criados e não
- *    aceitos são liberados (folha primeiro);
- * 4. exceção ⇒ **rollback**: reaplica o intent anterior nos presenters que já existiam e
- *    libera os criados agora;
- * 5. se outra navegação começou no meio (redirecionamento), esta foi **interrompida**:
- *    não comita nem desfaz — a navegação nova já cuidou de tudo.
+ * 1. walks the steps from root to leaf; reuses the place's active presenter or creates a new
+ *    one, and calls `applyParameters($intent, $initialization, $deepest)`;
+ * 2. a presenter that returns false stops the walk (guard/redirect);
+ * 3. **commit**: the accepted presenters stay; those that left the chain and those created but
+ *    not accepted are released (leaf first);
+ * 4. exception ⇒ **rollback**: re-applies the previous intent to the presenters that already
+ *    existed and releases the ones just created;
+ * 5. if another navigation started midway (redirect), this one was **interrupted**:
+ *    it neither commits nor rolls back — the new navigation has already taken care of everything.
  *
- * Arrays PHP são valores (copiados na atribuição), então a navegação não modifica o mapa
- * de presenters da app no lugar: lê o estado da app quando precisamos e devolvemos o mapa final de uma vez.
+ * PHP arrays are values (copied on assignment), so the navigation does not modify the app's
+ * presenter map in place: it reads the app state when needed and hands back the final map at once.
  */
 final class CubeNavigation
 {
     /** @var list<CubePlace> */
     private array $steps = [];
 
-    /** @var array<int, CubePresenter> presenters criados nesta navegação (ou herdados da interrompida) */
+    /** @var array<int, CubePresenter> presenters created in this navigation (or inherited from the interrupted one) */
     private array $created = [];
 
     private int $reflowCount = 1;
 
     private bool $interrupted = false;
 
-    /** Estado anterior, para o rollback. */
+    /** Previous state, for the rollback. */
     private readonly CubeIntent $sourceIntent;
 
     public function __construct(private readonly CubeApplication $app, ?self $interrupted = null)
@@ -65,8 +65,8 @@ final class CubeNavigation
     }
 
     /**
-     * Desiste da navegação (laço de redirecionamentos): libera o que ela criou e que não
-     * chegou a ficar ativo.
+     * Gives up on the navigation (redirect loop): releases what it created that never
+     * became active.
      *
      * @internal
      */
@@ -77,7 +77,7 @@ final class CubeNavigation
     }
 
     /**
-     * @return bool true se todos os presenters da cadeia aceitaram
+     * @return bool true if every presenter in the chain accepted
      */
     public function execute(CubeIntent $target): bool
     {
@@ -119,7 +119,7 @@ final class CubeNavigation
             if (!$this->interrupted) {
                 $this->rollback($e);
             }
-            throw $e;   // PHP não tem checked exceptions: relança a original, sem embrulhar
+            throw $e;   // PHP has no checked exceptions: rethrow the original, unwrapped
         }
     }
 
@@ -128,13 +128,13 @@ final class CubeNavigation
      */
     private function commit(array $accepted, CubePlace $targetPlace): void
     {
-        $leaving = array_diff_key($this->app->activePresenters(), $accepted);   // saíram da cadeia
-        $unused = array_diff_key($this->created, $accepted);                    // criados e não aceitos
+        $leaving = array_diff_key($this->app->activePresenters(), $accepted);   // left the chain
+        $unused = array_diff_key($this->created, $accepted);                    // created but not accepted
         $this->created = [];
         try {
-            // Libera sempre, mesmo sem presenters ativos antes: numa primeira navegação com
-            // redirecionamento, os criados e não aceitos também precisam ser liberados.
-            $this->app->releaseAll($leaving + $unused);   // `+` em arrays: união por chave
+            // Always release, even with no previously active presenters: on a first navigation
+            // with a redirect, the ones created but not accepted must be released too.
+            $this->app->releaseAll($leaving + $unused);   // `+` on arrays: union by key
         } finally {
             $this->app->navigationEnded($accepted, $targetPlace);
         }
@@ -151,8 +151,8 @@ final class CubeNavigation
                 try {
                     $presenter->applyParameters($this->sourceIntent, false, $id === $last);
                 } catch (Throwable $e) {
-                    // registrar e seguir: a causa original é a que importa
-                    $this->app->logger()->warning('Restaurando estado após "' . $cause->getMessage() . '": ' . $e->getMessage());
+                    // log and move on: the original cause is what matters
+                    $this->app->logger()->warning('Restoring state after "' . $cause->getMessage() . '": ' . $e->getMessage());
                 }
             }
             $this->app->releaseAll($this->created);

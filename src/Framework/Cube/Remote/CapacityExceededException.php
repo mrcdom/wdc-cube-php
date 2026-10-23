@@ -6,7 +6,7 @@ namespace Wdc\Framework\Cube\Remote;
 
 use RuntimeException;
 
-/** Limite de sessões atingido (o WebSocket fecha com 4003 capacity_exceeded). */
+/** Session limit reached (the WebSocket closes with 4003 capacity_exceeded). */
 final class CapacityExceededException extends RuntimeException
 {
     public function __construct(public readonly int $maxInstances)

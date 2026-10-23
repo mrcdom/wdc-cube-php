@@ -10,7 +10,7 @@ use Wdc\Framework\Commons\Serialization\IsoDateTime;
 use Wdc\Framework\Domain\Exception\InvalidRequestException;
 
 /**
- * O tipo do valor de um campo de critério no fio: um caso por tipo.
+ * The wire type of a criteria field's value: one case per type.
  */
 enum CriterionValue
 {
@@ -18,13 +18,13 @@ enum CriterionValue
     case FLOAT;
     case STRING;
     case BOOL;
-    /** data e hora em texto ISO-8601 com deslocamento */
+    /** date and time as ISO-8601 text with offset */
     case DATETIME;
 
     public function write(mixed $value): mixed
     {
         return match ($this) {
-            self::DATETIME => $value instanceof DateTimeImmutable ? IsoDateTime::format($value) : throw new InvalidRequestException('Data esperada'),
+            self::DATETIME => $value instanceof DateTimeImmutable ? IsoDateTime::format($value) : throw new InvalidRequestException('Date expected'),
             self::FLOAT => is_int($value) || is_float($value) ? (float) $value : $value,
             default => $value,
         };

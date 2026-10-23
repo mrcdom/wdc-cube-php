@@ -10,7 +10,7 @@ use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubePresenter;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
-/** Guarda da área pública (sem view). Quem já está logado vai para a área restrita. */
+/** Guard of the public area (no view). Anyone already logged in goes to the restricted area. */
 final class OpenPresenter implements CubePresenter
 {
     public function __construct(public readonly ShoppingApplication $app)
@@ -24,7 +24,7 @@ final class OpenPresenter implements CubePresenter
 
             return false;
         }
-        if ($deepest) {   // é só uma guarda: não tem tela própria
+        if ($deepest) {   // it is just a guard: it has no screen of its own
             (new LoginKeys($this->app, $intent))->go();
 
             return false;

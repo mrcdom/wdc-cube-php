@@ -14,7 +14,7 @@ final class PurchasesPanelViewState implements ViewState
 
     public int $page = 0;
 
-    /** -1 até a view medir quantos itens cabem na tela */
+    /** -1 until the view measures how many items fit on screen */
     public int $pageSize = -1;
 
     public int $totalCount = 0;

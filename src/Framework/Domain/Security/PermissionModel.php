@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Security;
 
 /**
- * Permissões no formato `entidade:operação`; `entidade:*` concede todas;
- * `data:all` libera os dados de todos os usuários. Modelo allow-wins (união).
+ * Permissions in `entity:operation` form; `entity:*` grants all of them;
+ * `data:all` unlocks every user's data. Allow-wins model (union).
  */
 final class PermissionModel
 {

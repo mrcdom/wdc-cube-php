@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube\Util;
 
 /**
- * Monta e lê a parte "?a=1&b=2" de um intent.
+ * Builds and reads the "?a=1&b=2" part of an intent.
  *
- * - nomes e valores são codificados com rawurlencode (sem isso, um valor com "&" quebraria
- *   a URL);
- * - chave repetida vira lista.
+ * - names and values are encoded with rawurlencode (without it, a value containing "&" would
+ *   break the URL);
+ * - a repeated key becomes a list.
  *
- * Não usamos o `parse_str()` nativo porque ele troca "." e espaço por "_" nos nomes e
- * interpreta "a[]=1" como array — comportamentos que o protocolo não tem.
+ * We do not use the native `parse_str()` because it replaces "." and spaces with "_" in names
+ * and interprets "a[]=1" as an array — behaviours the protocol does not have.
  */
 final class QueryString
 {
@@ -21,7 +21,7 @@ final class QueryString
     }
 
     /**
-     * @param array<string, mixed> $parameters valores escalares ou listas de escalares
+     * @param array<string, mixed> $parameters scalar values or lists of scalars
      */
     public static function build(array $parameters): string
     {
@@ -29,7 +29,7 @@ final class QueryString
         foreach ($parameters as $name => $value) {
             foreach (is_array($value) ? $value : [$value] as $item) {
                 $text = self::asString($item);
-                if ($text !== null && trim($text) !== '') {   // nulos e brancos são omitidos
+                if ($text !== null && trim($text) !== '') {   // nulls and blanks are omitted
                     $parts[] = rawurlencode($name) . '=' . rawurlencode($text);
                 }
             }
@@ -39,7 +39,7 @@ final class QueryString
     }
 
     /**
-     * Pares sem "=" são ignorados; "+" vira espaço; %XX é decodificado (UTF-8).
+     * Pairs without "=" are ignored; "+" becomes a space; %XX is decoded (UTF-8).
      *
      * @return array<string, string|list<string>>
      */
@@ -55,7 +55,7 @@ final class QueryString
             if ($eq === false) {
                 continue;
             }
-            $name = urldecode(substr($pair, 0, $eq));    // urldecode trata "+" como espaço
+            $name = urldecode(substr($pair, 0, $eq));    // urldecode treats "+" as a space
             $value = urldecode(substr($pair, $eq + 1));
             if (!array_key_exists($name, $result)) {
                 $result[$name] = $value;

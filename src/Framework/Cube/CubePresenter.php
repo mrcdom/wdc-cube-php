@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Cube;
 
-/** Presenter navegável: ocupa um place na cadeia ativa. */
+/** Navigable presenter: occupies a place in the active chain. */
 interface CubePresenter extends PresenterBase
 {
     /**
-     * @param bool $initialization true quando o presenter acabou de ser criado
-     * @param bool $deepest        true só para o place alvo (a folha da cadeia)
-     * @return bool false interrompe a navegação (guarda, redirecionamento)
+     * @param bool $initialization true when the presenter has just been created
+     * @param bool $deepest        true only for the target place (the leaf of the chain)
+     * @return bool false stops the navigation (guard, redirect)
      */
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool;
 
-    /** Escreve no intent os parâmetros que representam o estado atual (viram a URL). */
+    /** Writes into the intent the parameters that represent the current state (they become the URL). */
     public function publishParameters(CubeIntent $intent): void;
 }

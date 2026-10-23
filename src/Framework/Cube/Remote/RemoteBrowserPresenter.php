@@ -13,10 +13,10 @@ use Wdc\Framework\Cube\PresenterBase;
 use Wdc\Framework\Cube\Skeleton;
 
 /**
- * A view raiz do protocolo (id fixo `7b32e816a191:0`): hospeda a view do presenter raiz,
- * mostra alertas e recebe os eventos de navegação do browser.
+ * The root view of the protocol (fixed id `7b32e816a191:0`): hosts the root presenter's view,
+ * shows alerts and receives the browser's navigation events.
  *
- * Eventos: -1 início (p.path), -2 voltar/avançar (p.path), 1 OK do alerta, 2 keep-alive.
+ * Events: -1 start (p.path), -2 back/forward (p.path), 1 alert OK, 2 keep-alive.
  */
 final class RemoteBrowserPresenter implements PresenterBase
 {
@@ -26,7 +26,7 @@ final class RemoteBrowserPresenter implements PresenterBase
 
     public readonly RemoteView $view;
 
-    /** @var Closure(): void ações a executar quando o usuário fechar o alerta */
+    /** @var Closure(): void actions to run when the user closes the alert */
     private Closure $alertAction;
 
     public function __construct(
@@ -57,18 +57,18 @@ final class RemoteBrowserPresenter implements PresenterBase
 
     public function alertUnexpectedError(?string $message, ?Throwable $cause): void
     {
-        $message ??= $cause?->getMessage() ?? 'Ocorreu um erro não previsto';
+        $message ??= $cause?->getMessage() ?? 'An unexpected error occurred';
         $this->logger->error($message, $cause === null ? [] : ['exception' => $cause]);
         $none = static function (): void {
         };
         if ($cause !== null) {
-            $this->alert($none, -1, $message, (string) $cause);   // (string) $e = mensagem + pilha
+            $this->alert($none, -1, $message, (string) $cause);   // (string) $e = message + stack trace
         } else {
             $this->alert($none, -1, $message);
         }
     }
 
-    /** @param Closure(): void $action executada no OK, depois das ações de alertas anteriores */
+    /** @param Closure(): void $action run on OK, after the actions of previous alerts */
     public function alert(Closure $action, int $code, string ...$args): void
     {
         $previous = $this->alertAction;
@@ -84,7 +84,7 @@ final class RemoteBrowserPresenter implements PresenterBase
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton(self::CLASS_ID, function (int $event, int $qtde, array $form): void {
+        return new Skeleton(self::CLASS_ID, function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onAlertOk(),
                 2 => $this->app->remote()->extendLife(),

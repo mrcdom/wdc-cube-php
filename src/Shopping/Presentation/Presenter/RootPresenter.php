@@ -23,14 +23,14 @@ use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
 
 /**
- * Raiz: hospeda a tela corrente (login ou home) e mostra erros inesperados.
+ * Root: hosts the current screen (login or home) and shows unexpected errors.
  *
  * @extends AbstractCubePresenter<ShoppingApplication>
  */
 final class RootPresenter extends AbstractCubePresenter
 {
     /**
-     * Fábrica da view, preenchida pelo host (ou pelo teste).
+     * View factory, filled in by the host (or by the test).
      *
      * @var (Closure(self): CubeView)|null
      */
@@ -56,19 +56,19 @@ final class RootPresenter extends AbstractCubePresenter
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
     {
         if ($initialization) {
-            $this->view = (self::$createView ?? throw new LogicException('RootPresenter::$createView não configurado'))($this);
+            $this->view = (self::$createView ?? throw new LogicException('RootPresenter::$createView not configured'))($this);
             $this->tryAutoLogin();
         }
         if ($deepest) {
             throw new WrongPlace();
         }
-        // não aceita trocar o usuário pela URL
+        // does not accept switching the user through the URL
         $keys = new RootKeys($this->app, $intent);
         $subject = $this->app->subject();
         if ($subject !== null) {
             $keys->userId = $subject->id;
         }
-        $keys->ownerSlot = $this->contentSlot;   // oferecido a cada viagem: o nível de baixo o lê sempre
+        $keys->ownerSlot = $this->contentSlot;   // offered on every trip: the level below always reads it
 
         return true;
     }
@@ -94,12 +94,12 @@ final class RootPresenter extends AbstractCubePresenter
     public function skeleton(): CubeSkeleton
     {
         return new Skeleton('f2d345c4a610', static function (): void {
-            // a raiz não recebe eventos
+            // the root receives no events
         });
     }
 
     /**
-     * Auto-login: o token persistente ("lembrar-me") guardado no armazenamento seguro do cliente.
+     * Auto-login: the persistent ("remember me") token kept in the client's secure storage.
      */
     private function tryAutoLogin(): void
     {

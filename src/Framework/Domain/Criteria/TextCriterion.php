@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Criteria;
 
 /**
- * Critério de campo textual. Os curingas (%) fazem parte do valor, como em SQL.
+ * Criterion on a text field. Wildcards (%) are part of the value, as in SQL.
  *
  * @template-covariant C of object
  * @extends ComparableCriterion<C, string>
@@ -13,7 +13,7 @@ namespace Wdc\Framework\Domain\Criteria;
 class TextCriterion extends ComparableCriterion
 {
     /**
-     * LIKE, sensível a maiúsculas. Texto nulo ou vazio não acrescenta pedido.
+     * LIKE, case-sensitive. Null or empty text adds no request.
      *
      * @return C
      */
@@ -23,7 +23,7 @@ class TextCriterion extends ComparableCriterion
     }
 
     /**
-     * ILIKE, insensível a maiúsculas.
+     * ILIKE, case-insensitive.
      *
      * @return C
      */
@@ -33,7 +33,7 @@ class TextCriterion extends ComparableCriterion
     }
 
     /**
-     * ILIKE '%valor%'.
+     * ILIKE '%value%'.
      *
      * @return C
      */
@@ -43,7 +43,7 @@ class TextCriterion extends ComparableCriterion
     }
 
     /**
-     * ILIKE 'valor%' — ancorado no início.
+     * ILIKE 'value%' — anchored at the start.
      *
      * @return C
      */
@@ -52,7 +52,7 @@ class TextCriterion extends ComparableCriterion
         return self::isEmpty($prefix) ? $this->owner() : $this->ilike($prefix . '%');
     }
 
-    /** @phpstan-assert-if-false non-empty-string $s  (ensina ao PHPStan: se devolveu false, $s é string) */
+    /** @phpstan-assert-if-false non-empty-string $s  (tells PHPStan: if this returned false, $s is a string) */
     private static function isEmpty(?string $s): bool
     {
         return $s === null || $s === '';

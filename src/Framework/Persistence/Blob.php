@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Persistence;
 
 /**
- * Marca um parâmetro como binário. Em PHP bytes são só `string`; sem a marca o valor
- * iria ao banco como texto, e não como BYTEA.
+ * Marks a parameter as binary. In PHP, bytes are just a `string`; without the marker the value
+ * would reach the database as text rather than BYTEA.
  */
 final readonly class Blob
 {

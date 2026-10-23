@@ -1,46 +1,46 @@
 # WDC Cube PHP
 
-**Cube MVP** em PHP: uma arquitetura em que os *presenters* — a lógica de cada tela — rodam num
-servidor PHP de longa duração, e o cliente só desenha o estado que recebe. O cliente incluído é um
-shell React que conversa com o servidor por WebSocket.
+**Cube MVP** in PHP: an architecture in which the *presenters* — the logic behind each screen — run
+on a long-lived PHP server, and the client only draws the state it receives. The bundled client is
+a React shell that talks to the server over WebSocket.
 
-O repositório traz o framework e uma aplicação de demonstração completa, o **Shopping**.
+The repository contains the framework and a complete demo application, **Shopping**.
 
-- [docs/guia-para-quem-vem-do-php.md](docs/guia-para-quem-vem-do-php.md) — comece por aqui se você
-  programa em PHP com frameworks de template (Laravel, Symfony, Twig): a proposta explicada a
-  partir do que você já conhece, com um exercício guiado.
-- [docs/dev/](docs/dev/README.md) — guias passo a passo para desenvolver: setup local, criar uma
-  funcionalidade do banco à tela, repositórios, consultas, serviços, transações, presenters e views.
-- [docs/arquitetura.md](docs/arquitetura.md) — como o Cube funciona: places, presenters, navegação,
-  protocolo, persistência sem N+1, segurança.
-- [docs/escalando.md](docs/escalando.md) — várias instâncias atrás de um balanceador.
+- [docs/guide-for-php-developers.md](docs/guide-for-php-developers.md) — start here if you write
+  PHP with template frameworks (Laravel, Symfony, Twig): the idea explained from what you already
+  know, with a guided exercise.
+- [docs/dev/](docs/dev/README.md) — step-by-step development guides: local setup, building a
+  feature from database to screen, repositories, queries, services, transactions, presenters and views.
+- [docs/architecture.md](docs/architecture.md) — how Cube works: places, presenters, navigation,
+  protocol, N+1-free persistence, security.
+- [docs/scaling.md](docs/scaling.md) — multiple instances behind a load balancer.
 
-## O Shopping
+## Shopping
 
-Uma loja simples, de ponta a ponta:
+A simple shop, end to end:
 
-- **login** por desafio HMAC (a senha nunca trafega), com "lembrar-me";
-- **catálogo** de produtos com imagem e descrição;
-- **carrinho**: adicionar, mudar quantidade, remover, comprar;
-- **recibo** da compra e **histórico** das compras do usuário;
-- **API REST** com JWT, permissões por papel e transações remotas.
+- **login** via HMAC challenge (the password never goes over the wire), with "remember me";
+- product **catalog** with image and description;
+- **cart**: add, change quantity, remove, buy;
+- purchase **receipt** and the user's purchase **history**;
+- **REST API** with JWT, role-based permissions and remote transactions.
 
-Usuários de demonstração (senha = login): `admin` (administrador, vê os dados de todos), `fulano` e
-`beotrano` (clientes).
+Demo users (password = login): `admin` (administrator, sees everyone's data), `john` and
+`jane` (customers).
 
-## Requisitos
+## Requirements
 
-- PHP 8.4+ com as extensões `gmp`, `openssl` e `pgsql`
+- PHP 8.4+ with the `gmp`, `openssl` and `pgsql` extensions
 - PostgreSQL 14+
 - Composer 2
-- Node.js 20+ (só para compilar o shell React)
+- Node.js 20+ (only to build the React shell)
 
-No macOS: `brew install php composer node postgresql@17` (o PHP do Homebrew já traz `pgsql`).
+On macOS: `brew install php composer node postgresql@17` (Homebrew's PHP already includes `pgsql`).
 
-## Compilar e rodar
+## Build and run
 
-Antes da primeira subida, ponha o usuário e a senha do PostgreSQL em
-`work/config/application.local.toml` (fora do git):
+Before the first start, put the PostgreSQL username and password in
+`work/config/application.local.toml` (not in git):
 
 ```toml
 [database]
@@ -49,20 +49,20 @@ password = "..."
 ```
 
 ```bash
-composer install          # dependências PHP
-bin/build-frontend.sh     # compila o shell React para work/frontend/
-php bin/server.php        # sobe o servidor em http://localhost:8080 (Ctrl+C encerra)
+composer install          # PHP dependencies
+bin/build-frontend.sh     # builds the React shell into work/frontend/
+php bin/server.php        # starts the server at http://localhost:8080 (Ctrl+C stops it)
 ```
 
-Abra http://localhost:8080/ (redireciona para o shell React) e entre com `admin`/`admin`.
+Open http://localhost:8080/ (it redirects to the React shell) and log in with `admin`/`admin`.
 
-Para desenvolver o frontend com recompilação automática:
+To work on the frontend with automatic rebuilds:
 `(cd frontend/shopping.shell.react && npm run watch)`.
 
-## Testes
+## Tests
 
-Os testes usam um banco PostgreSQL só para eles — **é apagado e recriado a cada execução**, então
-nunca use o mesmo do servidor. Configure-o no `application.local.toml`:
+The tests use a PostgreSQL database of their own — **it is dropped and recreated on every run**, so
+never use the server's database. Configure it in `application.local.toml`:
 
 ```toml
 [test.database]
@@ -72,53 +72,53 @@ password = "..."
 ```
 
 ```bash
-composer check            # PHPStan (nível 8) + PHPUnit
+composer check            # PHPStan (level 8) + PHPUnit
 ```
 
-Em CI, as variáveis `WDC_TEST_DB_URL`, `WDC_TEST_DB_USER` e `WDC_TEST_DB_PASSWORD` substituem o arquivo.
+In CI, the `WDC_TEST_DB_URL`, `WDC_TEST_DB_USER` and `WDC_TEST_DB_PASSWORD` variables replace the file.
 
-Os testes cobrem o motor, a persistência, os presenters (testes de aceitação com views falsas), o
-protocolo remoto, a API REST e o servidor de ponta a ponta (HTTP e WebSocket numa porta livre).
-O teste do servidor que usa o shell React é pulado se o frontend não tiver sido compilado.
+The tests cover the engine, persistence, the presenters (acceptance tests with fake views), the
+remote protocol, the REST API and the server end to end (HTTP and WebSocket on a free port).
+The server test that uses the React shell is skipped if the frontend has not been built.
 
-## Configuração
+## Configuration
 
-Arquivo principal: [work/config/application.toml](work/config/application.toml). Sobrescritas
-locais, fora do git: `work/config/application.local.toml`, na mesma pasta.
+Main file: [work/config/application.toml](work/config/application.toml). Local overrides, not in
+git: `work/config/application.local.toml`, in the same folder.
 
-Na primeira subida, o servidor cria o banco (se o usuário tiver permissão), o schema e os dados de
-demonstração, e gera chaves de desenvolvimento em `application.local.toml`. **Troque-as em
-produção**, assim como o `security.jwt.secret`.
+On the first start, the server creates the database (if the user has permission), the schema and
+the demo data, and generates development keys in `application.local.toml`. **Replace them in
+production**, along with `security.jwt.secret`.
 
-Variáveis de ambiente: `SERVER_PORT`, `LOG_LEVEL` (`debug`, `info`, ...) e `SHOPPING_CONFIG_FILE`
-(outro arquivo de configuração).
+Environment variables: `SERVER_PORT`, `LOG_LEVEL` (`debug`, `info`, ...) and `SHOPPING_CONFIG_FILE`
+(a different configuration file).
 
-## Banco de dados
+## Database
 
-PostgreSQL, acessado de forma assíncrona (`amphp/postgres`): uma consulta suspende só a sessão que
-a fez, e várias consultas rodam ao mesmo tempo, cada uma numa conexão do pool. Em `[database]`:
+PostgreSQL, accessed asynchronously (`amphp/postgres`): a query suspends only the session that
+issued it, and several queries run at the same time, each on a pooled connection. Under `[database]`:
 
-- `url` — endereço, padrão `pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php`;
-- `username`, `password` — no `application.local.toml`;
-- `pool.maxConnections` — tamanho do pool (padrão 16).
+- `url` — address, default `pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php`;
+- `username`, `password` — in `application.local.toml`;
+- `pool.maxConnections` — pool size (default 16).
 
-Se o banco não existir, o servidor tenta criá-lo; o schema e os dados de demonstração são criados
-na primeira subida.
+If the database does not exist, the server tries to create it; the schema and the demo data are
+created on the first start.
 
-## API REST
+## REST API
 
-Na raiz e sob cada frontend (`/<frontend>/api/...`):
+At the root and under each frontend (`/<frontend>/api/...`):
 
-- `GET /api/auth/challenge`, `POST /api/auth/{login,refresh,logout}` — login por desafio HMAC, JWT
+- `GET /api/auth/challenge`, `POST /api/auth/{login,refresh,logout}` — HMAC challenge login, JWT
 - `POST /api/repo/<user|product|purchase|purchase-item>/<insert|update|delete|count|fetch|fetch-page|fetch-by-id>`,
-  `GET /api/repo/<entidade>/{id}`, `GET|PUT /api/repo/product/{id}/image`
-- `POST /api/tx/{begin,commit,rollback}`, `GET /api/tx/status` — transação remota (cabeçalho `X-Tx-Id`)
+  `GET /api/repo/<entity>/{id}`, `GET|PUT /api/repo/product/{id}/image`
+- `POST /api/tx/{begin,commit,rollback}`, `GET /api/tx/status` — remote transaction (`X-Tx-Id` header)
 
-Com `security.jwt.secret` definido, `/api/repo` e `/api/tx` exigem `Authorization: Bearer <jwt>`;
-sem ele, a segurança fica desligada. Os limites da transação remota ficam em
+With `security.jwt.secret` set, `/api/repo` and `/api/tx` require `Authorization: Bearer <jwt>`;
+without it, security is off. The remote transaction limits live in
 `[database] remoteTransaction.*`.
 
-Exemplo — contar os produtos com preço a partir de 20, depois de obter um token:
+Example — count the products priced 20 or more, after obtaining a token:
 
 ```bash
 curl -X POST localhost:8080/api/repo/product/count \
@@ -126,17 +126,17 @@ curl -X POST localhost:8080/api/repo/product/count \
   -d '{"price": {"p": [{"o": "GE", "v": [20.0]}]}}'
 ```
 
-## Estrutura
+## Layout
 
-- `src/Framework/` — o framework Cube: motor, protocolo remoto, persistência, API REST
-- `src/Shopping/` — a aplicação de demonstração: domínio, persistência, apresentação, servidor
-- `frontend/shopping.shell.react/` — o shell React (React, TypeScript, MUI)
-- `frontend/remote.bridge.react/` — o bridge: o protocolo do Cube no lado do cliente
+- `src/Framework/` — the Cube framework: engine, remote protocol, persistence, REST API
+- `src/Shopping/` — the demo application: domain, persistence, presentation, server
+- `frontend/shopping.shell.react/` — the React shell (React, TypeScript, MUI)
+- `frontend/remote.bridge.react/` — the bridge: the client side of the Cube protocol
 - `tests/` — PHPUnit
-- `bin/` — servidor e build do frontend
-- `skills/cube-architecture-php/` — skill para assistentes de código (Claude Code): como escrever, revisar e depurar código nesta arquitetura
-- `work/` — configuração e dados de runtime
+- `bin/` — server and frontend build
+- `skills/cube-architecture-php/` — a skill for coding assistants (Claude Code): how to write, review and debug code in this architecture
+- `work/` — configuration and runtime data
 
-## Licença
+## License
 
 [MIT](LICENSE).

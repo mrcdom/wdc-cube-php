@@ -8,9 +8,9 @@ use RuntimeException;
 use Wdc\Framework\Domain\Config\AppConfig;
 
 /**
- * Diretórios de runtime e segredos da aplicação.
+ * Runtime directories and application secrets.
  *
- * Um objeto imutável criado uma vez no composition root e passado adiante.
+ * An immutable object created once in the composition root and passed along.
  */
 final readonly class ShoppingConfig
 {
@@ -33,7 +33,7 @@ final readonly class ShoppingConfig
         return self::configure(AppConfig::load(self::CONFIG_FILE_ENV, self::DEFAULT_CONFIG_PATH));
     }
 
-    /** `app.basedir` é relativo à pasta do arquivo de configuração; cria config/ data/ log/ temp/. */
+    /** `app.basedir` is relative to the config file's folder; creates config/ data/ log/ temp/. */
     public static function configure(AppConfig $config): self
     {
         $configured = $config->get('app.basedir');
@@ -55,7 +55,7 @@ final readonly class ShoppingConfig
 
     public const string DEFAULT_DATABASE_URL = 'pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php';
 
-    /** Endereço do PostgreSQL: `database.url` (ex.: `pgsql:host=localhost;port=5432;dbname=...`). */
+    /** PostgreSQL address: `database.url` (e.g. `pgsql:host=localhost;port=5432;dbname=...`). */
     public function databaseDsn(): string
     {
         $url = $this->config->get('database.url');
@@ -64,7 +64,7 @@ final readonly class ShoppingConfig
     }
 
     /**
-     * Tamanho do pool de conexões (`database.pool.maxConnections`).
+     * Connection pool size (`database.pool.maxConnections`).
      *
      * @return positive-int
      */

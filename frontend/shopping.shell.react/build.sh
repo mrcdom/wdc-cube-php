@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 
-# Install dependencies if needed (o bridge tem as suas: @noble/*)
+# Install dependencies if needed (the bridge has its own: @noble/*)
 if [ ! -d "node_modules" ]; then
     npm install
 fi

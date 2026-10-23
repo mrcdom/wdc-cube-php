@@ -54,7 +54,7 @@ $criteria = (new ProductCriteria())
     ->withProjection(ProductInfo::projection())
     ->withOrderBy(ProductOrderBy::CHEAPEST_FIRST);
 $criteria->price()->ge(10.0);                                   // ComparableCriterion: gt ge lt le between
-$criteria->name()->or()->like('Bola%')->name()->like('Fita%');  // TextCriterion: like ilike containing startingWith
+$criteria->name()->or()->like('Wilson%')->name()->like('Thread%');  // TextCriterion: like ilike containing startingWith
 $criteria->productId()->in([1, 2, 3]);                          // eq ne in isNull isNotNull
 ```
 
@@ -303,7 +303,7 @@ criteria, translator and codec criteria field.
       (`self::RATING`, `PurchaseItemRepositoryImpl::PURCHASEID`), never as string literals.
       *Symptom: a typo surfaces as an SQL error only when that query runs, not in PHPStan.*
 - [ ] A new repository is registered in `ShoppingRepositories::register()`. *Symptom:
-      "Nenhuma implementação registrada para ...XxxRepository" on the first screen that uses it.*
+      "No implementation registered for ...XxxRepository" on the first screen that uses it.*
 - [ ] Repositories and services keep nothing of a call in a field (they are shared by every
       session). *Symptom: one user's data showing up in another session.*
 - [ ] Several writes in one `required()`. *Symptom: half an operation saved after an error.*

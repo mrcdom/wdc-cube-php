@@ -7,16 +7,16 @@ namespace Wdc\Framework\Commons;
 use LogicException;
 
 /**
- * Os serviços compartilhados do processo (repositórios, transações, autenticação), achados pela
+ * The process-wide shared services (repositories, transactions, authentication), looked up by
  * interface: `Beans::of(ProductRepository::class)`.
  *
- * São preenchidos uma vez, na subida do servidor (ou no `setUp` de um teste), e depois só lidos.
- * Por isso servem a todas as sessões ao mesmo tempo sem problema com as Fibers: o que muda por
- * requisição nunca fica aqui.
+ * They are filled in once, at server startup (or in a test's `setUp`), and only read afterwards.
+ * That is why they can serve every session at the same time without trouble from Fibers: nothing
+ * that changes per request lives here.
  *
- * A chave é a interface, e o PHPStan sabe o tipo do retorno: `of(ProductRepository::class)` é um
- * `ProductRepository`. (Uma interface PHP não pode ter propriedade estática, por isso o registro
- * fica numa classe à parte.)
+ * The key is the interface, and PHPStan knows the return type: `of(ProductRepository::class)` is a
+ * `ProductRepository`. (A PHP interface cannot have a static property, so the registry lives in a
+ * separate class.)
  */
 final class Beans
 {
@@ -28,7 +28,7 @@ final class Beans
     }
 
     /**
-     * Registra (ou, com `null`, remove) a implementação de uma interface.
+     * Registers (or, with `null`, removes) the implementation of an interface.
      *
      * @template T of object
      * @param class-string<T> $type
@@ -42,13 +42,13 @@ final class Beans
             return;
         }
         if (!$bean instanceof $type) {
-            throw new LogicException(get_class($bean) . " não implementa {$type}");
+            throw new LogicException(get_class($bean) . " does not implement {$type}");
         }
         self::$beans[$type] = $bean;
     }
 
     /**
-     * A implementação registrada; sem registro é erro de montagem.
+     * The registered implementation; a missing registration is a wiring error.
      *
      * @template T of object
      * @param class-string<T> $type
@@ -56,11 +56,11 @@ final class Beans
      */
     public static function of(string $type): object
     {
-        return self::find($type) ?? throw new LogicException("Nenhuma implementação registrada para {$type}");
+        return self::find($type) ?? throw new LogicException("No implementation registered for {$type}");
     }
 
     /**
-     * A implementação registrada, ou `null` para um serviço opcional (ex.: autenticação desligada).
+     * The registered implementation, or `null` for an optional service (e.g. authentication turned off).
      *
      * @template T of object
      * @param class-string<T> $type
@@ -73,7 +73,7 @@ final class Beans
         return $bean instanceof $type ? $bean : null;
     }
 
-    /** Esvazia o registro (testes). */
+    /** Empties the registry (tests). */
     public static function clear(): void
     {
         self::$beans = [];

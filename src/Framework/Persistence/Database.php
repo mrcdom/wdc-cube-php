@@ -20,16 +20,16 @@ use Wdc\Framework\Persistence\Dialect\SqlDialect;
 use function Amp\Postgres\connect;
 
 /**
- * Acesso ao PostgreSQL, assíncrono, sobre um pool de conexões (`amphp/postgres`).
+ * Asynchronous PostgreSQL access over a connection pool (`amphp/postgres`).
  *
- * Uma consulta suspende só a Fiber que a fez: enquanto o banco responde, o event loop segue
- * atendendo as outras sessões, e várias consultas rodam ao mesmo tempo, cada uma numa conexão
- * do pool. Para quem chama, nada muda: `fetchAll()` devolve as linhas, como uma chamada comum.
+ * A query suspends only the Fiber that issued it: while the database responds, the event loop
+ * keeps serving the other sessions, and several queries run at once, each on a pool connection.
+ * For the caller nothing changes: `fetchAll()` returns the rows, like an ordinary call.
  *
- * **Transação = conexão exclusiva.** Fora de transação, cada comando pega qualquer conexão livre
- * do pool. Dentro de uma, todos os comandos precisam ir para a mesma conexão — e só eles. Por
- * isso a transação é "ligada" à Fiber corrente ({@see bind()}): o SQL daquela Fiber vai para a
- * transação; o das outras continua indo para o pool.
+ * **Transaction = exclusive connection.** Outside a transaction, each command takes any free
+ * pool connection. Inside one, all commands must go to the same connection — and only they may.
+ * That is why the transaction is "bound" to the current Fiber ({@see bind()}): that Fiber's SQL
+ * goes to the transaction; the other Fibers' SQL keeps going to the pool.
  */
 final class Database
 {
@@ -42,7 +42,7 @@ final class Database
 
     private readonly PostgresConnectionPool $pool;
 
-    /** @var FiberValue<PostgresTransaction> a transação ligada à Fiber corrente */
+    /** @var FiberValue<PostgresTransaction> the transaction bound to the current Fiber */
     private readonly FiberValue $bound;
 
     public function __construct(
@@ -50,15 +50,15 @@ final class Database
         int $maxConnections = self::DEFAULT_MAX_CONNECTIONS,
     ) {
         $this->dialect = new PostgresDialect();
-        // resetConnections: false — o projeto não guarda estado de sessão na conexão, e o
-        // DISCARD ALL antes de cada uso custaria uma ida ao banco por comando
+        // resetConnections: false — the project keeps no session state on the connection, and
+        // a DISCARD ALL before each use would cost one database round trip per command
         $this->pool = new PostgresConnectionPool($config, max(1, $maxConnections), resetConnections: false);
         $this->bound = new FiberValue(PostgresTransaction::class);
     }
 
     /**
-     * Abre pelo endereço do banco, no formato `host=localhost;port=5432;dbname=loja` (o prefixo
-     * `pgsql:` é aceito). Se o banco ainda não existe, tenta criá-lo.
+     * Opens by database address, in the form `host=localhost;port=5432;dbname=shop` (the `pgsql:`
+     * prefix is accepted). If the database does not exist yet, tries to create it.
      *
      * @param positive-int $maxConnections
      */
@@ -75,7 +75,7 @@ final class Database
     }
 
     /**
-     * @throws \InvalidArgumentException endereço mal formado
+     * @throws \InvalidArgumentException malformed address
      */
     public static function config(string $dsn, ?string $user = null, ?string $password = null): PostgresConfig
     {
@@ -88,7 +88,7 @@ final class Database
             $config = $config->withPassword($password);
         }
 
-        // datas sempre em UTC, em toda conexão (vale como padrão da sessão, desde a abertura)
+        // dates always in UTC on every connection (applies as the session default from the start)
         return $config->withOptions('-c TimeZone=UTC');
     }
 
@@ -97,14 +97,14 @@ final class Database
         return $this->dialect->name();
     }
 
-    /** O que muda de um banco para outro (sequências, paginação, JSON...). */
+    /** What differs from one database to another (sequences, pagination, JSON...). */
     public function dialect(): SqlDialect
     {
         return $this->dialect;
     }
 
     /**
-     * Observa cada comando enviado ao banco (testes, depuração, log de SQL).
+     * Observes each command sent to the database (tests, debugging, SQL logging).
      *
      * @param (Closure(string, list<mixed>): void)|null $listener
      */
@@ -139,21 +139,21 @@ final class Database
 
     /**
      * @param list<mixed> $params
-     * @return int linhas afetadas
+     * @return int affected rows
      */
     public function execute(string $sql, array $params = []): int
     {
         return $this->run($sql, $params)->getRowCount() ?? 0;
     }
 
-    /** Executa vários comandos sem parâmetros (DDL). */
+    /** Runs several commands without parameters (DDL). */
     public function exec(string $sql): void
     {
         if ($this->listener !== null) {
             ($this->listener)($sql, []);
         }
         $result = $this->executor()->query($sql);
-        while ($result !== null) {   // um resultado por comando: consome todos
+        while ($result !== null) {   // one result per command: consume them all
             $result = $result->getNextResult();
         }
     }
@@ -168,15 +168,15 @@ final class Database
         $this->dialect->restartSequence($this, $sequence, $next);
     }
 
-    /** Abre uma transação numa conexão do pool (ela fica presa à transação até o fim). */
+    /** Opens a transaction on a pool connection (the connection stays tied to it until the end). */
     public function beginTransaction(): PostgresTransaction
     {
         return $this->pool->beginTransaction();
     }
 
     /**
-     * Uma conexão só para quem pediu, fora do pool — para a transação remota da API REST, que
-     * atravessa várias requisições e não deve ocupar uma conexão do pool por todo esse tempo.
+     * A dedicated connection outside the pool — for the REST API remote transaction, which spans
+     * several requests and must not hold a pool connection for all that time.
      */
     public function newConnection(): PostgresConnection
     {
@@ -184,10 +184,10 @@ final class Database
     }
 
     /**
-     * Liga uma transação à Fiber corrente; null desliga. Daí em diante, o SQL desta Fiber vai
-     * para a transação.
+     * Binds a transaction to the current Fiber; null unbinds. From then on, this Fiber's SQL goes
+     * to the transaction.
      *
-     * @return PostgresTransaction|null a que estava ligada antes
+     * @return PostgresTransaction|null the previously bound one
      */
     public function bind(?PostgresTransaction $transaction): ?PostgresTransaction
     {
@@ -197,7 +197,7 @@ final class Database
         return $previous;
     }
 
-    /** A transação ligada à Fiber corrente, se houver. */
+    /** The transaction bound to the current Fiber, if any. */
     public function boundTransaction(): ?PostgresTransaction
     {
         return $this->bound->get();
@@ -208,13 +208,13 @@ final class Database
         return $this->bound->get() !== null;
     }
 
-    /** Fecha o pool (fim do servidor ou dos testes). */
+    /** Closes the pool (server or test shutdown). */
     public function close(): void
     {
         $this->pool->close();
     }
 
-    /** Para onde vai o SQL agora: a transação desta Fiber, ou qualquer conexão do pool. */
+    /** Where SQL goes right now: this Fiber's transaction, or any pool connection. */
     private function executor(): PostgresExecutor
     {
         return $this->bound->get() ?? $this->pool;
@@ -236,8 +236,9 @@ final class Database
     }
 
     /**
-     * Conveniência de desenvolvimento: se o banco não existe, cria-o pela base de manutenção
-     * `postgres`. Sem permissão para isso (comum em produção), a falha diz o que fazer.
+     * Development convenience: if the database does not exist, creates it through the `postgres`
+     * maintenance database. Without permission to do so (common in production), the error says
+     * what to do.
      */
     private static function createDatabaseIfMissing(PostgresConfig $config): void
     {
@@ -256,7 +257,7 @@ final class Database
             $admin->close();
         } catch (Throwable $e) {
             throw new SqlConnectionException(
-                "O banco '{$config->getDatabase()}' não existe e não foi possível criá-lo: {$e->getMessage()}",
+                "Database '{$config->getDatabase()}' does not exist and could not be created: {$e->getMessage()}",
                 0,
                 $e,
             );

@@ -11,7 +11,7 @@ use Wdc\Tests\Shopping\Presentation\Mock\HomeViewMock;
 use Wdc\Tests\Shopping\Presentation\Mock\ProductViewMock;
 use Wdc\Tests\Shopping\Presentation\Mock\ReceiptViewMock;
 
-/** Fluxo de compra pelos presenters: visualizar produto (existente ou não) e comprar até o recibo. */
+/** Purchase flow through the presenters: view a product (existing or not) and buy through to the receipt. */
 final class ShoppingWorkflowTest extends PresentationTestCase
 {
     private function home(): HomeViewMock
@@ -20,63 +20,63 @@ final class ShoppingWorkflowTest extends PresentationTestCase
     }
 
     #[Test]
-    public function visualizaProdutoInexistente(): void
+    public function viewNonexistentProduct(): void
     {
         $this->login()->presenter->onOpenProduct(PHP_INT_MIN);
 
-        // produto inexistente ⇒ rollback da navegação; a home continua e mostra o erro
-        self::assertSame(3, $this->home()->state->errorCode, 'O código de erro deve indicar produto não existe');
+        // nonexistent product ⇒ navigation rollback; the home stays and shows the error
+        self::assertSame(3, $this->home()->state->errorCode, 'The error code must indicate the product does not exist');
         self::assertNull($this->home()->state->contentView);
     }
 
     #[Test]
-    public function visualizaProduto(): void
+    public function viewProduct(): void
     {
-        $this->login()->presenter->onOpenProduct(Seed::PEN_DRIVE2GB_ID);
+        $this->login()->presenter->onOpenProduct(Seed::FLASH_DRIVE2GB_ID);
 
         $product = ProductViewMock::cast($this->home()->state->contentView);
-        self::assertNotNull($product->state->product, 'Produto deve ter sido selecionado');
+        self::assertNotNull($product->state->product, 'Product should have been selected');
     }
 
     #[Test]
-    public function comprarProduto(): void
+    public function buyProduct(): void
     {
         $home = $this->login();
 
-        $home->presenter->onOpenProduct(Seed::PEN_DRIVE2GB_ID);
+        $home->presenter->onOpenProduct(Seed::FLASH_DRIVE2GB_ID);
         $product = ProductViewMock::cast($home->state->contentView);
-        self::assertSame(Seed::PEN_DRIVE2GB_ID, $product->state->product?->id);
+        self::assertSame(Seed::FLASH_DRIVE2GB_ID, $product->state->product?->id);
 
         $product->presenter->onAddToCart(1);
         $cart = CartViewMock::cast($this->home()->state->contentView);
-        self::assertSame(0, $cart->state->errorCode, 'Não deve haver indicação de erros');
+        self::assertSame(0, $cart->state->errorCode, 'There should be no error indication');
         self::assertCount(1, $cart->state->items);
         self::assertSame(1, $cart->state->items[0]->quantity);
-        self::assertSame(Seed::PEN_DRIVE2GB_ID, $cart->state->items[0]->id);
+        self::assertSame(Seed::FLASH_DRIVE2GB_ID, $cart->state->items[0]->id);
 
-        $cart->presenter->onModifyQuantity(Seed::PEN_DRIVE2GB_ID, 0);
+        $cart->presenter->onModifyQuantity(Seed::FLASH_DRIVE2GB_ID, 0);
         $cart = CartViewMock::cast($this->home()->state->contentView);
-        self::assertSame(1, $cart->state->errorCode, 'Indicação de quantidade inválida');
+        self::assertSame(1, $cart->state->errorCode, 'Invalid quantity indication');
         $cart->state->errorCode = 0;
 
-        $cart->presenter->onModifyQuantity(Seed::PEN_DRIVE2GB_ID, 2);
+        $cart->presenter->onModifyQuantity(Seed::FLASH_DRIVE2GB_ID, 2);
         $cart = CartViewMock::cast($this->home()->state->contentView);
-        self::assertSame(0, $cart->state->errorCode, 'Tem que funcionar sem erro');
+        self::assertSame(0, $cart->state->errorCode, 'Must work without error');
         self::assertSame(2, $cart->state->items[0]->quantity);
 
         $cart->presenter->onModifyQuantity(PHP_INT_MIN, 2);
-        self::assertSame(2, $cart->state->errorCode, 'Produto não encontrado');
+        self::assertSame(2, $cart->state->errorCode, 'Product not found');
         $cart->state->errorCode = 0;
 
         $cart->presenter->onOpenProducts();
-        $this->home()->presenter->onOpenProduct(Seed::BOLA_WILSON_ID);
+        $this->home()->presenter->onOpenProduct(Seed::WILSON_BALL_ID);
         $product = ProductViewMock::cast($this->home()->state->contentView);
-        self::assertSame(Seed::BOLA_WILSON_ID, $product->state->product?->id);
+        self::assertSame(Seed::WILSON_BALL_ID, $product->state->product?->id);
 
         $product->presenter->onOpenProducts();
-        $this->home()->presenter->onOpenProduct(Seed::FITA_VEDA_ROSCA_ID);
+        $this->home()->presenter->onOpenProduct(Seed::THREAD_SEAL_TAPE_ID);
         $product = ProductViewMock::cast($this->home()->state->contentView);
-        self::assertSame(Seed::FITA_VEDA_ROSCA_ID, $product->state->product?->id);
+        self::assertSame(Seed::THREAD_SEAL_TAPE_ID, $product->state->product?->id);
 
         $product->presenter->onAddToCart(1);
         $cart = CartViewMock::cast($this->home()->state->contentView);
@@ -85,11 +85,11 @@ final class ShoppingWorkflowTest extends PresentationTestCase
 
         $cart->presenter->onBuy();
         $receipt = ReceiptViewMock::cast($this->home()->state->contentView);
-        self::assertTrue($receipt->state->notifySuccess, 'Tem que estar marcado como novo recibo');
+        self::assertTrue($receipt->state->notifySuccess, 'Must be flagged as a new receipt');
         self::assertNotNull($receipt->state->receipt);
         self::assertCount(2, $receipt->state->receipt->items);
 
         $receipt->presenter->onOpenProducts();
-        self::assertNull($this->home()->state->contentView, 'A home deveria mostrar o conteúdo padrão');
+        self::assertNull($this->home()->state->contentView, 'The home should show the default content');
     }
 }

@@ -8,12 +8,12 @@ use Wdc\Framework\Persistence\ColumnType;
 use Wdc\Framework\Persistence\Sql;
 
 /**
- * Dialeto PostgreSQL. Monta o objeto concatenando texto:
+ * PostgreSQL dialect. Builds the object by concatenating text:
  *
  *     '{' || array_to_string(array['"id":' || coalesce(to_json(t.id), 'null'), ...], ',') || '}'
  *
- * em vez de `json_build_object(...)`, que recebe 2 argumentos por campo e esbarra no limite
- * de 100 argumentos de função do PostgreSQL (50 campos). `array[...]` não tem esse limite.
+ * instead of `json_build_object(...)`, which takes 2 arguments per field and hits PostgreSQL's
+ * limit of 100 function arguments (50 fields). `array[...]` has no such limit.
  */
 final class PostgresJsonDialect implements JsonDialect
 {
@@ -27,7 +27,7 @@ final class PostgresJsonDialect implements JsonDialect
         foreach ($fields as $field) {
             $value = $field->expr->sql;
             $value = match ($field->type) {
-                null => "coalesce({$value}, 'null')",                                    // já é JSON
+                null => "coalesce({$value}, 'null')",                                    // already JSON
                 ColumnType::Blob => "coalesce(to_json(encode({$value}, 'base64')), 'null')",
                 default => "coalesce(to_json({$value}), 'null')",
             };
@@ -46,7 +46,7 @@ final class PostgresJsonDialect implements JsonDialect
         return new Sql("('[' || coalesce(string_agg({$element->sql}, ','{$orderBy}), '') || ']')", $element->params);
     }
 
-    /** O `encode(..., 'base64')` do PostgreSQL quebra linha a cada 76 caracteres. */
+    /** PostgreSQL's `encode(..., 'base64')` inserts a line break every 76 characters. */
     public function decodeBinary(string $encoded): string
     {
         $bytes = base64_decode((string) preg_replace('/\s+/', '', $encoded), true);

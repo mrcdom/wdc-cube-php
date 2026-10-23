@@ -11,14 +11,14 @@ use Wdc\Framework\Commons\Serialization\Json;
 use Wdc\Framework\Domain\Exception\InvalidRequestException;
 
 /**
- * Como uma **coleção projetada** 1:N trafega. Não é uma lista de resultados: é uma forma de
- * item mais o que fazer com a coleção — o critério do filho e o recorte por pai.
+ * How a 1:N **projected collection** travels over the wire. It is not a list of results: it is an
+ * item shape plus what to do with the collection — the child criteria and the per-parent slice.
  *
- * A forma no fio distingue projeção de resultado sozinha: a projeção é um objeto, o
- * resultado o array de sempre.
+ * The wire shape alone tells projection from result: the projection is an object, the
+ * result the usual array.
  *
- *     "items": { "shape": {…um item…}, "where": {…critério…}, "limit": 5, "offset": 0 }   // projeção
- *     "items": [ {…}, {…} ]                                                              // resultado
+ *     "items": { "shape": {…one item…}, "where": {…criteria…}, "limit": 5, "offset": 0 }   // projection
+ *     "items": [ {…}, {…} ]                                                              // result
  */
 final class ProjectionCollectionCodec
 {
@@ -30,7 +30,7 @@ final class ProjectionCollectionCodec
      * @template E of object
      * @param ProjectionList<E> $collection
      * @param Closure(E): mixed $shapeWriter
-     * @param (Closure(object): mixed)|null $criteriaWriter escreve o critério embutido inteiro
+     * @param (Closure(object): mixed)|null $criteriaWriter writes the whole embedded criteria
      */
     public static function write(ProjectionList $collection, Closure $shapeWriter, ?Closure $criteriaWriter): stdClass
     {
@@ -49,7 +49,7 @@ final class ProjectionCollectionCodec
         return $envelope;
     }
 
-    /** Se o valor do campo é uma coleção projetada (objeto), e não uma lista de resultados (array). */
+    /** Whether the field value is a projected collection (object) rather than a list of results (array). */
     public static function isProjectionEnvelope(mixed $in): bool
     {
         return $in instanceof stdClass;
@@ -67,7 +67,7 @@ final class ProjectionCollectionCodec
         $criteria = null;
         $limit = null;
         $offset = null;
-        foreach (Json::fields($in, 'coleção projetada') as $name => $value) {
+        foreach (Json::fields($in, 'projected collection') as $name => $value) {
             match ($name) {
                 'shape' => $shape = $shapeReader($value),
                 'where' => $criteria = $criteriaReader($value),
@@ -77,7 +77,7 @@ final class ProjectionCollectionCodec
             };
         }
         if ($shape === null) {
-            throw new InvalidRequestException('Coleção projetada sem "shape"');
+            throw new InvalidRequestException('Projected collection without "shape"');
         }
 
         return (new ProjectionList($shape, $criteria))->withLimit($limit)->withOffset($offset);

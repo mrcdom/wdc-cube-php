@@ -20,37 +20,37 @@ use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemOrderBy;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Domain\User\UserCodec;
 
-/** O JSON das entidades, campo a campo — o formato de fio que os clientes REST esperam. */
+/** The entities' JSON, field by field — the wire format REST clients expect. */
 final class EntityCodecTest extends TestCase
 {
     #[Test]
     public function product_writesNullFieldsAsAbsent_andNeverTheImage(): void
     {
-        $product = (new Product())->withId(3)->withName('Bola')->withPrice(10.0)->withImage('PNG');
+        $product = (new Product())->withId(3)->withName('Ball')->withPrice(10.0)->withImage('PNG');
 
-        self::assertSame('{"id":3,"name":"Bola","price":10.0}', Json::encode((new ProductCodec())->writeEntity($product)));
+        self::assertSame('{"id":3,"name":"Ball","price":10.0}', Json::encode((new ProductCodec())->writeEntity($product)));
     }
 
     #[Test]
     public function user_fields(): void
     {
-        $user = (new User())->withId(1)->withUserName('fulano')->withName('Fulano')->withRoles('CUSTOMER');
+        $user = (new User())->withId(1)->withUserName('john')->withName('John')->withRoles('CUSTOMER');
 
-        self::assertSame('{"id":1,"userName":"fulano","name":"Fulano","roles":"CUSTOMER"}', Json::encode((new UserCodec())->writeEntity($user)));
+        self::assertSame('{"id":1,"userName":"john","name":"John","roles":"CUSTOMER"}', Json::encode((new UserCodec())->writeEntity($user)));
     }
 
     #[Test]
     public function purchase_withItems_itemsDoNotRepeatThePurchase(): void
     {
         $purchase = (new Purchase())->withId(7)->withBuyDate(new DateTimeImmutable('2024-01-15T10:30:00.5Z'))
-            ->withUser((new User())->withId(1)->withName('Fulano'));
+            ->withUser((new User())->withId(1)->withName('John'));
         $item = (new PurchaseItem())->withId(70)->withAmount(2)->withPrice(5.5)
-            ->withProduct((new Product())->withId(3)->withName('Bola'))->withPurchase($purchase);
+            ->withProduct((new Product())->withId(3)->withName('Ball'))->withPurchase($purchase);
         $purchase->withItems([$item]);
 
         self::assertSame(
-            '{"id":7,"buyDate":"2024-01-15T10:30:00.5Z","user":{"id":1,"name":"Fulano"},'
-            . '"items":[{"id":70,"amount":2,"price":5.5,"product":{"id":3,"name":"Bola"}}]}',
+            '{"id":7,"buyDate":"2024-01-15T10:30:00.5Z","user":{"id":1,"name":"John"},'
+            . '"items":[{"id":70,"amount":2,"price":5.5,"product":{"id":3,"name":"Ball"}}]}',
             Json::encode((new PurchaseCodec())->writeEntity($purchase)),
         );
     }
@@ -66,19 +66,19 @@ final class EntityCodecTest extends TestCase
     #[Test]
     public function sameInstanceTwice_isWrittenAsIdOnly(): void
     {
-        $bola = (new Product())->withId(3)->withName('Bola');
+        $ball = (new Product())->withId(3)->withName('Ball');
         $purchase = (new Purchase())->withId(7)->withItems([
-            (new PurchaseItem())->withId(70)->withProduct($bola),
-            (new PurchaseItem())->withId(71)->withProduct($bola),
-            (new PurchaseItem())->withId(72)->withProduct((new Product())->withId(3)->withName('Bola')),
+            (new PurchaseItem())->withId(70)->withProduct($ball),
+            (new PurchaseItem())->withId(71)->withProduct($ball),
+            (new PurchaseItem())->withId(72)->withProduct((new Product())->withId(3)->withName('Ball')),
         ]);
 
         $items = Json::encode((new PurchaseCodec())->writeEntity($purchase)->items);
 
         self::assertSame(
-            '[{"id":70,"product":{"id":3,"name":"Bola"}},{"id":71,"product":{"id":3}},{"id":72,"product":{"id":3,"name":"Bola"}}]',
+            '[{"id":70,"product":{"id":3,"name":"Ball"}},{"id":71,"product":{"id":3}},{"id":72,"product":{"id":3,"name":"Ball"}}]',
             $items,
-            'a mesma instância vira stub; outra instância com o mesmo id, não',
+            'the same instance becomes a stub; another instance with the same id does not',
         );
     }
 
@@ -116,7 +116,7 @@ final class EntityCodecTest extends TestCase
 
         self::assertIsArray($items);
         self::assertSame(7, $items[0]->purchaseId());
-        self::assertNotSame($purchase, $items[0]->purchase(), 'stub, não a própria compra (sem ciclo)');
+        self::assertNotSame($purchase, $items[0]->purchase(), 'a stub, not the purchase itself (no cycle)');
         self::assertSame(3, $items[0]->productId());
     }
 
@@ -127,7 +127,7 @@ final class EntityCodecTest extends TestCase
 
         self::assertSame(12.5, $data->entity->price());
         self::assertNotNull($data->projection->price());
-        self::assertNull($data->projection->name(), 'name não veio: não é gravado');
+        self::assertNull($data->projection->name(), 'name was not sent: it is not written');
     }
 
     #[Test]

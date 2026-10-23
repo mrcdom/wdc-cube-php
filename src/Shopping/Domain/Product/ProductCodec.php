@@ -15,8 +15,8 @@ use Wdc\Framework\Domain\Criteria\CriterionValue;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 
 /**
- * Product no JSON: `id`, `name`, `price`, `description`. A imagem nunca vai no JSON — tem
- * rota própria (`/api/repo/product/{id}/image`).
+ * Product in JSON: `id`, `name`, `price`, `description`. The image never goes in the JSON — it has
+ * its own route (`/api/repo/product/{id}/image`).
  *
  * @implements ModelCodec<Product, ProductCriteria>
  */

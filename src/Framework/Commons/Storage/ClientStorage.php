@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Wdc\Framework\Commons\Storage;
 
 /**
- * Armazenamento chave/valor do lado do cliente (sessionStorage / localStorage do browser,
- * no caso do shell remoto).
+ * Client-side key/value storage (the browser's sessionStorage / localStorage, in the case of
+ * the remote shell).
  */
 interface ClientStorage
 {
-    /** Variante com armazenamento seguro (cifrado), quando a plataforma oferece. */
+    /** Variant backed by secure (encrypted) storage, when the platform offers one. */
     public function secure(): self;
 
     public function get(string $key): ?string;

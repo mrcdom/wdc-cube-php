@@ -37,7 +37,7 @@ export type ProductViewState = {
 }
 
 class ProductViewClass extends BaseViewClass<ViewProps, ProductViewState> {
-  // :: Renderes
+  // :: Renderers
 
   override render({ className }: ViewProps) {
     const { state } = this
@@ -61,7 +61,7 @@ class ProductViewClass extends BaseViewClass<ViewProps, ProductViewState> {
             <div className={Sel.priceCol}>
               <span className={Sel.priceBadge}>R$ {NumberUtils.format(product.price)}</span>
               <div className={Sel.qtyRow}>
-                <span className={Sel.qtyLabel}>Qtd:</span>
+                <span className={Sel.qtyLabel}>Qty:</span>
                 <ActionButton quiet size="s" onClick={this.emitDecrement}>
                   <i className="bi bi-dash"></i>
                 </ActionButton>
@@ -80,11 +80,11 @@ class ProductViewClass extends BaseViewClass<ViewProps, ProductViewState> {
           <div className={Sel.actionsRow}>
             <ActionButton quiet onClick={this.emitGoHome}>
               <i className={clsx("bi bi-arrow-left", Sel.mr4)}></i>
-              Voltar
+              Back
             </ActionButton>
             <Button variant="accent" size="l" onClick={this.emitAddToCart}>
               <i className={clsx("bi bi-bag-plus", Sel.mr4)}></i>
-              Adicionar ao Carrinho
+              Add to Cart
             </Button>
           </div>
 
@@ -102,7 +102,7 @@ class ProductViewClass extends BaseViewClass<ViewProps, ProductViewState> {
     )
   }
 
-  // :: Emissors
+  // :: Emitters
 
   readonly emitAddToCart = () => {
     const { vsid, state } = this

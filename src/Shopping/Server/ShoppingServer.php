@@ -36,21 +36,21 @@ use Wdc\Shopping\Presentation\ShoppingContext;
 use Wdc\Shopping\RemoteHost\ShoppingRemoteHost;
 
 /**
- * O servidor do Shopping, montado sobre o Amp:
+ * The Shopping server, built on Amp:
  *
- * | rota                                    | o quê                                         |
+ * | route                                   | what                                          |
  * |-----------------------------------------|-----------------------------------------------|
- * | `/dispatcher/{appId}` (e `/<shell>/...`) | WebSocket do protocolo, subprotocolo `wdc`    |
- * | `/<shell>/index.html`                    | página do shell + cookies `app_id`/`app_skey` |
- * | `/<shell>/...`                           | arquivos de work/frontend/<shell>             |
- * | `/api/session/init`                      | início de sessão sem cookies (apps nativos)   |
- * | `/image/product/{id}.png`                | imagem do produto                             |
- * | `/web-cache/<host>/<caminho>`            | fontes e ícones da CDN, com cache em disco    |
- * | `/api/auth/*`, `/api/repo/*`, `/api/tx/*` | API REST + JWT (também sob `/<frontend>/`)    |
- * | `/health`, `/`                           | status; redireciona para o shell React        |
- * | `POST /__dev/db-reset` (devMode)         | volta o banco ao seed                         |
+ * | `/dispatcher/{appId}` (and `/<shell>/...`) | protocol WebSocket, subprotocol `wdc`      |
+ * | `/<shell>/index.html`                    | shell page + `app_id`/`app_skey` cookies      |
+ * | `/<shell>/...`                           | files from work/frontend/<shell>              |
+ * | `/api/session/init`                      | cookieless session start (native apps)        |
+ * | `/image/product/{id}.png`                | product image                                 |
+ * | `/web-cache/<host>/<path>`               | CDN fonts and icons, cached on disk           |
+ * | `/api/auth/*`, `/api/repo/*`, `/api/tx/*` | REST API + JWT (also under `/<frontend>/`)   |
+ * | `/health`, `/`                           | status; redirects to the React shell          |
+ * | `POST /__dev/db-reset` (devMode)         | resets the database to the seed               |
  *
- * Tudo roda num único processo e num único event loop: sessões, timers e requests HTTP.
+ * Everything runs in a single process and a single event loop: sessions, timers and HTTP requests.
  */
 final class ShoppingServer
 {
@@ -88,11 +88,11 @@ final class ShoppingServer
             $logger,
             simulateSlowLogin: $config->config->getBoolean('simulation.slowLogin', false),
         );
-        // o PBKDF2 do handshake (~180 ms de CPU) roda em processos à parte, fora do event loop
+        // the handshake PBKDF2 (~180 ms of CPU) runs in separate processes, off the event loop
         $this->host = ShoppingRemoteHost::fromConfig($config, $context, new ParallelKeyDerivation());
         $this->host->registry->init($scheduler);
 
-        // um limite por IP generoso: em dev o browser abre muitas conexões do mesmo endereço
+        // a generous per-IP limit: in dev the browser opens many connections from the same address
         $this->http = SocketHttpServer::createForDirectAccess($logger, connectionLimitPerIp: 1000);
         $this->router = $this->buildRouter();
     }
@@ -101,10 +101,10 @@ final class ShoppingServer
     {
         $this->http->expose("{$address}:{$port}");
         $this->http->start($this->router, new DefaultErrorHandler());
-        $this->logger->info("Shopping (PHP) em http://localhost:{$port}/" . self::DEFAULT_SHELL . '/index.html');
+        $this->logger->info("Shopping (PHP) at http://localhost:{$port}/" . self::DEFAULT_SHELL . '/index.html');
     }
 
-    /** A porta em que o servidor de fato escuta (útil com porta 0 = "qualquer livre"). */
+    /** The port the server actually listens on (useful with port 0 = "any free one"). */
     public function port(): int
     {
         $address = $this->http->getServers()[0]->getAddress();
@@ -143,7 +143,7 @@ final class ShoppingServer
         $router->addRoute('GET', '/image/product/{id:\d+}.png', $image);
         $router->addRoute('GET', '/{ctx:[^/]+}/image/product/{id:\d+}.png', $image);
 
-        // API REST na raiz (apps nativos) e sob cada frontend (SPA sem CORS)
+        // REST API at the root (native apps) and under each frontend (SPA without CORS)
         $api = new RepositoryApiRoutes($this->remoteTransactions, $this->logger);
         $api->configure($router);
         foreach (is_dir($frontend) ? (scandir($frontend) ?: []) : [] as $name) {
@@ -171,11 +171,11 @@ final class ShoppingServer
 
         if (is_dir($frontend)) {
             $static = new DocumentRoot($this->http, $errorHandler, $frontend);
-            $static->setIndexes([]);   // index.html só pela rota que planta os cookies
+            $static->setIndexes([]);   // index.html only through the route that sets the cookies
             $static->setFallback(new SpaFallbackHandler($frontend));
             $router->setFallback($static);
         } else {
-            $this->logger->warning("Pasta de frontends não encontrada: {$frontend}");
+            $this->logger->warning("Frontends folder not found: {$frontend}");
             $router->setFallback(new SpaFallbackHandler($frontend));
         }
 

@@ -8,7 +8,7 @@ use Amp\Http\HttpStatus;
 use Amp\Http\Server\Response;
 use Wdc\Framework\Commons\Serialization\Json;
 
-/** Respostas JSON da API. */
+/** The API's JSON responses. */
 final class RestResponse
 {
     private function __construct()
@@ -20,7 +20,7 @@ final class RestResponse
         return new Response($status, ['content-type' => 'application/json'], Json::encode($value));
     }
 
-    /** `{"error": "..."}`, a forma de erro de toda a API. */
+    /** `{"error": "..."}`, the error shape used across the API. */
     public static function error(int $status, string $message): Response
     {
         return self::json(['error' => $message], $status);

@@ -8,11 +8,11 @@ use Closure;
 use Wdc\Framework\Commons\Concurrent\FiberValue;
 
 /**
- * O contexto de segurança "da chamada corrente".
+ * The security context "of the current call".
  *
- * É guardado **por Fiber**: as consultas ao banco suspendem a Fiber que as fez, e nesse meio-tempo
- * outras sessões rodam — cada uma precisa enxergar só o próprio contexto. `runAs()` põe o
- * contexto, executa e restaura.
+ * It is stored **per Fiber**: database queries suspend the Fiber that issued them, and in the meantime
+ * other sessions run — each must see only its own context. `runAs()` sets the
+ * context, runs the work and restores it.
  */
 final class CurrentSecurityContext
 {

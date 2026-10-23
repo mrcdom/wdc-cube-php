@@ -15,7 +15,7 @@ use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Exception\BusinessException;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 
-/** `GET /image/product/{id}.png` — a única chamada HTTP de dados que o shell React faz. */
+/** `GET /image/product/{id}.png` — the only HTTP data call the React shell makes. */
 final readonly class ProductImageHandler implements RequestHandler
 {
     private ProductRepository $products;
@@ -35,7 +35,7 @@ final readonly class ProductImageHandler implements RequestHandler
         try {
             $image = $this->products->fetchImage($id);
         } catch (BusinessException) {
-            return new Response(HttpStatus::NOT_FOUND);   // produto inexistente
+            return new Response(HttpStatus::NOT_FOUND);   // no such product
         } catch (Throwable $e) {
             $this->logger->error('Processing image request', ['exception' => $e]);
 

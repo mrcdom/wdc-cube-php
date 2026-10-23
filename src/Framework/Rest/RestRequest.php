@@ -9,11 +9,11 @@ use Amp\Http\Server\Router;
 use Wdc\Framework\Commons\Serialization\Json;
 
 /**
- * Uma requisição REST com o corpo já lido (só o que a API usa).
+ * A REST request with its body already read (only what the API uses).
  *
- * O corpo é lido **antes** de chamar o handler: ler é a única espera (await) da requisição.
- * Daí em diante tudo é síncrono — o que permite pôr o contexto de segurança e ligar a conexão
- * de uma transação remota sem que outra Fiber rode no meio.
+ * The body is read **before** calling the handler: reading is the request's only wait (await).
+ * From then on everything is synchronous — which lets us set the security context and bind a
+ * remote transaction's connection without another Fiber running in between.
  */
 final class RestRequest
 {
@@ -22,7 +22,7 @@ final class RestRequest
     private bool $decoded = false;
 
     /**
-     * @param array<string, string> $headers    nomes em minúsculas
+     * @param array<string, string> $headers    lowercase names
      * @param array<string, string> $pathParams
      */
     public function __construct(
@@ -37,7 +37,7 @@ final class RestRequest
     public static function from(Request $request, int $bodyLimit): self
     {
         $request->getBody()->increaseSizeLimit($bodyLimit);
-        $body = $request->getBody()->buffer();   // a única espera: daqui em diante, síncrono
+        $body = $request->getBody()->buffer();   // the only wait: synchronous from here on
         $args = $request->getAttribute(Router::class);
         $params = [];
         if (is_array($args)) {
@@ -56,7 +56,7 @@ final class RestRequest
     }
 
     /**
-     * Para testes e para montar requisições à mão.
+     * For tests and for building requests by hand.
      *
      * @param array<string, string> $headers
      * @param array<string, string> $pathParams
@@ -66,7 +66,7 @@ final class RestRequest
         return new self($method, $path, array_change_key_case($headers, CASE_LOWER), $pathParams, $body);
     }
 
-    /** Cabeçalho (nome sem diferença de maiúsculas); null se ausente. */
+    /** Header (case-insensitive name); null if absent. */
     public function header(string $name): ?string
     {
         return $this->headers[strtolower($name)] ?? null;
@@ -77,7 +77,7 @@ final class RestRequest
         return $this->pathParams[$name] ?? null;
     }
 
-    /** O corpo JSON decodificado (objetos como stdClass); corpo vazio = `{}`. */
+    /** The decoded JSON body (objects as stdClass); empty body = `{}`. */
     public function json(): mixed
     {
         if (!$this->decoded) {

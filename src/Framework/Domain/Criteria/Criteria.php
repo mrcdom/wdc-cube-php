@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Criteria;
 
 /**
- * Um XxxCriteria: agrega um Criterion por campo filtrável.
+ * An XxxCriteria: aggregates one Criterion per filterable field.
  */
 interface Criteria
 {

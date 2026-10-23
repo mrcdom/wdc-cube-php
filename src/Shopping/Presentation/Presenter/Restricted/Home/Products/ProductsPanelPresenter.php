@@ -17,7 +17,7 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductService;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
- * Vitrine de produtos da home.
+ * The home's product catalog.
  *
  * @extends AbstractChildPresenter<ShoppingApplication>
  */
@@ -56,7 +56,7 @@ final class ProductsPanelPresenter extends AbstractChildPresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('a1b2c3d4e5f6', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('a1b2c3d4e5f6', function (int $event, int $count, array $form): void {
             match ($event) {
                 1 => $this->onOpenProduct(Coerce::asInt($form['p.productId'] ?? null)),
                 default => Skeleton::unknownEvent($event),
@@ -66,7 +66,7 @@ final class ProductsPanelPresenter extends AbstractChildPresenter
 
     protected function onCreateView(): CubeView
     {
-        return (self::$createView ?? throw new LogicException('ProductsPanelPresenter::$createView não configurado'))($this);
+        return (self::$createView ?? throw new LogicException('ProductsPanelPresenter::$createView not configured'))($this);
     }
 
     protected function onInitialize(): void

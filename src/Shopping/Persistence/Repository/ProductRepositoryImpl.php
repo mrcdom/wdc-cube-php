@@ -23,17 +23,17 @@ use Wdc\Shopping\Domain\Product\ProductOrderBy;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 
 /**
- * Os métodos recebem `object $criteria` (e não ProductCriteria) porque o PHP não deixa
- * estreitar o tipo de um parâmetro ao sobrescrever um método (regra de Liskov). O tipo
- * exato vem do generics do PHPStan: `@extends AbstractRepository<Product, ProductCriteria>`.
+ * The methods take `object $criteria` (not ProductCriteria) because PHP does not allow
+ * narrowing a parameter type when overriding a method (Liskov rule). The exact type
+ * comes from PHPStan generics: `@extends AbstractRepository<Product, ProductCriteria>`.
  *
  * @extends AbstractRepository<Product, ProductCriteria>
  */
 final class ProductRepositoryImpl extends AbstractRepository implements ProductRepository
 {
     /*
-     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
-     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     * Table, sequence and column names - this repository owns them. They are public
+     * because other repositories use them too (EXISTS, cascading DELETE).
      */
     public const string TABLE = 'EN_PRODUCT';
     public const string SEQUENCE = 'SQ_PRODUCT';
@@ -56,7 +56,7 @@ final class ProductRepositoryImpl extends AbstractRepository implements ProductR
             new Column('description', self::DESCRIPTION, ColumnType::Text, static fn (Product $p) => $p->description(), static fn (Product $p, mixed $v) => $p->withDescription($v)),
             new Column('image', self::IMAGE, ColumnType::Blob, static fn (Product $p) => $p->image(), static fn (Product $p, mixed $v) => $p->withImage($v)),
         ]);
-        // $this->conditions(...) transforma o método numa Closure (que enxerga os membros protegidos)
+        // $this->conditions(...) turns the method into a Closure (which can see protected members)
         $this->query = new JsonQuery($table, ProductCriteria::class, 'pr', $db->dialect())
             ->withConditions($this->conditions(...))
             ->withOrdering($this->orderBy(...));
@@ -69,12 +69,12 @@ final class ProductRepositoryImpl extends AbstractRepository implements ProductR
 
     public function newProjection(): object
     {
-        // PHP 8.4: `new X()->metodo()` sem parênteses extras em volta do new
+        // PHP 8.4: `new X()->method()` without extra parentheses around the new
         return new Product()
             ->withId(PV::INT)
             ->withName(PV::STR)
             ->withPrice(PV::FLOAT)
-            ->withDescription(PV::STR);   // sem image: só quando pedida
+            ->withDescription(PV::STR);   // no image: only when requested
     }
 
     public function insert(object $bean): bool
@@ -90,7 +90,7 @@ final class ProductRepositoryImpl extends AbstractRepository implements ProductR
     public function delete(object $criteria): int
     {
         if (!$criteria->hasProductId()) {
-            throw new LogicException('Product delete requires productId (proteção contra DELETE sem WHERE)');
+            throw new LogicException('Product delete requires productId (guard against DELETE without WHERE)');
         }
         return $this->deleteWhere($criteria);
     }

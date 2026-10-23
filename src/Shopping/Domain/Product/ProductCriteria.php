@@ -9,8 +9,8 @@ use Wdc\Framework\Domain\Criteria\Criteria;
 use Wdc\Framework\Domain\Criteria\TextCriterion;
 
 /**
- * Critério de busca de Product. Cada campo filtrável é um Criterion que já nasce criado
- * (nunca null): use hasProductId() para saber se foi informado.
+ * Search criterion for Product. Each filterable field is a Criterion created up front
+ * (never null): use hasProductId() to tell whether it was set.
  */
 final class ProductCriteria implements Criteria
 {
@@ -29,8 +29,8 @@ final class ProductCriteria implements Criteria
 
     public function __construct()
     {
-        // Em PHP o valor inicial de uma propriedade precisa ser constante;
-        // objetos que dependem de $this são criados no construtor.
+        // In PHP a property's initial value must be a constant;
+        // objects that depend on $this are created in the constructor.
         $this->productId = new ComparableCriterion($this, 'productId');
         $this->name = new TextCriterion($this, 'name');
         $this->price = new ComparableCriterion($this, 'price');
@@ -72,7 +72,7 @@ final class ProductCriteria implements Criteria
         return $this->productId->isSet();
     }
 
-    /** Atalho para productId()->eq($value). */
+    /** Shortcut for productId()->eq($value). */
     public function withProductId(?int $value): static
     {
         return $value === null ? $this : $this->productId->eq($value);
@@ -89,7 +89,7 @@ final class ProductCriteria implements Criteria
         return $this->name->isSet();
     }
 
-    /** Atalho para name()->eq($value). */
+    /** Shortcut for name()->eq($value). */
     public function withName(?string $value): static
     {
         return $value === null ? $this : $this->name->eq($value);
@@ -106,7 +106,7 @@ final class ProductCriteria implements Criteria
         return $this->price->isSet();
     }
 
-    /** Atalho para price()->eq($value). */
+    /** Shortcut for price()->eq($value). */
     public function withPrice(?float $value): static
     {
         return $value === null ? $this : $this->price->eq($value);
@@ -123,7 +123,7 @@ final class ProductCriteria implements Criteria
         return $this->description->isSet();
     }
 
-    /** Atalho para description()->eq($value). */
+    /** Shortcut for description()->eq($value). */
     public function withDescription(?string $value): static
     {
         return $value === null ? $this : $this->description->eq($value);

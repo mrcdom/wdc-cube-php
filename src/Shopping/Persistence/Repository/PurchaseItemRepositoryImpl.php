@@ -25,15 +25,15 @@ use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemOrderBy;
 use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
 
 /**
- * Relações: `purchase` (via PURCHASEID) e `product` (via PRODUCTID), ambas N:1.
+ * Relations: `purchase` (via PURCHASEID) and `product` (via PRODUCTID), both N:1.
  *
  * @extends AbstractRepository<PurchaseItem, PurchaseItemCriteria>
  */
 final class PurchaseItemRepositoryImpl extends AbstractRepository implements PurchaseItemRepository
 {
     /*
-     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
-     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     * Table, sequence and column names - this repository owns them. They are public
+     * because other repositories use them too (EXISTS, cascading DELETE).
      */
     public const string TABLE = 'EN_PURCHASEITEM';
     public const string SEQUENCE = 'SQ_PURCHASEITEM';
@@ -47,8 +47,8 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
     private readonly JsonQuery $query;
 
     /*
-     * Os repositórios de que este precisa: achados no Beans na primeira vez (na construção eles
-     * podem ainda não estar registrados) e guardados.
+     * The repositories this one needs: looked up in Beans the first time (at construction they
+     * may not be registered yet) and kept.
      */
     private ?PurchaseRepositoryImpl $purchaseRepository = null;
 
@@ -81,13 +81,13 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
             );
     }
 
-    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    /** Looked up in Beans on the first call and kept; later calls return the field. */
     private function purchaseRepository(): PurchaseRepositoryImpl
     {
         return $this->purchaseRepository ??= self::repositoryOf(PurchaseRepository::class, PurchaseRepositoryImpl::class);
     }
 
-    /** Achado no Beans na primeira chamada e guardado; as seguintes devolvem o campo. */
+    /** Looked up in Beans on the first call and kept; later calls return the field. */
     private function productRepository(): ProductRepositoryImpl
     {
         return $this->productRepository ??= self::repositoryOf(ProductRepository::class, ProductRepositoryImpl::class);
@@ -116,7 +116,7 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
         ]);
     }
 
-    /** Cuidado: PURCHASEID vem de purchaseId() e PRODUCTID de productId() — não troque. */
+    /** Careful: PURCHASEID comes from purchaseId() and PRODUCTID from productId() — do not swap them. */
     public function update(object $newBean, ?object $oldBean = null, ?object $projection = null): bool
     {
         return $this->updateBean($newBean, $oldBean, $projection, [
@@ -172,16 +172,16 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
         return new PurchaseItemCriteria()->purchaseItemId()->in($ids)->withProjection($projection);
     }
 
-    /** Campo virtual `userId`: o dono da compra deste item. */
+    /** Virtual field `userId`: the owner of this item's purchase. */
     private function existsPurchaseOfUser(PurchaseItemCriteria $criteria, string $a, QueryContext $ctx): ?Sql
     {
         if (!$criteria->userId()->isSet()) {
-            return null;   // campo não pedido: nem reserva alias
+            return null;   // field not requested: do not even reserve an alias
         }
         $pu = $ctx->alias('pu');
         $p = Sql::alias($pu);
         $onUser = CT::translate($p(PurchaseRepositoryImpl::USERID), $criteria->userId())
-            ?? throw new LogicException('critério preenchido sem condição');   // não acontece: isSet() acima
+            ?? throw new LogicException('criterion set but produced no condition');   // cannot happen: isSet() above
         $c = Sql::alias($a);
 
         return new Sql(

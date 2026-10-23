@@ -26,7 +26,7 @@ use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\ShoppingContext;
 
 /**
- * Uma sessão do Shopping servida ao shell React.
+ * A Shopping session served to the React shell.
  */
 final class ShoppingRemoteApplication extends ShoppingApplication implements RemoteApplication
 {
@@ -45,7 +45,7 @@ final class ShoppingRemoteApplication extends ShoppingApplication implements Rem
     }
 
     /**
-     * Todo presenter ganha a mesma view genérica.
+     * Every presenter gets the same generic view.
      */
     public static function installViewFactories(): void
     {
@@ -97,7 +97,7 @@ final class ShoppingRemoteApplication extends ShoppingApplication implements Rem
         }
     }
 
-    // :: ShoppingApplication: o que depende do ambiente
+    // :: ShoppingApplication: what depends on the environment
 
     public function b64Cipher(string $text): string
     {
@@ -131,6 +131,6 @@ final class ShoppingRemoteApplication extends ShoppingApplication implements Rem
 
     private static function of(ShoppingApplication $app): RemoteApplication
     {
-        return $app instanceof RemoteApplication ? $app : throw new LogicException('View remota fora de uma sessão remota');
+        return $app instanceof RemoteApplication ? $app : throw new LogicException('Remote view outside a remote session');
     }
 }

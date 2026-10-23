@@ -9,11 +9,11 @@ use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubeView;
 
 /**
- * Uma aplicação Cube servida remotamente. A infraestrutura toda mora no
- * RemoteApplicationSupport; a app só responde o que é dela.
+ * A Cube application served remotely. All the infrastructure lives in
+ * RemoteApplicationSupport; the app only answers for what belongs to it.
  *
- * A interface é só o que é da app — quem precisa da
- * infraestrutura chama `remote()`.
+ * The interface holds only what belongs to the app — whoever needs the
+ * infrastructure calls `remote()`.
  */
 interface RemoteApplication
 {
@@ -23,10 +23,10 @@ interface RemoteApplication
 
     public function isAuthenticated(): bool;
 
-    /** A view do presenter raiz — o conteúdo da Browser view. */
+    /** The root presenter's view — the content of the Browser view. */
     public function rootPresenterView(): ?CubeView;
 
-    /** Navega até o intent (vindo do cliente, já com a assinatura conferida). */
+    /** Navigates to the intent (coming from the client, with its signature already checked). */
     public function performGo(CubeIntent $intent): void;
 
     public function release(): void;

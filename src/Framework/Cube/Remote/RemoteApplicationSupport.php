@@ -14,15 +14,14 @@ use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\Util\QueryString;
 
 /**
- * A infraestrutura remota de uma sessão: views vivas e
- * sujas, despacho de requests, montagem das respostas, assinatura da URL, cifra do canal,
- * client storage e tempo de vida.
+ * The remote infrastructure of a session: live and dirty views, request dispatch, response
+ * assembly, URL signing, channel encryption, client storage and lifetime.
  *
- * Modelo de execução: um único event loop, mas as consultas ao banco suspendem a Fiber que as
- * faz — e nesse meio-tempo um timer ou o flush de fundo da mesma sessão pode rodar. Por isso a
- * navegação, a sincronização dos formulários, o cálculo do estado e o alerta de erro passam por
- * um lock da sessão. O evento em si não: um evento demorado (ex.: login lento) deixa o flush de
- * fundo mandar ao cliente o estado intermediário ("aguarde...").
+ * Execution model: a single event loop, but database queries suspend the Fiber that issues
+ * them — and meanwhile a timer or the background flush of the same session may run. That is why
+ * navigation, form synchronization, state computation and the error alert go through a session
+ * lock. The event itself does not: a slow event (e.g. a slow login) lets the background flush
+ * send the intermediate state ("please wait...") to the client.
  */
 final class RemoteApplicationSupport
 {
@@ -42,7 +41,7 @@ final class RemoteApplicationSupport
     /** @var array<string, RemoteView> */
     private array $dirtyViews = [];
 
-    /** @var list<string> ids de views liberadas, para avisar o cliente no próximo ping */
+    /** @var list<string> ids of released views, to notify the client on the next ping */
     private array $releasedViews = [];
 
     private int $instanceIdGen = 1;
@@ -65,7 +64,7 @@ final class RemoteApplicationSupport
 
     private int $timeSpanSeconds;
 
-    /** @internal usados pelo registry para não enfileirar nem acordar a mesma sessão duas vezes */
+    /** @internal used by the registry so the same session is not queued or woken up twice */
     public bool $dirtyQueued = false;
 
     /** @internal */
@@ -86,7 +85,7 @@ final class RemoteApplicationSupport
         $this->clientStorage = new RemoteClientStorage($this->dataSecurity);
     }
 
-    /** Chamar depois que o construtor da app terminou (a Browser view precisa da app pronta). */
+    /** Call after the app constructor has finished (the Browser view needs the app to be ready). */
     public function postConstruct(): void
     {
         $this->browser = new RemoteBrowserPresenter($this->owner, $this->logger);
@@ -95,10 +94,10 @@ final class RemoteApplicationSupport
 
     public function browser(): RemoteBrowserPresenter
     {
-        return $this->browser ?? throw new LogicException('postConstruct() não foi chamado');
+        return $this->browser ?? throw new LogicException('postConstruct() was not called');
     }
 
-    // :: Tempo de vida
+    // :: Lifetime
 
     public function setTimeSpan(int $seconds): void
     {
@@ -120,7 +119,7 @@ final class RemoteApplicationSupport
         $this->browser?->release();
     }
 
-    // :: Conexão
+    // :: Connection
 
     public function channel(): ?RemoteChannel
     {
@@ -138,7 +137,7 @@ final class RemoteApplicationSupport
     }
 
     /**
-     * O cliente reconectou (queda de rede, F5) com a sessão ainda viva: tudo é reenviado.
+     * The client reconnected (network drop, F5) while the session is still alive: everything is resent.
      */
     public function resetForReconnect(): void
     {
@@ -186,7 +185,7 @@ final class RemoteApplicationSupport
         $this->dirtyViews[$view->instanceId] = $view;
         $this->registry->enqueueDirty($this->owner);
         if ($this->processingSubmit) {
-            // durante um submit longo (que cede a vez, ex.: espera), manda o que já mudou
+            // during a long submit (one that yields, e.g. while waiting), send what has already changed
             $this->registry->triggerImmediateFlush($this->owner);
         }
     }
@@ -198,14 +197,14 @@ final class RemoteApplicationSupport
         }
     }
 
-    // :: Histórico e navegação
+    // :: History and navigation
 
     public function updateHistory(): void
     {
         $this->historyDirty = true;
     }
 
-    /** Monta a URL do estado atual e a assina: `place?params&sign=<base62(md5(rsa(url)))>`. */
+    /** Builds the URL of the current state and signs it: `place?params&sign=<base62(md5(rsa(url)))>`. */
     public function doUpdateHistory(): void
     {
         if (!$this->historyDirty) {
@@ -222,14 +221,14 @@ final class RemoteApplicationSupport
     }
 
     /**
-     * Navega para um caminho vindo do cliente. Assinatura inválida (URL editada à mão, link
-     * velho, boot sem hash) ⇒ ignora o caminho e reafirma o estado atual.
+     * Navigates to a path coming from the client. Invalid signature (hand-edited URL, stale
+     * link, boot without hash) ⇒ ignores the path and reasserts the current state.
      */
     public function safeGo(?string $path): void
     {
         $app = $this->owner->cubeApp();
         $intent = CubeIntent::parse($path);
-        $actual = QueryString::asString($intent->removeParameter('sign')) ?? 'null';   // ausente = "null" (o texto), como o protocolo espera
+        $actual = QueryString::asString($intent->removeParameter('sign')) ?? 'null';   // missing = "null" (the text), as the protocol expects
         if (!hash_equals($this->signatureOf($intent), $actual)) {
             $this->updateHistory();
             $intent = $app->newIntent();
@@ -248,7 +247,7 @@ final class RemoteApplicationSupport
     // :: Requests
 
     /**
-     * Processa uma mensagem do cliente e responde.
+     * Processes a client message and responds.
      *
      * @param array<string, mixed> $request
      */
@@ -269,7 +268,7 @@ final class RemoteApplicationSupport
 
             return;
         }
-        if ($requestId <= $this->lastRequestId) {   // reenvio de algo já processado
+        if ($requestId <= $this->lastRequestId) {   // resend of something already processed
             $this->logger->debug("Discarding request: {$requestId} <= {$this->lastRequestId}");
 
             return;
@@ -285,7 +284,7 @@ final class RemoteApplicationSupport
         }
     }
 
-    /** Push de fundo: o registry chama a cada 50 ms para as sessões com views sujas. */
+    /** Background push: the registry calls it every 50 ms for sessions with dirty views. */
     public function flushDirtyViews(): void
     {
         $this->dirtyQueued = false;
@@ -297,7 +296,7 @@ final class RemoteApplicationSupport
         } catch (Throwable $e) {
             $this->logger->error('Error during background flush', ['exception' => $e]);
         }
-        if ($this->dirtyViews !== []) {   // algo ficou sujo durante a serialização (commitComputedState)
+        if ($this->dirtyViews !== []) {   // something became dirty during serialization (commitComputedState)
             $this->registry->enqueueDirty($this->owner);
         }
     }
@@ -307,14 +306,14 @@ final class RemoteApplicationSupport
         return $this->processingSubmit;
     }
 
-    // :: Internos
+    // :: Internals
 
     /** @param array<string, mixed> $request */
     private function dispatch(array $request): void
     {
         $this->applySecret($request);
 
-        // 1. campos sem prefixo de cada view sincronizam o estado
+        // 1. each view's unprefixed fields synchronize the state
         $this->lock->run(function () use ($request): void {
             foreach ($request as $key => $formData) {
                 $view = $this->views[(string) $key] ?? null;
@@ -324,7 +323,7 @@ final class RemoteApplicationSupport
             }
         });
 
-        // 2. eventos "<vsid>:<código>", repetidos viram contagem
+        // 2. "<vsid>:<code>" events; repeated ones become a count
         $events = $request['event'] ?? null;
         if (!is_array($events) || $events === []) {
             return;
@@ -338,14 +337,14 @@ final class RemoteApplicationSupport
 
         $viewNotFound = false;
         foreach ($counts as $event => $quantity) {
-            $pos = strrpos((string) $event, ':');   // o id da view também tem ":" — vale o último
+            $pos = strrpos((string) $event, ':');   // the view id also contains ":" — the last one wins
             if ($pos === false) {
                 continue;
             }
             $viewId = substr((string) $event, 0, $pos);
             $view = $this->views[$viewId] ?? null;
             if ($view === null) {
-                $viewNotFound = true;   // view que o cliente acha que existe: ressincroniza tudo
+                $viewNotFound = true;   // a view the client thinks exists: resynchronize everything
                 continue;
             }
             try {
@@ -399,7 +398,7 @@ final class RemoteApplicationSupport
     }
 
     /**
-     * Envelope: `{requestId?, storage?, uri?, states?}` (nesta ordem). Nada sai se estiver vazio.
+     * Envelope: `{requestId?, storage?, uri?, states?}` (in this order). Nothing is sent if it is empty.
      *
      * @param list<RemoteView> $dirtyViews
      */
@@ -416,7 +415,7 @@ final class RemoteApplicationSupport
         }
         $storage = $this->clientStorage->drainDeltas();
         if ($storage !== null) {
-            // (object): garante objeto JSON mesmo com chaves que parecem números
+            // (object): ensures a JSON object even with keys that look like numbers
             $response['storage'] = (object) array_map(static fn (array $scope): object => (object) $scope, $storage);
         }
         $fragment = $this->owner->cubeApp()->fragment();
@@ -428,7 +427,7 @@ final class RemoteApplicationSupport
         if ($dirtyViews !== []) {
             $states = [];
             foreach ($dirtyViews as $view) {
-                $this->lock->run($view->presenter->commitComputedState(...));   // estado derivado, logo antes de serializar
+                $this->lock->run($view->presenter->commitComputedState(...));   // derived state, right before serializing
                 $states[] = $view->serializeState();
             }
             $response['states'] = $states;

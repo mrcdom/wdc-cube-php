@@ -18,12 +18,12 @@ use Wdc\Shopping\Persistence\Repository\PurchaseRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\UserRepositoryImpl;
 
 /**
- * Montagem da persistência: cria os repositórios e o serviço de transação sobre o mesmo
- * `Database` e os registra no `Beans`, pela interface. Não guarda nada: daí em diante, qualquer
- * ponto (inclusive um repositório que precisa de outro) os acha com
+ * Persistence wiring: creates the repositories and the transaction service over the same
+ * `Database` and registers them in `Beans`, by interface. It keeps nothing: from then on, any
+ * code (including a repository that needs another one) finds them with
  * `Beans::of(ProductRepository::class)`.
  *
- * Um repositório novo é uma linha aqui.
+ * A new repository is one line here.
  */
 final class ShoppingRepositories
 {
@@ -41,8 +41,8 @@ final class ShoppingRepositories
     }
 
     /**
-     * Abre o banco (criando-o, se preciso), cria o schema e o seed se ainda não existirem e
-     * registra os repositórios.
+     * Opens the database (creating it if needed), creates the schema and the seed if they do not
+     * exist yet, and registers the repositories.
      *
      * @param positive-int $maxConnections
      */

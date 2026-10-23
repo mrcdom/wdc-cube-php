@@ -8,8 +8,8 @@ use DateTimeImmutable;
 use JsonException;
 
 /**
- * JWT HS256 feito à mão: header fixo, payload {sub, usr, iat, exp},
- * Base64URL sem padding, assinatura comparada em tempo constante.
+ * Hand-rolled HS256 JWT: fixed header, payload {sub, usr, iat, exp},
+ * unpadded Base64URL, signature compared in constant time.
  */
 final class JwtUtil
 {
@@ -40,7 +40,7 @@ final class JwtUtil
         if (count($parts) !== 3) {
             return null;
         }
-        if (!hash_equals(self::sign($parts[0] . '.' . $parts[1], $secret), $parts[2])) {   // tempo constante
+        if (!hash_equals(self::sign($parts[0] . '.' . $parts[1], $secret), $parts[2])) {   // constant time
             return null;
         }
 

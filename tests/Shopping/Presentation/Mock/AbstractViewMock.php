@@ -8,8 +8,8 @@ use PHPUnit\Framework\Assert;
 use Wdc\Framework\Cube\CubeView;
 
 /**
- * View de teste: não desenha nada; guarda o presenter e o MESMO objeto de estado que ele
- * altera (objetos PHP são compartilhados por handle, não copiados).
+ * Test view: draws nothing; holds the presenter and the SAME state object it
+ * changes (PHP objects are shared by handle, not copied).
  */
 abstract class AbstractViewMock implements CubeView
 {
@@ -26,11 +26,11 @@ abstract class AbstractViewMock implements CubeView
         $this->instanceId = (string) ++self::$instanceIdGen;
     }
 
-    /** Confere o tipo da view com uma mensagem útil e a devolve já tipada. */
+    /** Checks the view type with a helpful message and returns it already typed. */
     public static function cast(?CubeView $view): static
     {
         if (!$view instanceof static) {
-            Assert::fail(sprintf('Esperava %s, veio %s', static::class, $view === null ? 'null' : $view::class));
+            Assert::fail(sprintf('Expected %s, got %s', static::class, $view === null ? 'null' : $view::class));
         }
 
         return $view;

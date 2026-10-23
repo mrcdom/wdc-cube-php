@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Shopping\Domain\User;
 
 /**
- * Ordenações provisionadas de User.
- * PHP não tem tipos aninhados, então o enum mora ao lado de UserCriteria.
+ * Provisioned orderings for User.
+ * PHP has no nested types, so the enum lives next to UserCriteria.
  */
 enum UserOrderBy
 {

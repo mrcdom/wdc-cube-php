@@ -7,12 +7,11 @@ import RSA from "@/utils/RSA"
 import UTF8 from "@/utils/UTF8"
 import Base64 from "@/utils/Base64"
 
-// crypto.subtle só existe em secure contexts (HTTPS ou localhost). Em HTTP puro
-// (ex.: QA acessado por IP), cai no fallback JS puro (@noble) com os MESMOS
-// parâmetros (PBKDF2-SHA256 250k → AES-256-GCM, tag de 128 bits anexada) — o
-// servidor decifra os dois caminhos de forma idêntica.
-const SUBTLE: SubtleCrypto | undefined =
-  typeof crypto !== "undefined" && crypto.subtle ? crypto.subtle : undefined
+// crypto.subtle only exists in secure contexts (HTTPS or localhost). Over plain HTTP
+// (e.g. QA accessed by IP), it falls back to pure JS (@noble) with the SAME
+// parameters (PBKDF2-SHA256 250k → AES-256-GCM, 128-bit tag appended) — the
+// server decrypts both paths identically.
+const SUBTLE: SubtleCrypto | undefined = typeof crypto !== "undefined" && crypto.subtle ? crypto.subtle : undefined
 
 const PBKDF2_ITERATIONS = 250000
 

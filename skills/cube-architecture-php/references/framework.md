@@ -194,7 +194,7 @@ public function skeleton(): CubeSkeleton
 {
     return new Skeleton(
         '48b693f67410',                                                // classId, also in the React view
-        function (int $event, int $qtde, array $form): void {          // submit
+        function (int $event, int $count, array $form): void {          // submit
             match ($event) {
                 1 => $this->onOpenProducts(),
                 2 => $this->onAddToCart(Coerce::asInt($form['p.quantity'] ?? null)),
@@ -209,7 +209,7 @@ public function skeleton(): CubeSkeleton
 ```
 
 - The client sends `{requestId, event: ["<viewId>:<code>"], "<viewId>": {fields}}`. Repeated
-  events in the same request arrive once with `$qtde` = count.
+  events in the same request arrive once with `$count` = count.
 - Order per request: first the plain fields of every view go to `syncState` (inside the
   session lock), then each event goes to `submit` (outside the lock, so a long event lets the
   background flush send intermediate state).

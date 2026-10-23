@@ -19,27 +19,27 @@ use Wdc\Shopping\Presentation\Presenter\Restricted\RestrictedPresenter;
 use Wdc\Shopping\Presentation\Presenter\RootPresenter;
 
 /**
- * A árvore de places do Shopping:
+ * The Shopping place tree:
  *
  *     ROOT ─┬─ OPEN ──────── LOGIN
  *           └─ RESTRICTED ── HOME ─┬─ CART
  *                                  ├─ PRODUCT
  *                                  └─ RECEIPT
  *
- * O id (valor do enum) cresce com a profundidade — o motor libera presenters da folha para a raiz.
- * Enum PHP não tem construtor nem estado, então a rota de cada place é o método `go()`.
+ * The id (enum value) grows with depth — the engine releases presenters from leaf to root.
+ * PHP enums have no constructor or state, so each place's route is the `go()` method.
  */
 enum Place: int implements CubePlace
 {
-    // nível 0
+    // level 0
     case ROOT = 0;
-    // nível 1
+    // level 1
     case OPEN = 1;
     case RESTRICTED = 2;
-    // nível 2
+    // level 2
     case LOGIN = 3;
     case HOME = 4;
-    // nível 3
+    // level 3
     case CART = 5;
     case PRODUCT = 6;
     case RECEIPT = 7;
@@ -60,7 +60,7 @@ enum Place: int implements CubePlace
         return $this->value;
     }
 
-    /** O nome que aparece na URL. */
+    /** The name that appears in the URL. */
     public function name(): string
     {
         return match ($this) {
@@ -78,7 +78,7 @@ enum Place: int implements CubePlace
     public function createPresenter(CubeApplication $app): CubePresenter
     {
         if (!$app instanceof ShoppingApplication) {
-            throw new LogicException('Place do Shopping exige ShoppingApplication');
+            throw new LogicException('A Shopping place requires a ShoppingApplication');
         }
 
         return match ($this) {
@@ -93,7 +93,7 @@ enum Place: int implements CubePlace
         };
     }
 
-    /** A rota que leva a este place. */
+    /** The route that leads to this place. */
     public function go(ShoppingApplication $app, CubeIntent $intent): bool
     {
         return match ($this) {

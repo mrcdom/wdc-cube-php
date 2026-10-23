@@ -11,9 +11,9 @@ use Amp\Websocket\Server\Rfc6455Acceptor;
 use Amp\Websocket\Server\WebsocketAcceptor;
 
 /**
- * Aceita o upgrade e negocia o subprotocolo `wdc`. O shell abre o WebSocket pedindo `wdc`; se
- * o servidor não responder `Sec-WebSocket-Protocol: wdc`, o browser derruba a conexão. O
- * acceptor padrão do Amp não negocia subprotocolos, então este o embrulha.
+ * Accepts the upgrade and negotiates the `wdc` subprotocol. The shell opens the WebSocket asking for `wdc`; if
+ * the server does not answer `Sec-WebSocket-Protocol: wdc`, the browser drops the connection. Amp's
+ * default acceptor does not negotiate subprotocols, so this one wraps it.
  */
 final readonly class WdcWebsocketAcceptor implements WebsocketAcceptor
 {

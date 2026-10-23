@@ -22,7 +22,7 @@ use Wdc\Shopping\Domain\User\UserCriteria;
 use Wdc\Shopping\Domain\User\UserRepository;
 
 /**
- * Autenticação por desafio HMAC + JWT, com sessões em memória.
+ * HMAC challenge + JWT authentication, with in-memory sessions.
  */
 final class AuthenticationServiceImpl implements AuthenticationService
 {
@@ -36,7 +36,7 @@ final class AuthenticationServiceImpl implements AuthenticationService
     private readonly Closure $clock;
 
     /**
-     * @param (Closure(): DateTimeImmutable)|null $clock relógio injetável (testes de expiração)
+     * @param (Closure(): DateTimeImmutable)|null $clock injectable clock (expiry tests)
      */
     private readonly UserRepository $users;
 
@@ -51,7 +51,7 @@ final class AuthenticationServiceImpl implements AuthenticationService
         $this->nonces = new NonceStore();
         $this->clock = $clock ?? static fn (): DateTimeImmutable => new DateTimeImmutable();
 
-        // limpeza periódica de sessões e nonces vencidos
+        // periodic cleanup of expired sessions and nonces
         $scheduler?->scheduleAtFixedRate(function (): void {
             $now = $this->now();
             $this->cache->evictExpired($now);
@@ -122,7 +122,7 @@ final class AuthenticationServiceImpl implements AuthenticationService
         if ($claims === null) {
             return null;
         }
-        // o usuário ainda existe? e quais são os papéis dele hoje?
+        // does the user still exist? and what are their roles today?
         $user = $this->users->fetch(new UserCriteria()
             ->withUserId($claims->userId)
             ->withProjection(new User()->withId(PV::INT)->withUserName(PV::STR)->withRoles(PV::STR)), 0, 1)[0] ?? null;

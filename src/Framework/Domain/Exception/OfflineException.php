@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Domain\Exception;
 
-/** Recurso (banco, servidor) indisponível no momento. */
+/** Resource (database, server) currently unavailable. */
 class OfflineException extends BusinessException
 {
 }

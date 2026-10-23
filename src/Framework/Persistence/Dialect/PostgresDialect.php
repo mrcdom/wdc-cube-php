@@ -9,8 +9,8 @@ use Wdc\Framework\Persistence\Json\JsonDialect;
 use Wdc\Framework\Persistence\Json\PostgresJsonDialect;
 
 /**
- * PostgreSQL: SEQUENCE nativa. Os nomes sem aspas (EN_PRODUCT, SQ_USER) viram minúsculos no
- * banco — por isso o SQL do projeto nunca usa aspas em identificadores.
+ * PostgreSQL: native SEQUENCE. Unquoted names (EN_PRODUCT, SQ_USER) become lowercase in the
+ * database — which is why the project's SQL never quotes identifiers.
  */
 final class PostgresDialect implements SqlDialect
 {
@@ -38,7 +38,7 @@ final class PostgresDialect implements SqlDialect
 
     public function restartSequence(Database $db, string $sequence, int $next): void
     {
-        $db->fetchValue('SELECT setval(?, ?, false)', [strtolower($sequence), $next]);   // false: o próximo nextval devolve $next
+        $db->fetchValue('SELECT setval(?, ?, false)', [strtolower($sequence), $next]);   // false: the next nextval returns $next
     }
 
     public function limit(int $limit, int $offset): string

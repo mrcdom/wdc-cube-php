@@ -11,11 +11,11 @@ use Wdc\Framework\Domain\Security\PermissionModel;
 use Wdc\Framework\Domain\Security\SecurityContext;
 
 /**
- * Uma sessão autenticada.
+ * An authenticated session.
  *
- * O par RSA da sessão (2048 bits) só serve à API REST, que manda senhas cifradas com a chave
- * pública. Ele é gerado na primeira vez que alguém o pede, e não a cada login — gerar
- * RSA custa dezenas de milissegundos e travaria o event loop em todo login pelo WebSocket.
+ * The session's RSA key pair (2048 bits) only serves the REST API, which sends passwords encrypted
+ * with the public key. It is generated the first time someone asks for it, not on every login —
+ * generating RSA costs tens of milliseconds and would stall the event loop on every WebSocket login.
  */
 final class AccessContext implements SecurityContext
 {
@@ -68,7 +68,7 @@ final class AccessContext implements SecurityContext
         if ($this->privateKey === null) {
             $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
             if ($key === false) {
-                throw new LogicException('Falha ao gerar o par RSA da sessão: ' . openssl_error_string());
+                throw new LogicException('Failed to generate the session RSA key pair: ' . openssl_error_string());
             }
             $this->privateKey = $key;
         }
@@ -81,8 +81,8 @@ final class AccessContext implements SecurityContext
         $details = openssl_pkey_get_details($this->privateKey());
         $pem = is_array($details) && is_string($details['key'] ?? null) ? $details['key'] : '';
 
-        // PEM = Base64 do DER entre "-----BEGIN PUBLIC KEY-----" e "-----END...": tirando as
-        // linhas de moldura e as quebras sobra exatamente o DER (X.509 SubjectPublicKeyInfo) em Base64.
+        // PEM = Base64 of the DER between "-----BEGIN PUBLIC KEY-----" and "-----END...": removing the
+        // frame lines and line breaks leaves exactly the DER (X.509 SubjectPublicKeyInfo) in Base64.
         return preg_replace('/-----[^-]+-----|\s+/', '', $pem) ?? '';
     }
 }

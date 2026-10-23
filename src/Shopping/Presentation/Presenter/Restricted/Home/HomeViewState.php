@@ -9,7 +9,7 @@ use Wdc\Framework\Cube\ViewState;
 
 final class HomeViewState implements ViewState
 {
-    /** tela aberta dentro da home (produto, carrinho, recibo); null = mostra os painéis */
+    /** screen open inside the home (product, cart, receipt); null = show the panels */
     public ?CubeView $contentView = null;
 
     public ?CubeView $productsPanelView = null;

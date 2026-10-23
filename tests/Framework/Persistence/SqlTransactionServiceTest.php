@@ -46,12 +46,12 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
         try {
             Beans::of(TransactionService::class)->required(function (): void {
                 $this->insertProduct('A');
-                throw new RuntimeException('falhou');
+                throw new RuntimeException('failed');
             });
         } catch (RuntimeException $e) {
             $caught = $e;
         }
-        self::assertSame('falhou', $caught->getMessage(), 'a exceção deveria ser repropagada');
+        self::assertSame('failed', $caught->getMessage(), 'the exception should have been rethrown');
         self::assertSame(4, $this->products());
     }
 
@@ -70,16 +70,16 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
     public function nested_participatesInTheOuterTransaction(): void
     {
         $tx = Beans::of(TransactionService::class);
-        $tx->required(function (TransactionContext $outer) use ($tx): void {   // `use` captura variáveis de fora
+        $tx->required(function (TransactionContext $outer) use ($tx): void {   // `use` captures outer variables
             $this->insertProduct('A');
             $tx->required(function (TransactionContext $inner) use ($outer): void {
-                self::assertSame($outer, $inner, 'a interna participa da mesma transação');
+                self::assertSame($outer, $inner, 'the inner one participates in the same transaction');
                 $this->insertProduct('B');
             });
             $outer->setRollbackOnly();
         });
 
-        self::assertSame(4, $this->products(), 'rollback da externa desfaz também o trabalho da interna');
+        self::assertSame(4, $this->products(), 'rolling back the outer one also undoes the inner one\'s work');
     }
 
     #[Test]
@@ -89,9 +89,9 @@ final class SqlTransactionServiceTest extends RepositoryTestCase
         $tx->required(function (TransactionContext $outer) use ($tx): void {
             $this->insertProduct('A');
             try {
-                $tx->required(static fn () => throw new RuntimeException('interna'));
+                $tx->required(static fn () => throw new RuntimeException('inner'));
             } catch (RuntimeException) {
-                // engolida de propósito: a externa segue, mas já está condenada
+                // swallowed on purpose: the outer one continues, but is already doomed
             }
             self::assertTrue($outer->isRollbackOnly());
         });

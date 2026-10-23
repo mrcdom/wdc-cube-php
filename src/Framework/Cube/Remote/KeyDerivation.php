@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube\Remote;
 
 /**
- * Deriva a chave AES da senha do handshake (PBKDF2-HMAC-SHA256, 250 mil iterações, 32 bytes).
+ * Derives the AES key from the handshake password (PBKDF2-HMAC-SHA256, 250k iterations, 32 bytes).
  *
- * É CPU pura e leva ~180 ms: feita no event loop, trava todas as sessões. Por isso há duas
- * implementações — a direta (testes, scripts) e a que roda num processo à parte (servidor).
+ * It is pure CPU and takes ~180 ms: done on the event loop, it blocks every session. That is why there
+ * are two implementations — the direct one (tests, scripts) and one that runs in a separate process (server).
  */
 interface KeyDerivation
 {

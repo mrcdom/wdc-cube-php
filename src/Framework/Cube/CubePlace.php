@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Wdc\Framework\Cube;
 
 /**
- * Nó da árvore de navegação. Na aplicação costuma ser um `enum Place: int implements CubePlace`.
+ * Node of the navigation tree. In the application it is usually an `enum Place: int implements CubePlace`.
  *
- * Invariante: o id cresce com a profundidade — a liberação é feita
- * da folha para a raiz em ordem decrescente de id.
+ * Invariant: the id grows with depth — release goes
+ * from leaf to root in descending id order.
  */
 interface CubePlace
 {

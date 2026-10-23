@@ -17,7 +17,7 @@ use Wdc\Shopping\Presentation\Presenter\RootPresenter;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\ShoppingContext;
 
-/** Sessão de teste: views de mentira, armazenamento em memória, sem histórico. */
+/** Test session: fake views, in-memory storage, no history. */
 final class ShoppingApplicationMock extends ShoppingApplication
 {
     public int $historyUpdates = 0;
@@ -34,7 +34,7 @@ final class ShoppingApplicationMock extends ShoppingApplication
         $this->persistentStore = $persistentStore ?? new InMemoryClientStorage();
     }
 
-    /** Liga cada presenter à sua view de teste. */
+    /** Binds each presenter to its test view. */
     public static function installViewMocks(): void
     {
         RootPresenter::$createView = static fn (RootPresenter $p) => new RootViewMock($p);
@@ -57,7 +57,7 @@ final class ShoppingApplicationMock extends ShoppingApplication
         $this->historyUpdates++;
     }
 
-    /** Sem canal cifrado nos testes: "cifrar" é só Base64. */
+    /** No encrypted channel in the tests: "encrypting" is just Base64. */
     public function b64Cipher(string $text): string
     {
         return base64_encode($text);

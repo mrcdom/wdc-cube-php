@@ -1,45 +1,46 @@
-# Guia da JsonQuery
+# JsonQuery guide
 
-A `JsonQuery` (`src/Framework/Persistence/Json/JsonQuery.php`) é o motor de leitura de todos os
-repositórios. Este guia explica o que ela gera, como declarar uma entidade nela, como projetar,
-filtrar, ordenar e paginar, e como trazer relações 1:1 e 1:N — sempre na **mesma** consulta.
+`JsonQuery` (`src/Framework/Persistence/Json/JsonQuery.php`) is the read engine of every
+repository. This guide explains what it generates, how to declare an entity in it, how to project,
+filter, order and paginate, and how to bring 1:1 and 1:N relations — always in the **same** query.
 
-Os exemplos de 1:1 usam a entidade `Review` (avaliação de produto) construída em
-[repository.md](repository.md); os de 1:N usam o código existente de `Purchase`/`PurchaseItem`
+The 1:1 examples use the `Review` entity (product review) built in
+[repository.md](repository.md); the 1:N ones use the existing `Purchase`/`PurchaseItem` code
 (`src/Shopping/Persistence/Repository/`).
 
-> Guias relacionados: [criar-funcionalidade.md](criar-funcionalidade.md),
+> Related guides: [building-a-feature.md](building-a-feature.md),
 > [repository.md](repository.md), [application-service.md](application-service.md),
-> [../arquitetura.md](../arquitetura.md) e a referência curta em
+> [../architecture.md](../architecture.md) and the short reference in
 > [persistence.md](../../skills/cube-architecture-php/references/persistence.md).
 
-## Índice
+## Contents
 
-1. [O que é e por que existe](#1-o-que-é-e-por-que-existe)
-2. [Anatomia](#2-anatomia)
-3. [Executando consultas](#3-executando-consultas)
-4. [Projeção com `ProjectionValues`](#4-projeção-com-projectionvalues)
-5. [Filtros](#5-filtros)
-6. [Paginação e ordenação](#6-paginação-e-ordenação)
-7. [Relação 1:1 — `addToOne`](#7-relação-11--addtoone)
-8. [Relação 1:N — `addToMany`](#8-relação-1n--addtomany)
-9. [Filtrando e recortando a subcoleção — `ProjectionList`](#9-filtrando-e-recortando-a-subcoleção--projectionlist)
-10. [Dependências circulares](#10-dependências-circulares)
-11. [Inspecionando o SQL](#11-inspecionando-o-sql)
-12. [Referência rápida](#12-referência-rápida)
+1. [What it is and why it exists](#1-what-it-is-and-why-it-exists)
+2. [Anatomy](#2-anatomy)
+3. [Running queries](#3-running-queries)
+4. [Projection with `ProjectionValues`](#4-projection-with-projectionvalues)
+5. [Filters](#5-filters)
+6. [Pagination and ordering](#6-pagination-and-ordering)
+7. [1:1 relation — `addToOne`](#7-11-relation--addtoone)
+8. [1:N relation — `addToMany`](#8-1n-relation--addtomany)
+9. [Filtering and slicing the subcollection — `ProjectionList`](#9-filtering-and-slicing-the-subcollection--projectionlist)
+10. [Circular dependencies](#10-circular-dependencies)
+11. [Inspecting the SQL](#11-inspecting-the-sql)
+12. [Quick reference](#12-quick-reference)
 
 ---
 
-## 1. O que é e por que existe
+## 1. What it is and why it exists
 
-Uma tela de "minhas compras" mostra, para cada compra, a data e os nomes dos produtos. O jeito
-ingênuo é buscar as compras e, para cada uma, buscar os itens, e para cada item, o produto: são
-`1 + N + N×M` idas ao banco — o famoso **N+1**. Num servidor assíncrono onde cada consulta suspende
-a sessão até o banco responder, isso vira latência que cresce com a lista.
+A "my purchases" screen shows, for each purchase, the date and the product names. The naive way
+is to fetch the purchases and, for each one, fetch the items, and for each item, the product:
+that's `1 + N + N×M` round trips to the database — the famous **N+1**. On an asynchronous server
+where each query suspends the session until the database answers, this turns into latency that
+grows with the list.
 
-A `JsonQuery` resolve de outro jeito: **um único SELECT devolve, por linha, um objeto JSON com
-exatamente os campos pedidos**, e as relações entram como **subconsultas correlacionadas dentro do
-próprio JSON**:
+`JsonQuery` solves it differently: **a single SELECT returns, per row, a JSON object with exactly
+the requested fields**, and relations come in as **correlated subqueries inside the JSON
+itself**:
 
 ```text
 SELECT {
@@ -51,32 +52,33 @@ SELECT {
 FROM EN_PURCHASE pu1 WHERE ... ORDER BY ... LIMIT ...
 ```
 
-(`{...}` e `[...]` são pseudo-SQL: quem os monta com as funções do banco é o `JsonDialect` —
-`PostgresJsonDialect` concatena texto e usa `string_agg` para os arrays.) O PHP decodifica cada
-linha e hidrata o grafo de entidades.
+(`{...}` and `[...]` are pseudo-SQL: the `JsonDialect` builds them with the database's functions —
+`PostgresJsonDialect` concatenates text and uses `string_agg` for arrays.) PHP decodes each row
+and hydrates the entity graph.
 
-O que se ganha:
+What you gain:
 
-- **Uma ida ao banco**, qualquer que seja a profundidade do grafo.
-- **Só o que a tela pediu**: a projeção decide as colunas, inclusive dentro das relações.
-- **Filtro, ordem e recorte por pai** nas coleções, no próprio SQL.
+- **One round trip**, whatever the depth of the graph.
+- **Only what the screen asked for**: the projection decides the columns, including inside
+  relations.
+- **Filter, order and per-parent slicing** of collections, in the SQL itself.
 
 ```mermaid
 flowchart LR
-    C[XxxCriteria<br/>filtro + ordem + projeção] --> F[AbstractRepository::fetch]
+    C[XxxCriteria<br/>filter + order + projection] --> F[AbstractRepository::fetch]
     F --> S[JsonQuery::select]
-    S -->|1 SQL com subconsultas JSON| DB[(PostgreSQL)]
-    DB -->|uma coluna json por linha| P[JsonQuery::parse / hydrate]
-    P --> E[list&lt;Entidade&gt; com o grafo]
+    S -->|1 SQL with JSON subqueries| DB[(PostgreSQL)]
+    DB -->|one json column per row| P[JsonQuery::parse / hydrate]
+    P --> E[list&lt;Entity&gt; with the graph]
 ```
 
 ---
 
-## 2. Anatomia
+## 2. Anatomy
 
-Uma `JsonQuery` junta quatro coisas: a **tabela** (colunas rasas), as **condições** (critério →
-WHERE), a **ordenação** (OrderBy → lista de ordenação) e as **relações**. No construtor do
-repositório:
+A `JsonQuery` brings together four things: the **table** (flat columns), the **conditions**
+(criteria → WHERE), the **ordering** (OrderBy → ordering list) and the **relations**. In the
+repository constructor:
 
 ```php
 $table = new Table(self::TABLE, static fn (): Review => new Review(), [
@@ -93,90 +95,92 @@ $this->query = new JsonQuery($table, ReviewCriteria::class, 'rv', $db->dialect()
     ->addToOne(/* user */);
 ```
 
-`self::TABLE`, `self::ID`, `self::RATING`... são constantes públicas do próprio repositório
-(`public const string TABLE = 'EN_REVIEW';` etc.): nenhum nome de tabela ou coluna aparece como
-texto solto. A convenção e o porquê estão em
-[repository.md](repository.md#5a-constantes-de-tabela-e-colunas).
+`self::TABLE`, `self::ID`, `self::RATING`... are public constants of the repository itself
+(`public const string TABLE = 'EN_REVIEW';` etc.): no table or column name appears as loose text.
+The convention and the reason are in
+[repository.md](repository.md#5a-table-and-column-constants).
 
-| Peça                               | Papel                                                                         |
+| Piece                              | Role                                                                          |
 |------------------------------------|-------------------------------------------------------------------------------|
-| `Table(nome, fábrica, colunas)`    | colunas rasas; **a primeira é a chave primária** (`Table::id()`)              |
-| `Column(campo, coluna, tipo, get, set)` | `campo` é a chave no JSON e o campo do bean; `tipo` converte banco ⇄ PHP |
-| `ReviewCriteria::class`            | a `JsonQuery` confere que o critério recebido é deste tipo (`LogicException` se não) |
-| `'rv'`                             | prefixo de alias; o `QueryContext` numera: `rv1`, `u2`, `pi3`...              |
+| `Table(name, factory, columns)`    | flat columns; **the first one is the primary key** (`Table::id()`)            |
+| `Column(field, column, type, get, set)` | `field` is the JSON key and the bean field; `type` converts database ⇄ PHP |
+| `ReviewCriteria::class`            | `JsonQuery` checks that the criteria it receives is of this type (`LogicException` otherwise) |
+| `'rv'`                             | alias prefix; `QueryContext` numbers them: `rv1`, `u2`, `pi3`...              |
 | `withConditions(Closure)`          | `(C $criteria, string $alias, QueryContext $ctx): ?Sql`                       |
-| `withOrdering(Closure)`            | `(?C $criteria, string $alias): string` — sem o `ORDER BY`                    |
-| `addToOne` / `addToMany`           | relações N:1 e 1:N (seções 7 e 8)                                             |
+| `withOrdering(Closure)`            | `(?C $criteria, string $alias): string` — without the `ORDER BY`              |
+| `addToOne` / `addToMany`           | N:1 and 1:N relations (sections 7 and 8)                                      |
 
-Por que tudo recebe um **alias**? Porque a mesma entidade aparece várias vezes numa consulta — como
-raiz, dentro da subconsulta de outra entidade, dentro do recorte de uma coleção. Cada aparição
-ganha um alias novo do `QueryContext`, e as condições/ordenações são escritas contra ele
-(`$c = Sql::alias($a); $c(self::PRODUCTID)` vale `rv1.PRODUCTID`), nunca contra o nome da tabela.
+Why does everything receive an **alias**? Because the same entity appears several times in one
+query — as the root, inside another entity's subquery, inside a collection slice. Each appearance
+gets a new alias from `QueryContext`, and conditions/orderings are written against it
+(`$c = Sql::alias($a); $c(self::PRODUCTID)` is `rv1.PRODUCTID`), never against the table name.
 
-Tipos de coluna (`ColumnType`):
+Column types (`ColumnType`):
 
-| Caso       | PHP                 | Banco                                                       |
+| Case       | PHP                 | Database                                                    |
 |------------|---------------------|-------------------------------------------------------------|
 | `Int`      | `int`               | `BIGINT`/`INT`                                              |
-| `Float`    | `float`             | `NUMERIC(20,2)` (gravado com `round(..., 2)`)               |
+| `Float`    | `float`             | `NUMERIC(20,2)` (stored with `round(..., 2)`)               |
 | `Text`     | `string`            | `VARCHAR`/`TEXT`                                            |
-| `DateTime` | `DateTimeImmutable` (UTC) | `TIMESTAMP`, formato `'Y-m-d H:i:s'` em UTC (sem fração) |
-| `Blob`     | `string` (bytes)    | `BYTEA` (no JSON vai em base64; o dialeto decodifica)       |
+| `DateTime` | `DateTimeImmutable` (UTC) | `TIMESTAMP`, `'Y-m-d H:i:s'` format in UTC (no fraction) |
+| `Blob`     | `string` (bytes)    | `BYTEA` (base64 in the JSON; the dialect decodes it)        |
 
 ---
 
-## 3. Executando consultas
+## 3. Running queries
 
-Ninguém chama a `JsonQuery` diretamente: os métodos de leitura de `AbstractRepository` fazem isso.
+Nobody calls `JsonQuery` directly: the `AbstractRepository` read methods do it.
 
-| Método                                     | SQL enviado                         | Devolve                 |
+| Method                                     | SQL sent                            | Returns                 |
 |--------------------------------------------|-------------------------------------|-------------------------|
-| `fetch($criteria, $offset = 0, $limit = 0)`| 1 SELECT (0 = sem limite/deslocamento) | `list<E>`            |
-| `fetchById($id, $projection = null)`       | 1 SELECT (`criteriaForIds([$id])`, limit 1) | `?E` (null se `$id` null) |
+| `fetch($criteria, $offset = 0, $limit = 0)`| 1 SELECT (0 = no limit/offset)      | `list<E>`               |
+| `fetchById($id, $projection = null)`       | 1 SELECT (`criteriaForIds([$id])`, limit 1) | `?E` (null if `$id` is null) |
 | `count($criteria)`                         | `SELECT COUNT(*) ... WHERE`         | `int`                   |
-| `fetchPage($criteria, $page, $pageSize)`   | `count` + `fetch` (2 comandos)      | `Page<E>` (página 0-based) |
+| `fetchPage($criteria, $page, $pageSize)`   | `count` + `fetch` (2 statements)    | `Page<E>` (0-based page) |
 
 ```php
-// lista
+// list
 $reviews = $this->reviews->fetch(new ReviewCriteria()
     ->withProductId($productId)
     ->withProjection(ReviewInfo::projection())
     ->withOrderBy(ReviewOrderBy::NEWEST_FIRST), 0, 50);
 
-// um registro, com projeção explícita
+// one record, with an explicit projection
 $review = $this->reviews->fetchById($id, ReviewInfo::projection());
 
-// contagem (a projeção é ignorada)
+// count (the projection is ignored)
 $total = $this->reviews->count(new ReviewCriteria()->withProductId($productId));
 
-// página: items, page, totalPages, totalItems
+// page: items, page, totalPages, totalItems
 $page = $this->purchases->fetchPage($criteria, 0, 10);
 ```
 
-`fetch` usa a projeção do critério (`projectionOf`) ou, sem ela, `newProjection()` do repositório.
+`fetch` uses the criteria's projection (`projectionOf`) or, without one, the repository's
+`newProjection()`.
 
 ---
 
-## 4. Projeção com `ProjectionValues`
+## 4. Projection with `ProjectionValues`
 
-A projeção é **a própria entidade usada como máscara**: campo não-null = coluna a selecionar. O
-valor em si não importa; `ProjectionValues` (normalmente importado como `PV`) só dá convenções:
+The projection is **the entity itself used as a mask**: a non-null field = a column to select. The
+value itself doesn't matter; `ProjectionValues` (usually imported as `PV`) only provides
+conventions:
 
-| Constante/método       | Para campos do tipo            |
+| Constant/method        | For fields of type             |
 |------------------------|--------------------------------|
 | `PV::INT`              | `int`                          |
 | `PV::FLOAT`            | `float`                        |
 | `PV::STR`              | `string`                       |
 | `PV::BOOL`             | `bool`                         |
-| `PV::BIN`              | binário (imagem)               |
-| `PV::dateTime()`       | `DateTimeImmutable` (é método porque objeto não pode ser constante de classe) |
-| `PV::singletonList($shape, $criteria)` | coleção 1:N com critério e recorte (seção 9) |
+| `PV::BIN`              | binary (image)                 |
+| `PV::dateTime()`       | `DateTimeImmutable` (a method because an object can't be a class constant) |
+| `PV::singletonList($shape, $criteria)` | 1:N collection with criteria and slicing (section 9) |
 
 ```php
 use LogicException;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 
-// o que o painel de avaliações mostra
+// what the reviews panel shows
 public static function projection(): Review
 {
     return new Review()
@@ -188,54 +192,54 @@ public static function projection(): Review
 }
 ```
 
-Regras:
+Rules:
 
-- **O id entra sempre** (`Table::projected()` o inclui mesmo se a máscara não o pedir).
-- No bean lido, **campo não projetado fica `null`** — `$review->product()` é null acima.
-- Uma relação projetada é outra máscara, aninhada; a profundidade não muda o número de consultas.
-- Mantenha a projeção ao lado da estrutura que ela preenche (`ReviewInfo::projection()`,
-  `ReceiptItem::projection()`): o que a tela mostra e o que a consulta busca mudam juntos.
+- **The id is always included** (`Table::projected()` adds it even if the mask doesn't ask for it).
+- In the bean read, **a field that wasn't projected stays `null`** — `$review->product()` is null above.
+- A projected relation is another, nested mask; depth doesn't change the number of queries.
+- Keep the projection next to the structure it fills (`ReviewInfo::projection()`,
+  `ReceiptItem::projection()`): what the screen shows and what the query fetches change together.
 
 ---
 
-## 5. Filtros
+## 5. Filters
 
-### 5.1 A API de `Criterion`
+### 5.1 The `Criterion` API
 
-Cada `XxxCriteria` tem um `Criterion` por campo filtrável. Os métodos fluentes devolvem o **dono**
-(o critério), para encadear:
+Each `XxxCriteria` has one `Criterion` per filterable field. The fluent methods return the
+**owner** (the criteria), for chaining:
 
 ```php
-$criteria = new ReviewCriteria()->withProductId(Seed::CAFETEIRA_ID);   // atalho de eq
-$criteria->rating()->ge(4);                                           // nota >= 4
+$criteria = new ReviewCriteria()->withProductId(Seed::COFFEE_MAKER_ID);   // eq shortcut
+$criteria->rating()->ge(4);                                               // rating >= 4
 
 $products = new ProductCriteria();
-$products->price()->between(10.0, 50.0);                               // ou só início/fim
-$products->name()->containing('bola');                                // ILIKE '%bola%'
-$products->name()->or()->startingWith('Bola')->name()->startingWith('Fita');
+$products->price()->between(10.0, 50.0);                               // or only start/end
+$products->name()->containing('ball');                                // ILIKE '%ball%'
+$products->name()->or()->startingWith('Wilson')->name()->startingWith('Thread');
 $products->productId()->in([1, 2, 3]);
 ```
 
-| Classe                | Operações                                                     |
+| Class                 | Operations                                                    |
 |-----------------------|---------------------------------------------------------------|
 | `Criterion`           | `eq`, `ne`, `in`, `isNull`, `isNotNull`                        |
 | `ComparableCriterion` | + `gt`, `ge`, `lt`, `le`, `between`                            |
 | `TextCriterion`       | + `like`, `ilike`, `containing` (`%x%`), `startingWith` (`x%`) |
 
-Semântica:
+Semantics:
 
-- Pedidos no **mesmo campo** valem juntos (AND); `or()` torna aquele campo disjuntivo. Campos
-  diferentes sempre se combinam com AND.
-- **Valor `null` não acrescenta pedido** (`eq(null)`, `in(null)`, `in([])`, `like('')`): um
-  filtro de tela vazio significa "não filtrar". Consequência: um id que **precisa** restringir a
-  consulta não pode chegar null — a lista mostraria tudo.
-- `between(null, $fim)` vira `le`, `between($ini, null)` vira `ge`.
-- `like` diferencia maiúsculas; `ilike`/`containing`/`startingWith` não (traduzidos como
-  `lower(col) LIKE lower(?)`). Os curingas `%` fazem parte do valor.
+- Requests on the **same field** apply together (AND); `or()` makes that field disjunctive.
+  Different fields always combine with AND.
+- **A `null` value adds no request** (`eq(null)`, `in(null)`, `in([])`, `like('')`): an empty
+  screen filter means "don't filter". Consequence: an id that **must** restrict the query can't
+  arrive null — the list would show everything.
+- `between(null, $end)` becomes `le`, `between($start, null)` becomes `ge`.
+- `like` is case-sensitive; `ilike`/`containing`/`startingWith` are not (translated as
+  `lower(col) LIKE lower(?)`). The `%` wildcards are part of the value.
 
-### 5.2 `CriterionTranslator` em `conditions()`
+### 5.2 `CriterionTranslator` in `conditions()`
 
-O repositório só diz qual coluna corresponde a cada campo; a tradução para SQL é única:
+The repository only says which column matches each field; the translation to SQL is shared:
 
 ```php
 protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
@@ -251,30 +255,30 @@ protected function conditions(object $criteria, string $a, QueryContext $ctx): ?
 }
 ```
 
-`translate` devolve `null` para campo sem pedido, e `Sql::and`/`Sql::or` descartam nulls — sem
-nenhuma condição, o resultado é `null` (sem `WHERE`). Os valores vão como parâmetros `?`, nunca
-concatenados. Para colunas de data, passe o conversor:
+`translate` returns `null` for a field with no request, and `Sql::and`/`Sql::or` drop nulls — with
+no condition at all, the result is `null` (no `WHERE`). Values go as `?` parameters, never
+concatenated. For date columns, pass the converter:
 
 ```php
 CT::translate($c(self::BUYDATE), $criteria->buyDate(), ColumnType::formatDate(...)),
 ```
 
-### 5.3 Campos virtuais com `EXISTS`
+### 5.3 Virtual fields with `EXISTS`
 
-Um critério pode ter campos que não são colunas da tabela. `PurchaseCriteria::productId` significa
-"a compra tem um item com este produto" — e vira `EXISTS`:
+A criteria can have fields that are not table columns. `PurchaseCriteria::productId` means "the
+purchase has an item with this product" — and becomes `EXISTS`:
 
 ```php
-/** Campo virtual `productId`: existe item desta compra com o produto pedido. */
+/** Virtual field `productId`: this purchase has an item with the requested product. */
 private function existsItemMatching(PurchaseCriteria $criteria, string $a, QueryContext $ctx): ?Sql
 {
     if (!$criteria->productId()->isSet()) {
-        return null;                               // campo não pedido ⇒ nenhuma condição
+        return null;                               // field not requested ⇒ no condition
     }
-    $pi = $ctx->alias('pi');                       // alias novo: não colide com nenhum outro
-    $i = Sql::alias($pi);                          // a condição é montada sobre a coluna da subconsulta
+    $pi = $ctx->alias('pi');                       // new alias: collides with no other
+    $i = Sql::alias($pi);                          // the condition is built on the subquery's column
     $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId())
-        ?? throw new LogicException('critério preenchido sem condição');   // não acontece: isSet() acima
+        ?? throw new LogicException('criterion set but produced no condition');   // can't happen: isSet() above
     $c = Sql::alias($a);
 
     return new Sql(
@@ -285,21 +289,21 @@ private function existsItemMatching(PurchaseCriteria $criteria, string $a, Query
 }
 ```
 
-Ele entra em `conditions()` como mais uma parcela do `Sql::and([...])`. Primeiro ele confere se o
-campo foi pedido: só então reserva o alias, para não gastar um número do contador (e deixar o SQL
-gerado dependente dos filtros vazios) à toa. Depois disso o `translate()` sempre devolve uma
-condição; o `?? throw` só existe porque o tipo de retorno é `?Sql`, e transforma uma mudança
-futura nele num erro visível em vez de um filtro ignorado. O alias da subconsulta vem
-do `$ctx` — é para isso que `conditions` recebe o `QueryContext`. A tabela e as colunas do item
-vêm das constantes públicas de `PurchaseItemRepositoryImpl` (concatenadas, porque o PHP não
-interpola constantes em strings). `PurchaseItemRepositoryImpl` faz o inverso (`userId` do item =
-dono da compra).
+It goes into `conditions()` as one more term of the `Sql::and([...])`. It first checks whether the
+field was requested: only then does it reserve the alias, so it doesn't waste a counter number
+(and make the generated SQL depend on empty filters) for nothing. After that, `translate()` always
+returns a condition; the `?? throw` only exists because the return type is `?Sql`, and it turns a
+future change there into a visible error instead of an ignored filter. The subquery's alias comes
+from `$ctx` — that's why `conditions` receives the `QueryContext`. The item's table and columns
+come from the public constants of `PurchaseItemRepositoryImpl` (concatenated, because PHP doesn't
+interpolate constants in strings). `PurchaseItemRepositoryImpl` does the reverse (the item's
+`userId` = the purchase owner).
 
 ---
 
-## 6. Paginação e ordenação
+## 6. Pagination and ordering
 
-O `OrderBy` é um enum neutro no domínio; o repositório traduz cada caso num `match`:
+The `OrderBy` is a neutral enum in the domain; the repository translates each case in a `match`:
 
 ```php
 protected function orderBy(?object $criteria, string $a): string
@@ -315,49 +319,51 @@ protected function orderBy(?object $criteria, string $a): string
 }
 ```
 
-- **Sem ordem pedida (`''`), a `JsonQuery` ordena pelo id ascendente** — nunca pela ordem física.
-- **Toda ordenação termina no id.** Datas são gravadas sem fração de segundo: duas avaliações no
-  mesmo segundo empatam, e sem desempate o banco pode devolvê-las em ordem diferente a cada página
-  — uma linha aparece duas vezes, outra nunca.
-- `$criteria?->orderBy()`: o `?->` existe porque o critério pode ser null (coleção sem critério).
+- **With no ordering requested (`''`), `JsonQuery` orders by id ascending** — never by physical
+  order.
+- **Every ordering ends with the id.** Dates are stored without fractional seconds: two reviews in
+  the same second tie, and without a tie-breaker the database may return them in a different order
+  on each page — one row appears twice, another never.
+- `$criteria?->orderBy()`: the `?->` is there because the criteria can be null (a collection
+  without criteria).
 
-Paginação por deslocamento: `fetch($criteria, $offset, $limit)` gera `LIMIT n OFFSET m`;
-`fetchPage($criteria, $page, $pageSize)` calcula `$offset = $page * $pageSize` e acrescenta o total
-(um `count` a mais).
+Offset pagination: `fetch($criteria, $offset, $limit)` generates `LIMIT n OFFSET m`;
+`fetchPage($criteria, $page, $pageSize)` computes `$offset = $page * $pageSize` and adds the total
+(one extra `count`).
 
 ---
 
-## 7. Relação 1:1 — `addToOne`
+## 7. 1:1 relation — `addToOne`
 
-Relação N:1 (vista do lado que guarda a FK): `EN_REVIEW.USERID → EN_USER.ID`.
+An N:1 relation (seen from the side that holds the FK): `EN_REVIEW.USERID → EN_USER.ID`.
 
-### 7.1 Declaração
+### 7.1 Declaration
 
-No bean, a relação é uma entidade:
+In the bean, the relation is an entity:
 
 ```php
 private ?User $user = null;
 
 public function user(): ?User { return $this->user; }
 public function withUser(?User $user): static { $this->user = $user; return $this; }
-public function userId(): ?int { return $this->user?->id(); }   // usado na escrita da FK
+public function userId(): ?int { return $this->user?->id(); }   // used when writing the FK
 ```
 
-Na `JsonQuery`:
+In the `JsonQuery`:
 
 ```php
 ->addToOne(
-    'user',                                                   // chave no JSON
-    static fn (Review $r) => $r->user(),                      // lê a máscara da projeção
-    static fn (Review $r, ?User $u) => $r->withUser($u),      // grava o bean hidratado
-    fn () => $this->userRepository()->query(),                // JsonQuery do alvo (closure!)
-    self::USERID,                                             // coluna de FK NESTA tabela
+    'user',                                                   // key in the JSON
+    static fn (Review $r) => $r->user(),                      // reads the projection mask
+    static fn (Review $r, ?User $u) => $r->withUser($u),      // stores the hydrated bean
+    fn () => $this->userRepository()->query(),                // the target's JsonQuery (closure!)
+    self::USERID,                                             // FK column in THIS table
 )
 ```
 
-### 7.2 O que é gerado
+### 7.2 What gets generated
 
-Com `ReviewInfo::projection()` (autor com nome):
+With `ReviewInfo::projection()` (author with name):
 
 ```text
 SELECT { "id": rv1.ID, "rating": rv1.RATING, "comment": rv1.REVIEWCOMMENT, "createdAt": rv1.CREATEDAT,
@@ -368,43 +374,43 @@ ORDER BY rv1.CREATEDAT DESC, rv1.ID DESC
 LIMIT 50
 ```
 
-A subconsulta usa a projeção do alvo (que pode ter suas próprias relações) e o `JsonDialect`
-garante `null` quando não há linha.
+The subquery uses the target's projection (which may have its own relations), and the
+`JsonDialect` guarantees `null` when there is no row.
 
-### 7.3 Atalho de FK: só o id
+### 7.3 FK shortcut: id only
 
-Se a máscara da relação pede **só o id** (nem outros campos, nem relações), o id já está na coluna
-de FK desta linha — sai sem subconsulta:
+If the relation's mask asks for **only the id** (no other fields, no relations), the id is already
+in this row's FK column — it comes out without a subquery:
 
 ```php
-->withUser(new User()->withId(PV::INT))      // vira  "user": CASE WHEN rv1.USERID IS NULL THEN NULL ELSE {"id": rv1.USERID} END
+->withUser(new User()->withId(PV::INT))      // becomes  "user": CASE WHEN rv1.USERID IS NULL THEN NULL ELSE {"id": rv1.USERID} END
 ```
 
-É o que `newProjection()` faz com todas as relações, e o que o teste
-`defaultProjection_bringsTheForeignKeysOnly` confere: `productId()`/`userId()` preenchidos,
+That's what `newProjection()` does with every relation, and what the
+`defaultProjection_bringsTheForeignKeysOnly` test checks: `productId()`/`userId()` filled,
 `user()->name()` null.
 
-### 7.4 Uso
+### 7.4 Usage
 
 ```php
 $reviews = $repo->fetch(new ReviewCriteria()
-    ->withProductId(Seed::CAFETEIRA_ID)
+    ->withProductId(Seed::COFFEE_MAKER_ID)
     ->withProjection(ReviewInfo::projection())
     ->withOrderBy(ReviewOrderBy::NEWEST_FIRST));
 
-$reviews[0]->user()?->name();   // 'Fulano de Tal' — veio no mesmo SELECT
-$reviews[0]->product();         // null: não foi projetado
+$reviews[0]->user()?->name();   // 'John Doe' — came in the same SELECT
+$reviews[0]->product();         // null: not projected
 ```
 
 ---
 
-## 8. Relação 1:N — `addToMany`
+## 8. 1:N relation — `addToMany`
 
-Relação 1:N: o **alvo** guarda a FK desta tabela (`EN_PURCHASEITEM.PURCHASEID → EN_PURCHASE.ID`).
+A 1:N relation: the **target** holds this table's FK (`EN_PURCHASEITEM.PURCHASEID → EN_PURCHASE.ID`).
 
-### 8.1 Declaração
+### 8.1 Declaration
 
-No bean, a coleção aceita lista **ou** `ProjectionList` (seção 9):
+In the bean, the collection accepts a list **or** a `ProjectionList` (section 9):
 
 ```php
 // Purchase
@@ -412,21 +418,21 @@ public function items(): array|ProjectionList|null { return $this->items; }
 public function withItems(array|ProjectionList|null $items): static { /* ... */ }
 ```
 
-Em `PurchaseRepositoryImpl`:
+In `PurchaseRepositoryImpl`:
 
 ```php
 ->addToMany(
     'items',
     static fn (Purchase $p) => $p->items(),
-    static fn (Purchase $p, array $items) => $p->withItems($items),   // recebe list<PurchaseItem>
+    static fn (Purchase $p, array $items) => $p->withItems($items),   // receives list<PurchaseItem>
     fn () => $this->purchaseItemRepository()->query(),
-    PurchaseItemRepositoryImpl::PURCHASEID,                           // coluna de FK NO FILHO
+    PurchaseItemRepositoryImpl::PURCHASEID,                           // FK column IN THE CHILD
 )
 ```
 
-### 8.2 Uso: a forma do item como lista de um elemento
+### 8.2 Usage: the item's shape as a one-element list
 
-Na projeção, a coleção é um array com **um** item-máscara — a forma de cada elemento
+In the projection, the collection is an array with **one** mask item — the shape of each element
 (`PurchasesPanelService::projection()`):
 
 ```php
@@ -438,8 +444,8 @@ $item = new PurchaseItem()
 return new Purchase()->withId(PV::INT)->withBuyDate(PV::dateTime())->withItems([$item]);
 ```
 
-Isso gera um array JSON agregado por subconsulta correlacionada, com a ordem **dentro** do
-agregado (sem critério, pelo id do filho):
+This generates a JSON array aggregated by a correlated subquery, with the ordering **inside** the
+aggregate (without criteria, by the child's id):
 
 ```text
 "items": (SELECT [ {"id": pi2.ID, "amount": pi2.AMOUNT, "price": pi2.PRICE,
@@ -448,14 +454,15 @@ agregado (sem critério, pelo id do filho):
           FROM EN_PURCHASEITEM pi2 WHERE pi2.PURCHASEID = pu1.ID)
 ```
 
-Compras, itens e nomes de produto: **um comando**. Uma compra sem itens volta com `items() === []`.
+Purchases, items and product names: **one statement**. A purchase without items comes back with
+`items() === []`.
 
 ---
 
-## 9. Filtrando e recortando a subcoleção — `ProjectionList`
+## 9. Filtering and slicing the subcollection — `ProjectionList`
 
-Um array PHP não carrega metadados. Quando a coleção precisa de filtro, ordem ou recorte, use
-`ProjectionList`, criada por `PV::singletonList($shape, $criteria)`:
+A PHP array carries no metadata. When the collection needs a filter, ordering or slice, use a
+`ProjectionList`, created by `PV::singletonList($shape, $criteria)`:
 
 ```php
 $items = PV::singletonList(
@@ -469,15 +476,15 @@ $purchases = Beans::of(PurchaseRepository::class)->fetch(new PurchaseCriteria()
     ->withOrderBy(PurchaseOrderBy::OLDEST_FIRST));
 ```
 
-- **O critério do filho** (`PurchaseItemCriteria`) passa pelo `conditions()` e pelo `orderBy()` do
-  repositório de itens — os mesmos usados quando se consulta itens diretamente. Ele precisa ser do
-  tipo certo: um `ProductCriteria` ali lança `LogicException('... não serve para EN_PURCHASEITEM ...')`.
-- **`withLimit`/`withOffset` valem POR PAI**: "os 3 itens mais caros de cada compra", não "3 itens
-  no total".
-- O filtro do filho não filtra os pais: uma compra sem itens que casem volta com `items() === []`.
-  Para filtrar **compras** por item, use o campo virtual da seção 5.3.
+- **The child's criteria** (`PurchaseItemCriteria`) goes through the items repository's
+  `conditions()` and `orderBy()` — the same ones used when querying items directly. It must be of
+  the right type: a `ProductCriteria` there throws `LogicException('... does not apply to EN_PURCHASEITEM ...')`.
+- **`withLimit`/`withOffset` apply PER PARENT**: "the 3 most expensive items of each purchase",
+  not "3 items in total".
+- The child's filter doesn't filter the parents: a purchase with no matching items comes back with
+  `items() === []`. To filter **purchases** by item, use the virtual field from section 5.3.
 
-Como o recorte por pai é feito (pseudo-SQL):
+How the per-parent slice is done (pseudo-SQL):
 
 ```text
 "items": (SELECT [ {...} ORDER BY pi2.PRICE DESC, pi2.ID ASC ]
@@ -488,33 +495,33 @@ Como o recorte por pai é feito (pseudo-SQL):
                            ORDER BY pi4.PRICE DESC, pi4.ID ASC LIMIT 3))
 ```
 
-O recorte vira um `ID IN (subconsulta correlacionada ordenada e cortada)` porque não cabe no
-agregado nem numa tabela derivada (que não enxergaria a linha do pai). Por isso o desempate pelo
-id na ordenação do filho é tão importante quanto na raiz. Os números dos aliases podem pular: cada
-`conditions()` pode reservar aliases para seus `EXISTS`.
+The slice becomes an `ID IN (correlated subquery, ordered and cut)` because it fits neither in the
+aggregate nor in a derived table (which wouldn't see the parent row). That's why the id tie-breaker
+in the child's ordering is as important as at the root. Alias numbers may skip: each
+`conditions()` can reserve aliases for its `EXISTS`.
 
-Testes que mostram cada caso: `tests/Shopping/Persistence/JsonProjectionTest.php`
+Tests showing each case: `tests/Shopping/Persistence/JsonProjectionTest.php`
 (`collectionSlice_isPerParent_inTheSameStatement`, `collectionFilter_bindsItsParametersInTheRightPlace`)
-e `PurchaseRepositoryTest` (`collection_limitIsPerParent`, `collection_subCriteriaComposesWithSlice`).
+and `PurchaseRepositoryTest` (`collection_limitIsPerParent`, `collection_subCriteriaComposesWithSlice`).
 
 ---
 
-## 10. Dependências circulares
+## 10. Circular dependencies
 
-Compra → item → compra é um ciclo: `PurchaseRepositoryImpl` tem `addToMany('items', ...)` e
-`PurchaseItemRepositoryImpl` tem `addToOne('purchase', ...)`. Se cada construtor recebesse a
-`JsonQuery` do outro, nenhum dos dois poderia ser criado primeiro.
+Purchase → item → purchase is a cycle: `PurchaseRepositoryImpl` has `addToMany('items', ...)` and
+`PurchaseItemRepositoryImpl` has `addToOne('purchase', ...)`. If each constructor received the
+other's `JsonQuery`, neither could be created first.
 
-A solução é o alvo ser uma **closure**, resolvida só na hora de montar a consulta:
+The solution is for the target to be a **closure**, resolved only when the query is built:
 
 ```php
-// em PurchaseRepositoryImpl
+// in PurchaseRepositoryImpl
 fn () => $this->purchaseItemRepository()->query(),
 
-// em PurchaseItemRepositoryImpl
+// in PurchaseItemRepositoryImpl
 fn () => $this->purchaseRepository()->query(),
 
-// o método acha o outro repositório no Beans na primeira chamada e o guarda no campo
+// the method finds the other repository in Beans on the first call and keeps it in the field
 private ?PurchaseItemRepositoryImpl $purchaseItemRepository = null;
 
 private function purchaseItemRepository(): PurchaseItemRepositoryImpl
@@ -523,18 +530,19 @@ private function purchaseItemRepository(): PurchaseItemRepositoryImpl
 }
 ```
 
-`repositoryOf` (de `AbstractRepository`) acha o outro repositório no `Beans`, pela interface, e
-confere que é a classe concreta esperada (é ela que tem `query()`). Quando um construtor roda, o
-outro repositório pode ainda não estar registrado; na primeira consulta, todos já estão. O lookup
-acontece uma vez: depois, o método devolve o campo. Note `fn` (não `static fn`) nessas closures:
-elas usam `$this`.
-Quem para a recursão é a projeção — a consulta só desce pelas relações cujas máscaras não são null.
+`repositoryOf` (from `AbstractRepository`) finds the other repository in `Beans`, by interface,
+and checks it is the expected concrete class (that's the one with `query()`). When a constructor
+runs, the other repository may not be registered yet; by the first query, they all are. The lookup
+happens once: after that, the method returns the field. Note `fn` (not `static fn`) in these
+closures: they use `$this`.
+What stops the recursion is the projection — the query only descends into relations whose masks
+are not null.
 
 ---
 
-## 11. Inspecionando o SQL
+## 11. Inspecting the SQL
 
-`Database::onQuery()` registra um observador chamado com cada comando enviado (e seus parâmetros):
+`Database::onQuery()` registers an observer called with each statement sent (and its parameters):
 
 ```php
 $statements = [];
@@ -544,67 +552,67 @@ $this->db->onQuery(static function (string $sql, array $params) use (&$statement
 
 Beans::of(ReviewRepository::class)->fetch(/* ... */);
 
-self::assertCount(1, $statements, 'sem N+1');
+self::assertCount(1, $statements, 'no N+1');
 self::assertMatchesRegularExpression('/FROM EN_USER u\d+ WHERE u\d+\.ID = rv1\.USERID/', $statements[0]);
 ```
 
-- É o jeito de **provar** que uma tela não tem N+1: conte os comandos.
-- Para depurar, troque o corpo por `error_log($sql)` ou um `var_dump($sql, $params)`.
-- `onQuery(null)` remove o observador; `TestDatabase` já faz isso entre os testes.
-- Os aliases são previsíveis (`rv1` é sempre a raiz), mas os seguintes dependem da projeção:
-  nas expressões regulares, prefira `u\d+`.
+- It's the way to **prove** a screen has no N+1: count the statements.
+- To debug, replace the body with `error_log($sql)` or a `var_dump($sql, $params)`.
+- `onQuery(null)` removes the observer; `TestDatabase` already does this between tests.
+- Aliases are predictable (`rv1` is always the root), but the next ones depend on the projection:
+  in regular expressions, prefer `u\d+`.
 
 ---
 
-## 12. Referência rápida
+## 12. Quick reference
 
-### Montando a JsonQuery
+### Building the JsonQuery
 
 ```php
 new JsonQuery($table, XxxCriteria::class, 'xx', $db->dialect())
     ->withConditions($this->conditions(...))   // (C, alias, QueryContext): ?Sql
     ->withOrdering($this->orderBy(...))        // (?C, alias): string
-    ->addToOne('campo', $get, $set, fn () => $this->alvoRepository()->query(), 'FK_NESTA_TABELA')
-    ->addToMany('campos', $get, $set, fn () => $this->filhoRepository()->query(), 'FK_NO_FILHO');
+    ->addToOne('field', $get, $set, fn () => $this->targetRepository()->query(), 'FK_IN_THIS_TABLE')
+    ->addToMany('fields', $get, $set, fn () => $this->childRepository()->query(), 'FK_IN_THE_CHILD');
 ```
 
-### Executando (via `AbstractRepository`)
+### Running (via `AbstractRepository`)
 
-| Chamada                                   | Comandos | Resultado     |
-|-------------------------------------------|----------|---------------|
-| `fetch($c, $offset, $limit)`              | 1        | `list<E>`     |
-| `fetchById($id, $prj)`                    | 1        | `?E`          |
-| `count($c)`                               | 1        | `int`         |
-| `fetchPage($c, $page, $size)`             | 2        | `Page<E>`     |
+| Call                                      | Statements | Result      |
+|-------------------------------------------|------------|-------------|
+| `fetch($c, $offset, $limit)`              | 1          | `list<E>`   |
+| `fetchById($id, $prj)`                    | 1          | `?E`        |
+| `count($c)`                               | 1          | `int`       |
+| `fetchPage($c, $page, $size)`             | 2          | `Page<E>`   |
 
-### Projeção
+### Projection
 
-| Quero                                   | Escrevo                                                    |
+| I want                                  | I write                                                    |
 |-----------------------------------------|------------------------------------------------------------|
-| um campo                                | `->withName(PV::STR)` / `PV::INT` / `PV::FLOAT` / `PV::dateTime()` |
-| só o id da relação (sem subconsulta)    | `->withUser(new User()->withId(PV::INT))`                  |
-| campos da relação                       | `->withUser(new User()->withName(PV::STR))`                |
-| coleção inteira                         | `->withItems([new PurchaseItem()->withPrice(PV::FLOAT)])`  |
-| coleção filtrada/ordenada/recortada     | `->withItems(PV::singletonList($forma, $criterio)->withLimit(3)->withOffset(0))` |
+| a field                                 | `->withName(PV::STR)` / `PV::INT` / `PV::FLOAT` / `PV::dateTime()` |
+| only the relation's id (no subquery)    | `->withUser(new User()->withId(PV::INT))`                  |
+| fields of the relation                  | `->withUser(new User()->withName(PV::STR))`                |
+| the whole collection                    | `->withItems([new PurchaseItem()->withPrice(PV::FLOAT)])`  |
+| a filtered/ordered/sliced collection    | `->withItems(PV::singletonList($shape, $criteria)->withLimit(3)->withOffset(0))` |
 
-### Filtros
+### Filters
 
-| Quero                    | Escrevo                                      |
+| I want                   | I write                                      |
 |--------------------------|----------------------------------------------|
-| igual / diferente        | `->withXxx($v)`, `xxx()->eq($v)`, `->ne($v)` |
-| um de vários             | `xxx()->in([...])`                           |
-| nulo / não nulo          | `xxx()->isNull()`, `->isNotNull()`           |
-| faixa                    | `->gt ge lt le`, `->between($a, $b)`         |
-| texto                    | `->like('A%')`, `->ilike()`, `->containing()`, `->startingWith()` |
-| OU dentro do campo       | `xxx()->or()->eq(1)->xxx()->eq(2)`           |
-| condição em outra tabela | campo virtual + `EXISTS` com `$ctx->alias()` |
+| equal / not equal        | `->withXxx($v)`, `xxx()->eq($v)`, `->ne($v)` |
+| one of several           | `xxx()->in([...])`                           |
+| null / not null          | `xxx()->isNull()`, `->isNotNull()`           |
+| range                    | `->gt ge lt le`, `->between($a, $b)`         |
+| text                     | `->like('A%')`, `->ilike()`, `->containing()`, `->startingWith()` |
+| OR within the field      | `xxx()->or()->eq(1)->xxx()->eq(2)`           |
+| condition on another table | virtual field + `EXISTS` with `$ctx->alias()` |
 
-### Regras que quebram em silêncio
+### Rules that break silently
 
-- [ ] Toda leitura de tela passa uma projeção com exatamente o que mostra.
-- [ ] Nenhuma chamada de repositório dentro de laço sobre linhas: a relação vai na projeção.
-- [ ] Toda coleção que pode crescer tem ordem e `withLimit`.
-- [ ] Todo `ORDER BY` termina no id (raiz e filhos).
-- [ ] Condições e ordenações escritas contra o alias recebido; subconsultas pedem alias ao `$ctx`.
-- [ ] Critério com `null` não filtra: id obrigatório nunca chega null.
-- [ ] Identificadores SQL sem aspas.
+- [ ] Every screen read passes a projection with exactly what it shows.
+- [ ] No repository call inside a loop over rows: the relation goes in the projection.
+- [ ] Every collection that can grow has an ordering and `withLimit`.
+- [ ] Every `ORDER BY` ends with the id (root and children).
+- [ ] Conditions and orderings written against the alias received; subqueries ask `$ctx` for an alias.
+- [ ] A criterion with `null` doesn't filter: a required id never arrives null.
+- [ ] SQL identifiers unquoted.

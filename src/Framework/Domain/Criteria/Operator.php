@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Criteria;
 
 /**
- * Operador de comparação de um Criterion, com a mesma semântica do SQL.
- * Neutro: não conhece SQL — quem traduz é o CriterionTranslator da persistência.
+ * Comparison operator of a Criterion, with the same semantics as SQL.
+ * Neutral: knows nothing about SQL — the persistence layer's CriterionTranslator does the translation.
  */
 enum Operator: string
 {
@@ -23,7 +23,7 @@ enum Operator: string
     case IS_NULL = 'IS_NULL';
     case IS_NOT_NULL = 'IS_NOT_NULL';
 
-    /** Quantidade de valores exigida; -1 quando variável (IN). */
+    /** Number of values required; -1 when variable (IN). */
     public function arity(): int
     {
         return match ($this) {

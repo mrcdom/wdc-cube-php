@@ -1,60 +1,60 @@
-# Implementando views no shell React
+# Implementing views in the React shell
 
-Este guia explica como escrever a view React de um presenter: o componente que desenha o estado
-que o servidor manda e devolve os cliques como eventos. O shell fica em
-`frontend/shopping.shell.react`; o cliente do protocolo (WebSocket, estados, formulários) em
-`frontend/remote.bridge.react`, reexportado pelo shell em `@root/bridge` (`src/scripts/bridge/index.tsx`).
+This guide explains how to write a presenter's React view: the component that draws the state the
+server sends and sends clicks back as events. The shell lives in
+`frontend/shopping.shell.react`; the protocol client (WebSocket, states, forms) in
+`frontend/remote.bridge.react`, re-exported by the shell as `@root/bridge` (`src/scripts/bridge/index.tsx`).
 
-O exemplo condutor é o **painel de avaliações** do produto (`ReviewsPanel.tsx`), a view do
-`ReviewsPanelPresenter` descrito em [presentation-module.md](presentation-module.md). Ele é o
-exercício dos guias: o código foi testado, mas não está no repositório - você vai montá-lo.
+The running example is the product **reviews panel** (`ReviewsPanel.tsx`), the view of the
+`ReviewsPanelPresenter` described in [presentation-module.md](presentation-module.md). It is the
+exercise of the guides: the code has been tested, but it is not in the repository - you will
+build it.
 
-O padrão usa **classes** em vez dos Hooks habituais do React. Parece estranho no começo, mas
-tem uma razão clara, explicada logo abaixo.
+The pattern uses **classes** instead of the usual React Hooks. It looks odd at first, but there
+is a clear reason, explained right below.
 
 ---
 
-## 1. Por que classes em vez de Hooks?
+## 1. Why classes instead of Hooks?
 
-Num app React comum, cada componente guarda o seu estado com `useState`. Aqui **o estado da
-tela é do servidor**: o presenter muda o `ViewState`, o servidor serializa e o bridge entrega o
-JSON novo ao componente. O componente não decide nada - desenha.
+In a typical React app, each component keeps its state with `useState`. Here **the screen state
+belongs to the server**: the presenter changes the `ViewState`, the server serializes it and the
+bridge hands the new JSON to the component. The component decides nothing - it draws.
 
-Para isso o componente precisa de uma **instância estável**, que sobreviva às re-renderizações,
-com acesso ao estado mais recente vindo do servidor e, ao mesmo tempo, com espaço para o pouco
-de estado que é só da interface ("o que o usuário já digitou e ainda não enviou"). Uma classe
-dá isso de graça:
+For that, the component needs a **stable instance** that survives re-renders, with access to the
+latest state from the server and, at the same time, room for the little state that belongs only
+to the UI ("what the user has typed but not sent yet"). A class gives you that for free:
 
-| Membro | O que é | De quem |
+| Member | What it is | Owned by |
 |---|---|---|
-| `this.state` | o `ViewState` serializado pelo servidor | do servidor (leia, não guarde nada nele) |
-| `this.vsid` | o id desta instância de view (`"<classId>:<n>"`) | do servidor |
-| campos da classe (`private rating = 0`) | estado local da interface | da view |
-| `this.forceUpdate()` | redesenha depois de mudar um campo local | - |
+| `this.state` | the `ViewState` serialized by the server | the server (read it, don't store anything in it) |
+| `this.vsid` | the id of this view instance (`"<classId>:<n>"`) | the server |
+| class fields (`private rating = 0`) | local UI state | the view |
+| `this.forceUpdate()` | redraws after changing a local field | - |
 
-Por baixo, `BaseViewClass.FC(...)` (em `src/scripts/utils/ViewUtils.tsx`) gera um componente
-funcional que cria a instância **uma vez** (`React.useMemo` sem dependências), liga-a ao estado da
-view no bridge (`bridge.bindView`) e chama `render()` a cada atualização. Você escreve só a
-classe.
+Under the hood, `BaseViewClass.FC(...)` (in `src/scripts/utils/ViewUtils.tsx`) generates a
+function component that creates the instance **once** (`React.useMemo` with no dependencies),
+binds it to the view's state in the bridge (`bridge.bindView`) and calls `render()` on every
+update. You only write the class.
 
 ---
 
-## 2. Os dois tipos de classe
+## 2. The two kinds of class
 
-| Classe base | Quando usar | Exemplos |
+| Base class | When to use | Examples |
 |---|---|---|
-| `BaseViewClass<P, S>` | a view de um presenter: tem `classId`, recebe `state` e `vsid` do servidor | `ProductView`, `HomeView`, `ProductsPanel`, `ReviewsPanel` |
-| `BasePanelClass<P>` | um pedaço da tela sem estado próprio no servidor: só recebe `props` | `HeaderPanel`, `ContentPanel`, o `CardProduto` da vitrine |
+| `BaseViewClass<P, S>` | a presenter's view: it has a `classId`, receives `state` and `vsid` from the server | `ProductView`, `HomeView`, `ProductsPanel`, `ReviewsPanel` |
+| `BasePanelClass<P>` | a piece of the screen with no state of its own on the server: it only receives `props` | `HeaderPanel`, `ContentPanel`, the showcase's `ProductCard` |
 
-Ambas vivem em `@root/utils/ViewUtils`. Um sub-componente que nem precisa de instância (sem
-handlers, sem campos) pode ser uma função comum, como o `ReviewItem` do painel de avaliações.
-A `SlotView` é um caso à parte: um componente funcional que chama `bridge.bindView` direto.
+Both live in `@root/utils/ViewUtils`. A sub-component that doesn't even need an instance (no
+handlers, no fields) can be a plain function, like the reviews panel's `ReviewItem`. `SlotView`
+is a special case: a function component that calls `bridge.bindView` directly.
 
 ---
 
-## 3. Estrutura de uma view principal
+## 3. Structure of a main view
 
-O esqueleto do painel de avaliações, com as partes que se repetem em toda view:
+The skeleton of the reviews panel, with the parts every view repeats:
 
 ```tsx
 // frontend/shopping.shell.react/src/scripts/views/product/ReviewsPanel.tsx
@@ -66,7 +66,7 @@ import { Button } from "@root/swc"
 import * as DateUtils from "@root/utils/DateUtils"
 import Sel from "./reviews-sel"
 
-// :: Actions (os MESMOS códigos do skeleton do ReviewsPanelPresenter)
+// :: Actions (the SAME codes as the ReviewsPanelPresenter skeleton)
 
 const ON_SUBMIT_REVIEW = 1
 
@@ -79,13 +79,13 @@ type Review = {
   author?: string
   rating: number
   comment?: string
-  createdAt: number // milissegundos desde 1970
+  createdAt: number // milliseconds since 1970
 }
 
 type ReviewsPanelState = {
   reviews?: Review[]
   count: number
-  averageLabel?: string // omitido quando não há avaliações
+  averageLabel?: string // omitted when there are no reviews
   errorCode: number
   errorMessage?: string
 }
@@ -93,7 +93,7 @@ type ReviewsPanelState = {
 // :: View
 
 class ReviewsPanelClass extends BaseViewClass<ViewProps, ReviewsPanelState> {
-  // o formulário é local: só vai ao servidor no envio, como argumento do evento (p.*)
+  // the form is local: it only goes to the server on submit, as event arguments (p.*)
   private rating = 0
   private comment = ""
   private lastCount = -1
@@ -102,69 +102,69 @@ class ReviewsPanelClass extends BaseViewClass<ViewProps, ReviewsPanelState> {
     const { state } = this
     const reviews = state.reviews ?? []
     const count = state.count ?? 0
-    // ... desenha cabeçalho, lista, formulário e erro (seção 9)
+    // ... draws the header, list, form and error (section 12)
   }
 
   // :: Handlers
 
   private readonly onRatingChange = (e: React.ChangeEvent<HTMLSelectElement>) => { /* 3.4 */ }
-  private readonly onCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => { /* idem */ }
+  private readonly onCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => { /* same */ }
 
   // :: Emissors
 
   readonly emitSubmitReview = () => { /* 3.6 */ }
 }
 
-export default BaseViewClass.FC(ReviewsPanelClass, "8cc32236e32a") // o MESMO classId do skeleton
+export default BaseViewClass.FC(ReviewsPanelClass, "8cc32236e32a") // the SAME classId as the skeleton
 ```
 
-### 3.1 `BaseViewClass.FC(View, classId)`: o elo com o presenter
+### 3.1 `BaseViewClass.FC(View, classId)`: the link to the presenter
 
-O segundo argumento é o `classId` - **o mesmo texto** do `Skeleton` do presenter:
+The second argument is the `classId` - **the same text** as the presenter's `Skeleton`:
 
 ```php
-return new Skeleton('8cc32236e32a', function (int $event, int $qtde, array $form): void { /* ... */ });
+return new Skeleton('8cc32236e32a', function (int $event, int $count, array $form): void { /* ... */ });
 ```
 
-O servidor manda cada estado com `"#": "8cc32236e32a:17"` (classId + número da instância). Para
-desenhar, o bridge separa o prefixo antes do `:` e procura o componente registrado com aquele
-`VIEW_ID` (`FC` grava o `classId` em `View.VIEW_ID`). Se o id diverge, ou a view não foi
-registrada no `index.tsx`, o bridge lança `Nenhuma view registrada para a viewId: "..."` e a área
-fica vazia - olhe o console do browser.
+The server sends each state with `"#": "8cc32236e32a:17"` (classId + instance number). To draw,
+the bridge splits off the prefix before the `:` and looks for the component registered with that
+`VIEW_ID` (`FC` stores the `classId` in `View.VIEW_ID`). If the id differs, or the view was not
+registered in `index.tsx`, the bridge throws `No view registered for viewId: "..."` and the area
+stays empty - check the browser console.
 
-### 3.2 O tipo do estado: campos opcionais
+### 3.2 The state type: optional fields
 
-O tipo TypeScript espelha o `ViewState` do PHP, seguindo as regras do serializador
+The TypeScript type mirrors the PHP `ViewState`, following the serializer's rules
 (`src/Framework/Cube/Remote/ViewStateSerializer.php`):
 
-| No PHP | Chega no React | No tipo TS |
+| In PHP | Arrives in React | In the TS type |
 |---|---|---|
-| `public int $count = 0` (não anulável) | sempre, inclusive `0` | `count: number` |
-| `public ?string $errorMessage = null` | omitido quando `null` | `errorMessage?: string` |
-| `public string $averageLabel = ''` | omitido quando em branco | `averageLabel?: string` |
+| `public int $count = 0` (non-nullable) | always, including `0` | `count: number` |
+| `public ?string $errorMessage = null` | omitted when `null` | `errorMessage?: string` |
+| `public string $averageLabel = ''` | omitted when blank | `averageLabel?: string` |
 | `public ?CubeView $reviewsPanelView` | `reviewsPanelViewId: "classId:n"` | `reviewsPanelViewId?: string` |
-| `public array $reviews` (lista de `ReviewInfo`) | array com os campos públicos de cada item | `reviews?: Review[]` |
-| objeto com campos privados (uma entidade) | `{}` | - não faça isso |
+| `public array $reviews` (list of `ReviewInfo`) | array with the public fields of each item | `reviews?: Review[]` |
+| object with private fields (an entity) | `{}` | - don't do this |
 
-Marque como opcional tudo que pode faltar e **dê um padrão ao ler**: `state.reviews ?? []`,
-`state.count ?? 0`. Antes da primeira resposta, o estado pode estar vazio. Lembre também que o
-servidor já manda os valores prontos para mostrar ("4,5 de 5"): formatação e regras que outra view
-escreveria igual pertencem ao presenter.
+Mark as optional everything that may be missing and **give it a default when reading**:
+`state.reviews ?? []`, `state.count ?? 0`. Before the first response, the state may be empty.
+Also remember that the server already sends values ready to display ("4.5 out of 5"): formatting
+and rules that another view would write the same way belong to the presenter.
 
-### 3.3 `this.state` é do servidor
+### 3.3 `this.state` belongs to the server
 
-A cada estado novo, o bridge **apaga todas as propriedades** do objeto de estado e copia as que
-chegaram (`ViewScope.setState`). O objeto é o mesmo, o conteúdo é trocado. Consequência: qualquer
-coisa que a view escreva em `this.state` some na próxima atualização daquela view. Estado local
-vai em **campos da classe**, como `rating` e `comment` do painel.
+On every new state, the bridge **deletes all properties** of the state object and copies the
+ones that arrived (`ViewScope.setState`). The object is the same, its content is replaced.
+Consequence: anything the view writes into `this.state` disappears on that view's next update.
+Local state goes in **class fields**, like the panel's `rating` and `comment`.
 
-> A `ProductView` existente guarda a quantidade em `state.quantity` e a sincroniza com
-> `bridge.setFormField(vsid, "quantity", ...)`. Funciona enquanto o servidor não reenvia o estado
-> do produto, mas o valor volta a 1 se isso acontecer - e o campo `"quantity"` (sem `p.`) é
-> descartado no servidor, porque o `ProductPresenter` não tem `syncState`. Para código novo,
-> prefira campos da classe.
+> The existing `ProductView` keeps the quantity in `state.quantity` and syncs it with
+> `bridge.setFormField(vsid, "quantity", ...)`. That works as long as the server does not resend
+> the product state, but the value goes back to 1 if it does - and the `"quantity"` field
+> (without `p.`) is discarded on the server, because `ProductPresenter` has no `syncState`. For
+> new code, prefer class fields.
 
-### 3.4 Campos da classe e `forceUpdate()`
+### 3.4 Class fields and `forceUpdate()`
 
 ```tsx
 private rating = 0
@@ -176,17 +176,17 @@ private readonly onRatingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 }
 ```
 
-Mudou um campo, chame `this.forceUpdate()`: nada observa os campos, assim como nada observa o
-`ViewState` no servidor.
+When you change a field, call `this.forceUpdate()`: nothing observes the fields, just as nothing
+observes the `ViewState` on the server.
 
 ### 3.5 `render(props, initial)`
 
-`render` recebe um segundo parâmetro, `initial`, que é `true` só na primeira renderização da
-instância. Serve para preparar algo uma vez - o `PurchasesPanel` registra ali
-(`if (initial && !this.resizeHandler) { ... }`) o ouvinte de `resize` que calcula quantas compras
-cabem na tela e manda o resultado ao servidor como `p.capacity`.
+`render` receives a second parameter, `initial`, which is `true` only on the instance's first
+render. It is for setting something up once - `PurchasesPanel` registers there
+(`if (initial && !this.resizeHandler) { ... }`) the `resize` listener that computes how many
+purchases fit on the screen and sends the result to the server as `p.capacity`.
 
-### 3.6 Emissores: enviando eventos ao servidor
+### 3.6 Emitters: sending events to the server
 
 ```tsx
 readonly emitSubmitReview = () => {
@@ -197,34 +197,35 @@ readonly emitSubmitReview = () => {
 }
 ```
 
-- `bridge.setFormField(vsid, nome, valor)` acumula um campo no formulário desta view;
-  `bridge.submit(vsid, código)` envia o formulário acumulado junto com o evento e liga a barra de
-  "enviando" da `BrowserView` até a resposta. `bridge.submitSilent(...)` envia sem a barra.
-- **O código do evento é um contrato.** Cada `submit(vsid, N)` precisa de um braço `N => ...` no
-  `match` do skeleton; um código sem braço chega a `Skeleton::unknownEvent`, que lança
-  `eventCode(N) not handled` e mostra o alerta de erro inesperado. Mantenha os códigos como
-  constantes no topo do arquivo (`// :: Actions`), com os mesmos números do PHP.
-- **Argumentos do evento levam o prefixo `p.`.** No PHP chegam em `$form['p.rating']`. Um campo
-  **sem** prefixo é sincronização de estado: vai para o terceiro argumento do `Skeleton`
-  (`syncState`) e, se o presenter não tem um, é descartado em silêncio.
-- **Mande o mínimo**: o id do produto, não o produto. O autor da avaliação nem vai - o servidor
-  sabe quem está logado.
-- **Dado sensível** é cifrado antes de sair: o login faz
+- `bridge.setFormField(vsid, name, value)` accumulates a field in this view's form;
+  `bridge.submit(vsid, code)` sends the accumulated form together with the event and turns on the
+  `BrowserView` "sending" bar until the response. `bridge.submitSilent(...)` sends without the
+  bar.
+- **The event code is a contract.** Every `submit(vsid, N)` needs an `N => ...` arm in the
+  skeleton's `match`; a code with no arm reaches `Skeleton::unknownEvent`, which throws
+  `eventCode(N) not handled` and shows the unexpected-error alert. Keep the codes as constants at
+  the top of the file (`// :: Actions`), with the same numbers as in PHP.
+- **Event arguments carry the `p.` prefix.** In PHP they arrive in `$form['p.rating']`. A field
+  **without** the prefix is state synchronization: it goes to the third argument of `Skeleton`
+  (`syncState`) and, if the presenter has none, it is silently discarded.
+- **Send the minimum**: the product id, not the product. The review author is not even sent - the
+  server knows who is logged in.
+- **Sensitive data** is encrypted before it leaves: the login does
   `bridge.setFormField(vsid, "p.password", await bridge.cipher(password))`.
 
-Os emissores e handlers são **campos `readonly` com arrow function**, não métodos. A arrow
-function captura `this`; como campo, a referência é a mesma durante toda a vida da instância
-(passar `this.emitX` para `onClick` não cria uma função nova a cada render); `readonly` impede
-reatribuição por engano.
+Emitters and handlers are **`readonly` fields holding an arrow function**, not methods. The arrow
+function captures `this`; as a field, the reference stays the same for the instance's whole life
+(passing `this.emitX` to `onClick` does not create a new function on every render); `readonly`
+prevents accidental reassignment.
 
-### 3.7 O formulário local e o sinal de sucesso
+### 3.7 The local form and the success signal
 
-A nota e o comentário do painel vivem **só no React** até o envio. O servidor não manda "deu
-certo": ele recarrega a lista, e a contagem muda. A view usa isso como sinal para limpar o
-formulário:
+The panel's rating and comment live **only in React** until submission. The server does not say
+"it worked": it reloads the list, and the count changes. The view uses that as the signal to
+clear the form:
 
 ```tsx
-// a contagem mudou ⇒ o servidor aceitou a avaliação (ou trocou de produto): limpa o formulário
+// the count changed ⇒ the server accepted the review (or switched products): clear the form
 if (count !== this.lastCount) {
   this.lastCount = count
   this.rating = 0
@@ -232,48 +233,48 @@ if (count !== this.lastCount) {
 }
 ```
 
-Se a validação falha, a contagem não muda, o formulário fica como estava e o `errorMessage` do
-estado aparece. Se a sua tela precisar de um sinal explícito, ponha um campo no `ViewState` (por
-exemplo, um contador de envios aceitos) em vez de inferir.
+If validation fails, the count does not change, the form stays as it was and the state's
+`errorMessage` shows up. If your screen needs an explicit signal, put a field in the `ViewState`
+(for example, a counter of accepted submissions) instead of inferring it.
 
 ---
 
-## 4. Organização interna do arquivo
+## 4. Internal file layout
 
-As views do shell seguem a mesma ordem, marcada com comentários `// ::`:
+The shell's views follow the same order, marked with `// ::` comments:
 
-| Seção | Conteúdo |
+| Section | Content |
 |---|---|
-| `// :: Actions` | constantes dos códigos de evento (`ON_SUBMIT_REVIEW = 1`) |
-| `// :: Types` | o tipo do estado e dos itens; padrões (`DefaultProduct`) |
-| `// :: View` | a classe: campos locais, `render`, renderizadores auxiliares |
-| `// :: Handlers` | reagem a eventos da interface e mudam campos locais (+ `forceUpdate`) |
-| `// :: Emissors` | `emitX`: montam o formulário e chamam `bridge.submit` |
-| `// :: Internal` | sub-componentes e funções do próprio arquivo (`ReviewItem`, `stars`) |
+| `// :: Actions` | event code constants (`ON_SUBMIT_REVIEW = 1`) |
+| `// :: Types` | the type of the state and its items; defaults (`DefaultProduct`) |
+| `// :: View` | the class: local fields, `render`, helper renderers |
+| `// :: Handlers` | react to UI events and change local fields (+ `forceUpdate`) |
+| `// :: Emissors` | `emitX`: build the form and call `bridge.submit` |
+| `// :: Internal` | the file's own sub-components and functions (`ReviewItem`, `stars`) |
 
-A distinção entre **handler** e **emissor** ajuda a ler: um handler fica no browser; um emissor
-fala com o servidor.
+The distinction between **handler** and **emitter** helps reading: a handler stays in the
+browser; an emitter talks to the server.
 
 ---
 
-## 5. Sub-componentes com `BasePanelClass`
+## 5. Sub-components with `BasePanelClass`
 
-Quando um pedaço da tela tem handlers próprios, extraia uma `BasePanelClass`. Ela não tem
-`classId` nem estado do servidor: recebe tudo por `props`, inclusive o `vsid` da view dona quando
-precisa emitir eventos em nome dela. O cartão de produto da vitrine:
+When a piece of the screen has its own handlers, extract a `BasePanelClass`. It has no `classId`
+and no server state: it receives everything through `props`, including the owner view's `vsid`
+when it needs to emit events on its behalf. The showcase's product card:
 
 ```tsx
 // views/home/ProductsPanel.tsx
-type CardProdutoProps = {
+type ProductCardProps = {
   vsid: string
   product: Product
 }
 
-class CardProdutoClass extends BasePanelClass<CardProdutoProps> {
+class ProductCardClass extends BasePanelClass<ProductCardProps> {
   vsid!: string
   product!: Product
 
-  override render({ vsid, product }: CardProdutoProps): React.ReactNode {
+  override render({ vsid, product }: ProductCardProps): React.ReactNode {
     this.vsid = vsid
     this.product = product
     return <div className={Sel.productCard} onClick={this.emitOpenProduct}>{/* ... */}</div>
@@ -286,44 +287,44 @@ class CardProdutoClass extends BasePanelClass<CardProdutoProps> {
   }
 }
 
-const CardProduto = BasePanelClass.FC(CardProdutoClass)
+const ProductCard = BasePanelClass.FC(ProductCardClass)
 ```
 
-O `render` copia as props para campos, porque o emissor (criado uma vez) precisa dos valores
-**atuais**. O evento sai com o `vsid` da `ProductsPanel` e chega ao skeleton do
+`render` copies the props into fields, because the emitter (created once) needs the **current**
+values. The event goes out with the `ProductsPanel`'s `vsid` and reaches the skeleton of
 `ProductsPanelPresenter` (`1 => $this->onOpenProduct(Coerce::asInt($form['p.productId'] ?? null))`).
 
 ---
 
-## 6. Desenhando a view de um filho ou de um slot
+## 6. Drawing a child's or a slot's view
 
-Quando o `ViewState` do presenter tem um `?CubeView`, o React recebe o id da view filha e a
-desenha com `bridge.createView`:
+When the presenter's `ViewState` has a `?CubeView`, React receives the child view's id and draws
+it with `bridge.createView`:
 
 ```tsx
 // views/product/ProductView.tsx
 export type ProductViewState = {
   // ...
-  reviewsPanelViewId?: string // a view do presenter-filho (ReviewsPanelPresenter)
+  reviewsPanelViewId?: string // the child presenter's view (ReviewsPanelPresenter)
 }
 
-// no render, depois do bloco de erro:
+// in render, after the error block:
 {bridge.createView(state.reviewsPanelViewId)}
 ```
 
-`createView` devolve `null` quando o id não veio, então não precisa de `if`. O mesmo mecanismo
-desenha o slot da home - `bridge.createView(state.contentViewId)` mostra o produto, o carrinho ou
-o recibo - e os dois painéis (`productsPanelViewId`, `purchasesPanelViewId`). A view dona não
-importa o componente do filho: quem escolhe é o bridge, pelo `classId` no id.
+`createView` returns `null` when the id is missing, so no `if` is needed. The same mechanism
+draws the home slot - `bridge.createView(state.contentViewId)` shows the product, the cart or the
+receipt - and the two panels (`productsPanelViewId`, `purchasesPanelViewId`). The owner view does
+not import the child's component: the bridge picks it, by the `classId` in the id.
 
 ---
 
-## 7. CSS e estilos
+## 7. CSS and styles
 
-### 7.1 O par `*-sel.ts` + `.scss`
+### 7.1 The `*-sel.ts` + `.scss` pair
 
-Cada módulo de view tem um arquivo de **seletores** e uma folha SCSS. A view importa só os
-seletores; o `-sel.ts` importa o `.scss`:
+Each view module has a **selectors** file and an SCSS sheet. The view imports only the
+selectors; the `-sel.ts` imports the `.scss`:
 
 ```ts
 // views/product/reviews-sel.ts
@@ -358,83 +359,84 @@ export default ReviewsSel
 }
 ```
 
-- **Nunca escreva o nome da classe CSS direto na view.** `className={Sel.header}` dá
-  autocompletar e um erro de compilação no editor quando o seletor não existe; `"wdc-reviews__header"`
-  digitado à mão quebra em silêncio.
-- **Nomes em BEM**, com prefixo `wdc-` e o nome do módulo: `wdc-reviews__item-header`.
-- **`...GlobalSel`** traz os utilitários globais (`src/scripts/global-sel.ts`, implementados em
-  `src/scss/_utilities.scss`): layout (`flexCol`, `gap16`), espaçamento (`mt16`, `mr4`), texto,
-  e blocos prontos como `alertError`/`alertErrorIcon`/`alertErrorText`, que o painel usa para a
-  mensagem de erro.
-- **Tokens de cor e forma** são variáveis CSS em `src/scss/app.scss`: `--app-accent`,
+- **Never write the CSS class name directly in the view.** `className={Sel.header}` gives you
+  autocompletion and an editor error when the selector does not exist; `"wdc-reviews__header"`
+  typed by hand breaks silently.
+- **BEM names**, with the `wdc-` prefix and the module name: `wdc-reviews__item-header`.
+- **`...GlobalSel`** brings in the global utilities (`src/scripts/global-sel.ts`, implemented in
+  `src/scss/_utilities.scss`): layout (`flexCol`, `gap16`), spacing (`mt16`, `mr4`), text, and
+  ready-made blocks like `alertError`/`alertErrorIcon`/`alertErrorText`, which the panel uses for
+  the error message.
+- **Color and shape tokens** are CSS variables in `src/scss/app.scss`: `--app-accent`,
   `--app-surface`, `--app-text`, `--app-text-secondary`, `--app-border`, `--app-radius`,
-  `--app-radius-sm`, as sombras `--app-shadow-*`. Use-as em vez de cores fixas.
+  `--app-radius-sm`, the `--app-shadow-*` shadows. Use them instead of hard-coded colors.
 
-### 7.2 Combinando classes com `clsx`
+### 7.2 Combining classes with `clsx`
 
 ```tsx
 <div className={clsx(Sel.panel, className)}>
 <i className={clsx("bi bi-star", Sel.mr4)}></i>
 ```
 
-`clsx` junta classes e ignora valores falsos (`clsx(Sel.tabItem, ativo && Sel.tabItemActive)`).
-Repasse o `className` que veio nas props para o elemento raiz: o dono pode querer posicionar a
-view.
+`clsx` joins classes and ignores falsy values (`clsx(Sel.tabItem, active && Sel.tabItemActive)`).
+Pass the `className` that came in the props on to the root element: the owner may want to
+position the view.
 
-### 7.3 Componentes visuais
+### 7.3 Visual components
 
-O shell usa os Spectrum Web Components via wrappers React, reexportados em `src/scripts/swc.ts`:
+The shell uses Spectrum Web Components through React wrappers, re-exported in `src/scripts/swc.ts`:
 `Theme`, `Button`, `ActionButton`, `Textfield`, `FieldLabel`, `Divider`, `ProgressCircle`.
-Importe de `@root/swc`, não do pacote:
+Import from `@root/swc`, not from the package:
 
 ```tsx
 import { Button } from "@root/swc"
 
 <Button variant="accent" size="m" onClick={this.emitSubmitReview}>
   <i className={clsx("bi bi-star", Sel.mr4)}></i>
-  Enviar avaliação
+  Submit review
 </Button>
 ```
 
-Algumas views antigas ligam o clique por `ref` (`ref={this.btnRef}` + `addEventListener("click",
-...)`), como `HeaderPanel` e `LoginView`; `ProductView` e `ReviewsPanel` usam `onClick` direto.
-Elementos HTML comuns (`<select>`, `<textarea>`) também servem, estilizados pelo `.scss` do módulo.
+Some older views bind the click through a `ref` (`ref={this.btnRef}` + `addEventListener("click",
+...)`), like `HeaderPanel` and `LoginView`; `ProductView` and `ReviewsPanel` use `onClick`
+directly. Plain HTML elements (`<select>`, `<textarea>`) work too, styled by the module's `.scss`.
 
 ---
 
-## 8. Imagens e assets
+## 8. Images and assets
 
-- **Ícones**: a fonte Bootstrap Icons é injetada no `index.html` gerado por
-  `scripts/inject-externals.js`. Use classes `bi bi-<nome>` (`bi bi-bag-plus`, `bi bi-star`).
-- **Imagens de dados** (a foto do produto) vêm do servidor: `EndpointUtils.productImagePath(id)`
-  monta `./image/product/<id>.png`, servido pelo `ProductImageHandler` do PHP. Se a sua tela
-  precisa de outra imagem por registro, crie a rota no servidor e um helper em `EndpointUtils`.
-- **Arte fixa** pequena vira componente SVG inline, como `views/home/ShoppingLogo.tsx`.
+- **Icons**: the Bootstrap Icons font is injected into the `index.html` generated by
+  `scripts/inject-externals.js`. Use `bi bi-<name>` classes (`bi bi-bag-plus`, `bi bi-star`).
+- **Data images** (the product photo) come from the server: `EndpointUtils.productImagePath(id)`
+  builds `./image/product/<id>.png`, served by the PHP `ProductImageHandler`. If your screen needs
+  another image per record, create the route on the server and a helper in `EndpointUtils`.
+- **Small static artwork** becomes an inline SVG component, like `views/home/ShoppingLogo.tsx`.
 
 ---
 
-## 9. Estrutura de arquivos de um módulo de view
+## 9. File structure of a view module
 
 ```text
 frontend/shopping.shell.react/src/scripts/views/product/
-  ProductView.tsx       a view do ProductPresenter (classId 48b693f67410)
-  product-sel.ts        seletores do produto (importa product.scss)
+  ProductView.tsx       the ProductPresenter view (classId 48b693f67410)
+  product-sel.ts        product selectors (imports product.scss)
   product.scss
-  ReviewsPanel.tsx      a view do ReviewsPanelPresenter (classId 8cc32236e32a)
-  reviews-sel.ts        seletores do painel (importa reviews.scss)
+  ReviewsPanel.tsx      the ReviewsPanelPresenter view (classId 8cc32236e32a)
+  reviews-sel.ts        panel selectors (imports reviews.scss)
   reviews.scss
 ```
 
-Um arquivo `.tsx` por view registrada, com `export default` do `FC`. Sub-componentes que só ela
-usa ficam no mesmo arquivo (`// :: Internal`); painéis reaproveitados por várias views, num
-arquivo próprio (`HeaderPanel.tsx`). O par `-sel.ts`/`.scss` pode ser do módulo inteiro
-(`home-sel.ts` serve `HomeView`, `ProductsPanel` e `PurchasesPanel`) ou de uma view só.
+One `.tsx` file per registered view, with an `export default` of the `FC`. Sub-components used
+only by that view stay in the same file (`// :: Internal`); panels reused by several views get a
+file of their own (`HeaderPanel.tsx`). The `-sel.ts`/`.scss` pair can belong to the whole module
+(`home-sel.ts` serves `HomeView`, `ProductsPanel` and `PurchasesPanel`) or to a single view.
 
 ---
 
-## 10. Registrando no `index.tsx`
+## 10. Registering in `index.tsx`
 
-Toda view com `classId` precisa ser registrada, senão o bridge não sabe desenhá-la:
+Every view with a `classId` must be registered, otherwise the bridge does not know how to draw
+it:
 
 ```tsx
 // frontend/shopping.shell.react/src/scripts/index.tsx
@@ -454,33 +456,34 @@ bridge.registerComponents(
 )
 ```
 
-`registerComponents` lê o `VIEW_ID` de cada componente (gravado por `BaseViewClass.FC`). Painéis
-`BasePanelClass` não são registrados: são componentes comuns, usados por quem os importa.
+`registerComponents` reads each component's `VIEW_ID` (stored by `BaseViewClass.FC`).
+`BasePanelClass` panels are not registered: they are regular components, used by whoever imports
+them.
 
 ---
 
-## 11. Compilando
+## 11. Building
 
 ```bash
-bin/build-frontend.sh                                   # build completo
-(cd frontend/shopping.shell.react && npm run watch)     # desenvolvimento: recompila a cada mudança
+bin/build-frontend.sh                                   # full build
+(cd frontend/shopping.shell.react && npm run watch)     # development: rebuilds on every change
 ```
 
-`bin/build-frontend.sh` chama `frontend/shopping.shell.react/build.sh`, que instala as
-dependências na primeira vez (shell e bridge) e roda `npm run build:clean`. O resultado vai para
-`work/frontend/shopping.shell.react`, de onde o servidor PHP o serve - não é preciso reiniciar o
-servidor, só recarregar o browser. Detalhes do ambiente em [setup-local.md](setup-local.md).
+`bin/build-frontend.sh` calls `frontend/shopping.shell.react/build.sh`, which installs the
+dependencies the first time (shell and bridge) and runs `npm run build:clean`. The output goes to
+`work/frontend/shopping.shell.react`, from where the PHP server serves it - no need to restart
+the server, just reload the browser. Environment details in [setup-local.md](setup-local.md).
 
-> **O build não verifica tipos.** O Parcel transpila o TypeScript com SWC, que **remove** os tipos
-> sem checá-los: um campo com o nome errado no tipo do estado, ou uma prop que não existe, compila
-> e só aparece como `undefined` no browser. Confie nos erros que o editor mostra (ele usa o
-> `tsconfig.json` do shell) e confira o tipo do estado contra o `ViewState` do PHP.
+> **The build does not check types.** Parcel transpiles TypeScript with SWC, which **strips** the
+> types without checking them: a misnamed field in the state type, or a prop that doesn't exist,
+> compiles and only shows up as `undefined` in the browser. Trust the errors the editor shows (it
+> uses the shell's `tsconfig.json`) and check the state type against the PHP `ViewState`.
 
 ---
 
-## 12. Exemplo completo - `ReviewsPanel.tsx`
+## 12. Complete example - `ReviewsPanel.tsx`
 
-O `render` que faltou na seção 3, e os sub-componentes internos:
+The `render` left out of section 3, and the internal sub-components:
 
 ```tsx
 override render({ className }: ViewProps): ReactNode {
@@ -488,7 +491,7 @@ override render({ className }: ViewProps): ReactNode {
   const reviews = state.reviews ?? []
   const count = state.count ?? 0
 
-  // a contagem mudou ⇒ o servidor aceitou a avaliação (ou trocou de produto): limpa o formulário
+  // the count changed ⇒ the server accepted the review (or switched products): clear the form
   if (count !== this.lastCount) {
     this.lastCount = count
     this.rating = 0
@@ -498,13 +501,13 @@ override render({ className }: ViewProps): ReactNode {
   return (
     <div className={clsx(Sel.panel, className)}>
       <div className={Sel.header}>
-        <h6 className={Sel.title}>Avaliações</h6>
+        <h6 className={Sel.title}>Reviews</h6>
         {state.averageLabel && <span className={Sel.average}>{state.averageLabel}</span>}
-        <span className={Sel.count}>{count === 1 ? "1 avaliação" : `${count} avaliações`}</span>
+        <span className={Sel.count}>{count === 1 ? "1 review" : `${count} reviews`}</span>
       </div>
 
       {reviews.length === 0 ? (
-        <div className={Sel.empty}>Este produto ainda não foi avaliado. Seja o primeiro!</div>
+        <div className={Sel.empty}>This product has not been reviewed yet. Be the first!</div>
       ) : (
         <div className={Sel.list}>
           {reviews.map((review) => (
@@ -515,9 +518,9 @@ override render({ className }: ViewProps): ReactNode {
 
       <div className={Sel.form}>
         <div className={Sel.formRow}>
-          <label htmlFor="review-rating">Sua nota:</label>
+          <label htmlFor="review-rating">Your rating:</label>
           <select id="review-rating" className={Sel.select} value={this.rating} onChange={this.onRatingChange}>
-            <option value={0}>Escolha...</option>
+            <option value={0}>Choose...</option>
             {[5, 4, 3, 2, 1].map((n) => (
               <option key={n} value={n}>
                 {stars(n)} ({n})
@@ -527,7 +530,7 @@ override render({ className }: ViewProps): ReactNode {
         </div>
         <textarea
           className={Sel.textarea}
-          placeholder="Conte o que achou do produto (opcional)"
+          placeholder="Tell us what you thought of the product (optional)"
           maxLength={MAX_COMMENT_LENGTH}
           value={this.comment}
           onChange={this.onCommentChange}
@@ -538,7 +541,7 @@ override render({ className }: ViewProps): ReactNode {
           </span>
           <Button variant="accent" size="m" onClick={this.emitSubmitReview}>
             <i className={clsx("bi bi-star", Sel.mr4)}></i>
-            Enviar avaliação
+            Submit review
           </Button>
         </div>
       </div>
@@ -566,8 +569,8 @@ function ReviewItem({ review }: { review: Review }) {
   return (
     <div className={Sel.item}>
       <div className={Sel.itemHeader}>
-        <span className={Sel.author}>{review.author || "Anônimo"}</span>
-        <span className={Sel.stars} title={`${review.rating} de 5`}>
+        <span className={Sel.author}>{review.author || "Anonymous"}</span>
+        <span className={Sel.stars} title={`${review.rating} out of 5`}>
           {stars(review.rating)}
         </span>
         <span className={Sel.date}>{DateUtils.formatDate(review.createdAt)}</span>
@@ -578,40 +581,41 @@ function ReviewItem({ review }: { review: Review }) {
 }
 ```
 
-Repare:
+Notice:
 
-- `maxLength` no `<textarea>` é **ajuda**, não regra: o servidor valida de novo (500 caracteres)
-  e devolve o erro no estado se alguém passar disso.
-- Nota 0 ("Escolha...") vai como `null`; o servidor responde "Escolha uma nota de 1 a 5." no
+- `maxLength` on the `<textarea>` is a **help**, not a rule: the server validates again (500
+  characters) and returns the error in the state if someone goes over it.
+- Rating 0 ("Choose...") is sent as `null`; the server replies "Choose a rating from 1 to 5." in
   `errorMessage`.
-- `createdAt` chega em milissegundos e o `DateUtils.formatDate` formata no fuso do browser.
-- `review.author || "Anônimo"` e `review.comment &&` cobrem tanto o campo ausente quanto o `""`.
+- `createdAt` arrives in milliseconds and `DateUtils.formatDate` formats it in the browser's time
+  zone.
+- `review.author || "Anonymous"` and `review.comment &&` cover both a missing field and `""`.
 
-Para o painel aparecer, faltam duas linhas fora deste arquivo: o
-`{bridge.createView(state.reviewsPanelViewId)}` na `ProductView` (seção 6) e o `ReviewsPanel` no
-`registerComponents` (seção 10).
+For the panel to show up, two lines outside this file are still missing: the
+`{bridge.createView(state.reviewsPanelViewId)}` in `ProductView` (section 6) and `ReviewsPanel` in
+`registerComponents` (section 10).
 
 ---
 
-## 13. Checklist ao criar uma view
+## 13. Checklist when creating a view
 
-- [ ] Arquivo `views/<módulo>/XxxView.tsx`, classe `extends BaseViewClass<ViewProps, XxxState>`.
-- [ ] `export default BaseViewClass.FC(XxxClass, "<classId>")` com o **mesmo** `classId` do
-      `Skeleton` do presenter.
-- [ ] Tipo do estado espelhando o `ViewState`: opcional tudo que pode ser `null` ou string em
-      branco; `CubeView` como `xxxViewId?: string`; padrão (`??`) em cada leitura.
-- [ ] Nada guardado em `this.state`; estado local em campos da classe + `forceUpdate()`.
-- [ ] Códigos de evento como constantes em `// :: Actions`, iguais aos do `match` do skeleton -
-      um braço para cada código.
-- [ ] Argumentos com `bridge.setFormField(vsid, "p.<nome>", valor)` antes do `bridge.submit`; nada
-      sem `p.` a menos que o presenter tenha `syncState`.
-- [ ] Handlers e emissores como campos `readonly` com arrow function.
-- [ ] Views filhas e slots com `bridge.createView(state.xxxViewId)`.
-- [ ] Par `xxx-sel.ts` (com `...GlobalSel`) + `xxx.scss` em BEM `wdc-<módulo>__...`; nenhuma
-      classe CSS digitada na view; cores pelas variáveis `--app-*`.
-- [ ] Componentes visuais de `@root/swc`; ícones `bi bi-*`.
-- [ ] Registrada em `bridge.registerComponents(...)` no `index.tsx`.
-- [ ] Sem erros de tipo no editor (o build não checa); `bin/build-frontend.sh` ou `npm run watch`;
-      teste no browser.
-- [ ] O lado do servidor: [presentation-module.md](presentation-module.md). A receita completa:
-      [criar-funcionalidade.md](criar-funcionalidade.md).
+- [ ] File `views/<module>/XxxView.tsx`, class `extends BaseViewClass<ViewProps, XxxState>`.
+- [ ] `export default BaseViewClass.FC(XxxClass, "<classId>")` with the **same** `classId` as the
+      presenter's `Skeleton`.
+- [ ] State type mirroring the `ViewState`: optional for everything that can be `null` or a blank
+      string; `CubeView` as `xxxViewId?: string`; a default (`??`) on every read.
+- [ ] Nothing stored in `this.state`; local state in class fields + `forceUpdate()`.
+- [ ] Event codes as constants in `// :: Actions`, equal to those in the skeleton's `match` - one
+      arm for each code.
+- [ ] Arguments with `bridge.setFormField(vsid, "p.<name>", value)` before `bridge.submit`; nothing
+      without `p.` unless the presenter has `syncState`.
+- [ ] Handlers and emitters as `readonly` fields with an arrow function.
+- [ ] Child views and slots with `bridge.createView(state.xxxViewId)`.
+- [ ] A `xxx-sel.ts` (with `...GlobalSel`) + `xxx.scss` pair in BEM `wdc-<module>__...`; no CSS
+      class typed in the view; colors through the `--app-*` variables.
+- [ ] Visual components from `@root/swc`; `bi bi-*` icons.
+- [ ] Registered in `bridge.registerComponents(...)` in `index.tsx`.
+- [ ] No type errors in the editor (the build does not check); `bin/build-frontend.sh` or
+      `npm run watch`; test in the browser.
+- [ ] The server side: [presentation-module.md](presentation-module.md). The full recipe:
+      [building-a-feature.md](building-a-feature.md).

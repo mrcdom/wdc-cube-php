@@ -9,7 +9,7 @@ use Amp\Websocket\WebsocketClient;
 use Amp\Websocket\WebsocketClosedException;
 use Wdc\Framework\Cube\Remote\RemoteConnection;
 
-/** Uma conexão WebSocket do Amp vista como RemoteConnection. */
+/** An Amp WebSocket connection seen as a RemoteConnection. */
 final readonly class AmpRemoteConnection implements RemoteConnection
 {
     public function __construct(
@@ -23,7 +23,7 @@ final readonly class AmpRemoteConnection implements RemoteConnection
         try {
             $this->client->sendText($text);
         } catch (WebsocketClosedException) {
-            // o cliente já foi embora: a sessão continua e o próximo envio vai na reconexão
+            // the client is already gone: the session lives on and the next send goes out on reconnect
         }
     }
 
@@ -31,11 +31,11 @@ final readonly class AmpRemoteConnection implements RemoteConnection
     {
         $forwarded = $this->request->getHeader('x-forwarded-for');
         if ($forwarded !== null && trim($forwarded) !== '') {
-            return trim(explode(',', $forwarded)[0]);   // "cliente, proxy1, proxy2" — fica o primeiro
+            return trim(explode(',', $forwarded)[0]);   // "client, proxy1, proxy2" — keep the first
         }
         $address = $this->client->getRemoteAddress()->toString();
 
-        return preg_replace('/:\d+$/', '', $address) ?? $address;   // tira a porta
+        return preg_replace('/:\d+$/', '', $address) ?? $address;   // strip the port
     }
 
     public function connectionId(): string

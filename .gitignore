@@ -10,5 +10,5 @@
 /frontend/*/node_modules/
 /frontend/*/.parcel-cache/
 
-# Anotações de estudo (fora do controle de versão)
+# Study notes (not version-controlled)
 /estudo/

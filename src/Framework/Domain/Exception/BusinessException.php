@@ -8,7 +8,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Erro de regra de negócio. Em PHP não há checked exceptions: tudo é "unchecked".
+ * Business rule violation. PHP has no checked exceptions: everything is "unchecked".
  */
 class BusinessException extends RuntimeException
 {
@@ -18,6 +18,6 @@ class BusinessException extends RuntimeException
             return $e;
         }
 
-        return new self($message, 0, $e);   // PHP guarda a causa em "previous"
+        return new self($message, 0, $e);   // PHP keeps the cause in "previous"
     }
 }

@@ -7,7 +7,7 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Products;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
 
-/** Produto como a tela o mostra. Structs de apresentação têm campos públicos. */
+/** A product as the screen shows it. Presentation structs have public fields. */
 final class ProductInfo
 {
     public int $id = -1;

@@ -1,44 +1,44 @@
-# Guias do desenvolvedor
+# Developer guides
 
-Guias práticos, passo a passo, para quem vai escrever código neste projeto. A
-[arquitetura](../arquitetura.md) explica *como o Cube funciona*; estes guias explicam *como
-construir* com ele, camada por camada.
+Hands-on, step-by-step guides for anyone writing code in this project. The
+[architecture](../architecture.md) explains *how Cube works*; these guides explain *how to
+build* with it, layer by layer.
 
-Todos seguem o mesmo **exemplo condutor**: uma funcionalidade nova de **avaliações de
-produto** (o cliente vê as avaliações de um produto e escreve a sua), construída do banco à
-tela sobre a loja de demonstração. O código do exemplo foi implementado e testado ao escrever
-os guias, mas não faz parte do projeto: ele é o exercício que você vai montar.
+They all follow the same **running example**: a new **product reviews** feature (the customer
+sees a product's reviews and writes their own), built from database to screen on top of the demo
+shop. The example code was implemented and tested while writing the guides, but it is not part of
+the project: it is the exercise you will build.
 
-## Por onde começar
+## Where to start
 
 ```mermaid
 flowchart TD
-    novo{"Primeira vez<br/>no projeto?"} -- sim --> setup["setup-local.md<br/>rodar na sua máquina"]
-    novo -- não --> mestre
-    setup --> guia["../guia-para-quem-vem-do-php.md<br/>a ideia, a partir do PHP tradicional"]
-    guia --> mestre["criar-funcionalidade.md<br/>a receita completa, do banco à tela"]
-    mestre --> camadas["os guias de camada,<br/>quando precisar de profundidade"]
+    first{"First time<br/>in the project?"} -- yes --> setup["setup-local.md<br/>run it on your machine"]
+    first -- no --> master
+    setup --> guide["../guide-for-php-developers.md<br/>the idea, starting from traditional PHP"]
+    guide --> master["building-a-feature.md<br/>the complete recipe, from database to screen"]
+    master --> layers["the layer guides,<br/>when you need depth"]
 ```
 
-## Os guias
+## The guides
 
-| Guia | O que ensina |
+| Guide | What it teaches |
 |---|---|
-| [setup-local.md](setup-local.md) | Pré-requisitos, configuração, banco, build do front, rodar, testar e resolver problemas |
-| [criar-funcionalidade.md](criar-funcionalidade.md) | **O guia-mestre**: a ordem em que se monta uma funcionalidade e as amarrações entre as camadas |
-| [repository.md](repository.md) | Entidade, critério, repositório, schema e seed, permissões, registro e testes |
-| [json-query.md](json-query.md) | Consultas por projeção: o grafo inteiro num SELECT, relações 1:1 e 1:N, filtros, ordem, recorte |
-| [application-service.md](application-service.md) | Serviços de aplicação: a lógica de negócio que o presenter usa, sem engordá-lo |
-| [transaction-service.md](transaction-service.md) | Transações: `required()`, a transação presa à Fiber e a transação remota da API REST |
-| [presentation-module.md](presentation-module.md) | Presenter, place e rota, keys, presenters-filhos, estado derivado, guardas |
-| [react-views.md](react-views.md) | As views do shell React: classes, estado, eventos, slots, estilos e registro |
+| [setup-local.md](setup-local.md) | Prerequisites, configuration, database, frontend build, running, testing and troubleshooting |
+| [building-a-feature.md](building-a-feature.md) | **The master guide**: the order in which a feature is built and how the layers tie together |
+| [repository.md](repository.md) | Entity, criteria, repository, schema and seed, permissions, registration and tests |
+| [json-query.md](json-query.md) | Projection queries: the whole graph in one SELECT, 1:1 and 1:N relations, filters, ordering, slicing |
+| [application-service.md](application-service.md) | Application services: the business logic the presenter uses, without bloating it |
+| [transaction-service.md](transaction-service.md) | Transactions: `required()`, the Fiber-bound transaction and the REST API's remote transaction |
+| [presentation-module.md](presentation-module.md) | Presenter, place and route, keys, child presenters, derived state, guards |
+| [react-views.md](react-views.md) | The React shell's views: classes, state, events, slots, styles and registration |
 
-## Veja também
+## See also
 
-- [README do projeto](../../README.md) - instalar, rodar e testar, em resumo.
-- [guia-para-quem-vem-do-php.md](../guia-para-quem-vem-do-php.md) - a proposta para quem vem
-  de frameworks de template.
-- [arquitetura.md](../arquitetura.md) - a arquitetura completa.
-- [escalando.md](../escalando.md) - várias instâncias atrás de um balanceador.
-- [skills/cube-architecture-php](../../skills/cube-architecture-php/SKILL.md) - as regras do
-  modelo, com checklist de revisão e tabela de diagnóstico.
+- [Project README](../../README.md) - install, run and test, in short.
+- [guide-for-php-developers.md](../guide-for-php-developers.md) - the idea for developers coming
+  from template frameworks.
+- [architecture.md](../architecture.md) - the full architecture.
+- [scaling.md](../scaling.md) - multiple instances behind a load balancer.
+- [skills/cube-architecture-php](../../skills/cube-architecture-php/SKILL.md) - the model's rules,
+  with a review checklist and a diagnosis table.

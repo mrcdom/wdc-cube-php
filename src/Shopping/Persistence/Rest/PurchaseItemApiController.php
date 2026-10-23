@@ -21,11 +21,11 @@ use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Persistence\Rest\Security\SecurityEnforcer;
 
 /**
- * `/api/repo/purchase-item/*`. Sem `data:all`, cada um só vê e altera itens das próprias
- * compras. As respostas não trazem a compra (`purchaseId`).
+ * `/api/repo/purchase-item/*`. Without `data:all`, each user only sees and changes items of their own
+ * purchases. Responses do not include the purchase (`purchaseId`).
  *
- * Todas as operações aplicam o escopo — insert, update, delete, count, fetch, fetch-page e os
- * fetch-by-id —, para ninguém ler ou gravar itens de compras alheias.
+ * Every operation applies the scope — insert, update, delete, count, fetch, fetch-page and the
+ * fetch-by-id ones — so nobody reads or writes items of someone else's purchases.
  */
 final class PurchaseItemApiController extends ApiController
 {
@@ -149,7 +149,7 @@ final class PurchaseItemApiController extends ApiController
         return $this->fetchOne($context, $id, $projection ?? self::fullProjection());
     }
 
-    /** De outro usuário = 404, como se não existisse. */
+    /** Another user's = 404, as if it did not exist. */
     private function fetchOne(?SecurityContext $context, ?int $id, PurchaseItem $projection): Response
     {
         if ($context !== null && SecurityEnforcer::isScoped($context) && !$this->owns($id, $context->userId())) {
@@ -165,7 +165,7 @@ final class PurchaseItemApiController extends ApiController
         return $this->codec->writeEntity($item->withPurchase(null));
     }
 
-    /** O item existe e é de uma compra do usuário? */
+    /** Does the item exist and belong to one of the user's purchases? */
     private function owns(?int $itemId, int $userId): bool
     {
         return $itemId !== null

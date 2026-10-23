@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Wdc\Framework\Commons\Lang;
 
 /**
- * Converte valores soltos (formData vindo do cliente em JSON).
- * Valores inválidos viram null: quem chama decide o que fazer (em geral, um erro na tela).
+ * Converts loose values (formData coming from the client as JSON).
+ * Invalid values become null: the caller decides what to do (usually, an error on screen).
  */
 final class Coerce
 {
@@ -26,7 +26,7 @@ final class Coerce
         };
     }
 
-    /** "42", 42 e 42.0 ⇒ 42; "4x", 4.5, "" e null ⇒ null. */
+    /** "42", 42 and 42.0 ⇒ 42; "4x", 4.5, "" and null ⇒ null. */
     public static function asInt(mixed $value): ?int
     {
         if (is_int($value)) {

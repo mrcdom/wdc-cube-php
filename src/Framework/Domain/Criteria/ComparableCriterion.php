@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wdc\Framework\Domain\Criteria;
 
 /**
- * Critério de campo ordenável — número, data, timestamp.
+ * Criterion on an ordered field — number, date, timestamp.
  *
  * @template-covariant C of object
  * @template T
@@ -50,7 +50,7 @@ class ComparableCriterion extends Criterion
     }
 
     /**
-     * Intervalo fechado. Aceita limite aberto: só início ⇒ ge; só fim ⇒ le; nenhum ⇒ nada.
+     * Closed interval. Accepts an open bound: start only ⇒ ge; end only ⇒ le; neither ⇒ nothing.
      *
      * @param T|null $start
      * @param T|null $end

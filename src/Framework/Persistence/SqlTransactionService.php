@@ -9,15 +9,15 @@ use Wdc\Framework\Commons\Concurrent\FiberValue;
 use Wdc\Framework\Domain\Transaction\TransactionService;
 
 /**
- * TransactionService sobre o {@see Database}.
+ * TransactionService on top of {@see Database}.
  *
- * REQUIRED reentrante: a chamada mais externa é a "dona" — pega uma conexão do pool, abre a
- * transação e a liga à Fiber corrente; as chamadas internas só participam. Exceção numa
- * participante marca rollback-only.
+ * Reentrant REQUIRED: the outermost call is the "owner" — it takes a pool connection, opens the
+ * transaction and binds it to the current Fiber; inner calls only participate. An exception in a
+ * participant marks the transaction rollback-only.
  *
- * A transação é da Fiber, não do processo: enquanto uma sessão está dentro de `required()`,
- * as consultas das outras sessões continuam indo para o pool, fora dela. O que for disparado
- * em outra Fiber (um `async()`, um timer) também roda fora da transação.
+ * The transaction belongs to the Fiber, not the process: while one session is inside
+ * `required()`, the other sessions' queries keep going to the pool, outside it. Anything started
+ * on another Fiber (an `async()`, a timer) also runs outside the transaction.
  */
 final class SqlTransactionService implements TransactionService
 {
@@ -42,7 +42,7 @@ final class SqlTransactionService implements TransactionService
         }
 
         if ($this->db->inTransaction()) {
-            // transação remota ligada a esta Fiber: participa; a fronteira é do cliente REST
+            // remote transaction bound to this Fiber: participate; the REST client owns the boundary
             return $work(new SqlTransactionContext());
         }
 

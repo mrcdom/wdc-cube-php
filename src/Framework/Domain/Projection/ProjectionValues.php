@@ -7,10 +7,10 @@ namespace Wdc\Framework\Domain\Projection;
 use DateTimeImmutable;
 
 /**
- * Valores-sentinela para montar projeções.
+ * Sentinel values for building projections.
  *
- * A projeção é a própria entidade usada como "máscara": campo não-null = coluna a selecionar.
- * O valor em si não importa; estes são só convenção (compartilhada com os clientes).
+ * A projection is the entity itself used as a "mask": non-null field = column to select.
+ * The value itself does not matter; these are just a convention (shared with the clients).
  */
 final class ProjectionValues
 {
@@ -24,10 +24,10 @@ final class ProjectionValues
     {
     }
 
-    /** Objetos não podem ser constantes de classe em PHP, por isso data é um método. */
+    /** Objects cannot be class constants in PHP, so the date is a method. */
     public static function dateTime(): DateTimeImmutable
     {
-        static $value = null;   // variável estática de função: criada uma vez, reaproveitada
+        static $value = null;   // function-level static variable: created once, reused
 
         return $value ??= new DateTimeImmutable('@0');
     }

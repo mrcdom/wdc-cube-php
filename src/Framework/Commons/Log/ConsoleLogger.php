@@ -10,8 +10,8 @@ use Stringable;
 use Throwable;
 
 /**
- * Logger PSR-3 mínimo: uma linha por mensagem no stderr (ou outro stream).
- * Para produção, troque por Monolog — a interface é a mesma.
+ * Minimal PSR-3 logger: one line per message on stderr (or another stream).
+ * For production, swap it for Monolog — the interface is the same.
  */
 final class ConsoleLogger extends AbstractLogger
 {

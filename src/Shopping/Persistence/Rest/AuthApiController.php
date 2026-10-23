@@ -16,12 +16,12 @@ use Wdc\Framework\Rest\RestRequest;
 use Wdc\Framework\Rest\RestResponse;
 
 /**
- * `/api/auth/*` — públicos: o login é por desafio HMAC (a senha nunca trafega).
+ * `/api/auth/*` — public: login is an HMAC challenge (the password never travels).
  *
  * 1. `GET challenge` → `{nonce, expiresAt}`
- * 2. `POST login` `{userName, digest, nonce}` → tokens + chave pública RSA da sessão
- * 3. `POST refresh` `{refreshToken}` → tokens novos
- * 4. `POST logout` `{refreshToken}` → encerra a sessão
+ * 2. `POST login` `{userName, digest, nonce}` → tokens + the session's RSA public key
+ * 3. `POST refresh` `{refreshToken}` → new tokens
+ * 4. `POST logout` `{refreshToken}` → ends the session
  */
 final readonly class AuthApiController
 {

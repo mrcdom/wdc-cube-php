@@ -13,9 +13,9 @@ use Wdc\Framework\Commons\Concurrent\Registration;
 use Wdc\Framework\Commons\Concurrent\Scheduler;
 
 /**
- * As sessões vivas do processo, por appId, e as tarefas de fundo:
- * - a cada 50 ms, envia as views sujas das sessões que mudaram (push sem requestId);
- * - a cada 30 s, libera sessões expiradas que já não têm conexão.
+ * The live sessions of the process, by appId, and the background tasks:
+ * - every 50 ms, sends the dirty views of sessions that changed (push without requestId);
+ * - every 30 s, releases expired sessions that no longer have a connection.
  */
 final class RemoteApplicationRegistry
 {
@@ -30,7 +30,7 @@ final class RemoteApplicationRegistry
     /** @var array<string, RemoteApplication> */
     private array $instances = [];
 
-    /** @var array<string, RemoteApplication> sessões com views sujas, à espera do flush */
+    /** @var array<string, RemoteApplication> sessions with dirty views, waiting for the flush */
     private array $dirtyQueue = [];
 
     /** @var list<Registration> */
@@ -42,11 +42,11 @@ final class RemoteApplicationRegistry
     private readonly Closure $clock;
 
     /**
-     * @param Closure(string, array<string, mixed>): RemoteApplication $factory cria a app na 1ª mensagem
-     * @param int $maxInstances       -1 = sem limite
-     * @param int $sessionTtlSeconds  0 = libera a sessão assim que a conexão cai
-     * @param (Closure(): float)|null $clock relógio em milissegundos (testes)
-     * @param KeyDerivation $keyDerivation como as sessões derivam a chave do canal (PBKDF2)
+     * @param Closure(string, array<string, mixed>): RemoteApplication $factory creates the app on the first message
+     * @param int $maxInstances       -1 = unlimited
+     * @param int $sessionTtlSeconds  0 = release the session as soon as the connection drops
+     * @param (Closure(): float)|null $clock clock in milliseconds (tests)
+     * @param KeyDerivation $keyDerivation how sessions derive the channel key (PBKDF2)
      */
     public function __construct(
         private readonly Closure $factory,
@@ -114,8 +114,8 @@ final class RemoteApplicationRegistry
         if (isset($this->instances[$appId])) {
             return $this->instances[$appId];
         }
-        // criar a sessão consulta o banco (suspende a Fiber): sem o lock por appId, duas conexões
-        // com o mesmo id criariam duas sessões
+        // creating the session queries the database (suspends the Fiber): without the per-appId
+        // lock, two connections with the same id would create two sessions
         $lock = ($this->creating ??= new LocalKeyedMutex())->acquire($appId);
         try {
             if (isset($this->instances[$appId])) {
@@ -146,8 +146,8 @@ final class RemoteApplicationRegistry
     }
 
     /**
-     * Durante um submit: agenda um flush "já" (próxima volta do event loop), no máximo um a
-     * cada 10–16 ms. Só tem efeito se o submit ceder a vez — p.ex. esperando I/O.
+     * During a submit: schedules an "immediate" flush (next event loop tick), at most one every
+     * 10–16 ms. Only has an effect if the submit yields — e.g. while waiting for I/O.
      */
     public function triggerImmediateFlush(RemoteApplication $app): void
     {
@@ -167,7 +167,7 @@ final class RemoteApplicationRegistry
         }, 0.0);
     }
 
-    /** Push de fundo de todas as sessões sujas. */
+    /** Background push of all dirty sessions. */
     public function flushAll(): void
     {
         $queue = $this->dirtyQueue;
@@ -181,7 +181,7 @@ final class RemoteApplicationRegistry
         }
     }
 
-    /** Expiradas sem conexão são liberadas; expiradas ainda conectadas ganham mais prazo. */
+    /** Expired sessions without a connection are released; expired ones still connected get more time. */
     public function removeExpired(): void
     {
         $now = $this->now();

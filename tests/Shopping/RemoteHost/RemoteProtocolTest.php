@@ -22,8 +22,8 @@ use Wdc\Shopping\RemoteHost\ShoppingRemoteHost;
 use Wdc\Tests\Support\TestDatabase;
 
 /**
- * O protocolo do shell React de ponta a ponta, sem rede: um "browser" falso conversa com o
- * host pelo dispatcher, exatamente com as mensagens que o shell manda.
+ * The React shell protocol end to end, without a network: a fake "browser" talks to the
+ * host through the dispatcher, with exactly the messages the shell sends.
  */
 final class RemoteProtocolTest extends TestCase
 {
@@ -101,7 +101,7 @@ final class RemoteProtocolTest extends TestCase
 
         $root = $browser->state($browser->state(FakeBrowser::BROWSER)['contentViewId']);
         self::assertSame(self::ROOT, FakeBrowser::classOf($root['#']));
-        self::assertSame(['#' => $browser->screen()['#'], 'errorCode' => 0, 'loading' => false], $browser->screen(), 'null omitido, int e bool sempre');
+        self::assertSame(['#' => $browser->screen()['#'], 'errorCode' => 0, 'loading' => false], $browser->screen(), 'null omitted, int and bool always present');
         self::assertSame(self::LOGIN, FakeBrowser::classOf($browser->screen()['#']));
         self::assertSame(
             ['#' => FakeBrowser::BROWSER, 'instanceId' => FakeBrowser::BROWSER, 'alertId' => 0, 'alertArgs' => [], 'contentViewId' => $root['#']],
@@ -120,16 +120,16 @@ final class RemoteProtocolTest extends TestCase
 
         $home = $browser->screen();
         self::assertSame(self::HOME, FakeBrowser::classOf($home['#']));
-        self::assertSame('João da Silva', $home['nickName']);
+        self::assertSame('John Smith', $home['nickName']);
         self::assertSame(0, $home['cartItemCount']);
-        self::assertArrayNotHasKey('contentViewId', $home, 'home sem conteúdo aberto');
+        self::assertArrayNotHasKey('contentViewId', $home, 'home with no content open');
         self::assertSame(self::PRODUCTS, FakeBrowser::classOf($home['productsPanelViewId']));
         self::assertSame(self::PURCHASES, FakeBrowser::classOf($home['purchasesPanelViewId']));
         self::assertMatchesRegularExpression('/^home\?rt-user=0&sign=[0-9A-Za-z]+$/', (string) $browser->uri);
 
         $token = $browser->storage['persistent-secure'][StorageKeys::AUTH_TOKEN] ?? '';
-        self::assertCount(3, explode('.', $token), 'o JWT chegou cifrado e o cliente o abriu');
-        self::assertContains($login, $this->releasedAfterPing($browser), 'a view do login foi liberada');
+        self::assertCount(3, explode('.', $token), 'the JWT arrived encrypted and the client opened it');
+        self::assertContains($login, $this->releasedAfterPing($browser), 'the login view was released');
     }
 
     #[Test]
@@ -137,9 +137,9 @@ final class RemoteProtocolTest extends TestCase
     {
         $browser = $this->newBrowser();
         $browser->start();
-        $browser->submit($browser->screen()['#'], 1, ['p.userName' => 'admin', 'p.password' => $browser->cipher('errada')]);
+        $browser->submit($browser->screen()['#'], 1, ['p.userName' => 'admin', 'p.password' => $browser->cipher('wrong')]);
 
-        self::assertSame('Usuário ou senha não reconhecido!', $browser->screen()['errorMessage']);
+        self::assertSame('Username or password not recognized!', $browser->screen()['errorMessage']);
         self::assertSame('admin', $browser->screen()['userName']);
     }
 
@@ -153,15 +153,15 @@ final class RemoteProtocolTest extends TestCase
         $purchases = $browser->state($home['purchasesPanelViewId']);
         self::assertSame(2, $purchases['totalCount']);
         self::assertSame([1, 0], array_column($purchases['purchases'], 'id'));
-        self::assertIsInt($purchases['purchases'][0]['date'], 'data em milissegundos');
+        self::assertIsInt($purchases['purchases'][0]['date'], 'date in milliseconds');
 
         $products = $browser->state($home['productsPanelViewId']);
-        self::assertSame(['id' => 3, 'image' => 'image/product/3.png', 'name' => 'Pen Drive 2GB', 'description' => 'unknown', 'price' => 16.0], $products['products'][3]);
+        self::assertSame(['id' => 3, 'image' => 'image/product/3.png', 'name' => 'Flash drive 2GB', 'description' => 'unknown', 'price' => 16.0], $products['products'][3]);
 
-        $browser->submit($home['productsPanelViewId'], 1, ['p.productId' => (string) Seed::PEN_DRIVE2GB_ID]);
+        $browser->submit($home['productsPanelViewId'], 1, ['p.productId' => (string) Seed::FLASH_DRIVE2GB_ID]);
         $product = $browser->state($browser->screen()['contentViewId']);
         self::assertSame(self::PRODUCT, FakeBrowser::classOf($product['#']));
-        self::assertStringStartsWith('Ideal para transporte', $product['product']['description']);
+        self::assertStringStartsWith('Ideal for carrying', $product['product']['description']);
         self::assertMatchesRegularExpression('/^product\?rt-user=0&pr-id=3&sign=/', (string) $browser->uri);
 
         $browser->submit($product['#'], 2, ['p.quantity' => 2, 'quantity' => 2]);
@@ -176,7 +176,7 @@ final class RemoteProtocolTest extends TestCase
         self::assertTrue($receipt['notifySuccess']);
         self::assertSame(32.0, $receipt['receipt']['total']);
         self::assertSame(0, $browser->screen()['cartItemCount']);
-        self::assertContains($product['#'], $this->releasedAfterPing($browser), 'a view do produto foi liberada');
+        self::assertContains($product['#'], $this->releasedAfterPing($browser), 'the product view was released');
     }
 
     /** @return list<string> */
@@ -192,7 +192,7 @@ final class RemoteProtocolTest extends TestCase
     {
         $browser = $this->loggedIn();
 
-        $browser->submit(FakeBrowser::BROWSER, 2);   // keep-alive (requests 0 e 1 foram o boot e o login)
+        $browser->submit(FakeBrowser::BROWSER, 2);   // keep-alive (requests 0 and 1 were the boot and the login)
 
         self::assertSame([['requestId' => 2]], $browser->take());
     }
@@ -203,11 +203,11 @@ final class RemoteProtocolTest extends TestCase
         $browser = $this->loggedIn();
         $home = $browser->screen()['#'];
 
-        $browser->sendRaw(json_encode(['event' => ["{$home}:2"], 'requestId' => 1], JSON_THROW_ON_ERROR));   // id já usado
-        $browser->sendRaw(json_encode(['event' => ["{$home}:2"]], JSON_THROW_ON_ERROR));                    // sem id
+        $browser->sendRaw(json_encode(['event' => ["{$home}:2"], 'requestId' => 1], JSON_THROW_ON_ERROR));   // id already used
+        $browser->sendRaw(json_encode(['event' => ["{$home}:2"]], JSON_THROW_ON_ERROR));                    // no id
 
         self::assertSame([], $browser->take());
-        self::assertArrayNotHasKey('contentViewId', $browser->screen(), 'o carrinho não abriu');
+        self::assertArrayNotHasKey('contentViewId', $browser->screen(), 'the cart did not open');
     }
 
     #[Test]
@@ -216,9 +216,9 @@ final class RemoteProtocolTest extends TestCase
         $browser = $this->loggedIn();
         $before = $browser->uri;
 
-        $browser->submit(FakeBrowser::BROWSER, -2, ['p.path' => 'cart?rt-user=0&sign=forjada']);
+        $browser->submit(FakeBrowser::BROWSER, -2, ['p.path' => 'cart?rt-user=0&sign=forged']);
 
-        self::assertSame($before, $browser->uri, 'servidor reenvia a URL atual');
+        self::assertSame($before, $browser->uri, 'the server resends the current URL');
         self::assertArrayNotHasKey('contentViewId', $browser->screen());
     }
 
@@ -228,12 +228,12 @@ final class RemoteProtocolTest extends TestCase
         $browser = $this->loggedIn();
         $browser->submit($browser->screen()['productsPanelViewId'], 1, ['p.productId' => 1]);
         $productUri = (string) $browser->uri;
-        $browser->submit($browser->state($browser->screen()['contentViewId'])['#'], 1);   // volta para a home
+        $browser->submit($browser->state($browser->screen()['contentViewId'])['#'], 1);   // back to the home
 
-        $browser->submit(FakeBrowser::BROWSER, -2, ['p.path' => $productUri]);   // botão "voltar" do browser
+        $browser->submit(FakeBrowser::BROWSER, -2, ['p.path' => $productUri]);   // the browser's "back" button
 
         $product = $browser->state($browser->screen()['contentViewId']);
-        self::assertSame(Seed::BOLA_WILSON_ID, $product['product']['id']);
+        self::assertSame(Seed::WILSON_BALL_ID, $product['product']['id']);
     }
 
     #[Test]
@@ -244,7 +244,7 @@ final class RemoteProtocolTest extends TestCase
         $browser->submit('a1b2c3d4e5f6:999', 1);
 
         [$response] = $browser->take();
-        self::assertGreaterThanOrEqual(5, count($response['states'] ?? []), 'browser, root, home e os dois painéis');
+        self::assertGreaterThanOrEqual(5, count($response['states'] ?? []), 'browser, root, home and both panels');
     }
 
     #[Test]
@@ -258,12 +258,12 @@ final class RemoteProtocolTest extends TestCase
         self::assertSame(-1, $alert['alertId']);
         self::assertSame('submitting event', $alert['alertArgs'][0]);
         self::assertStringContainsString('eventCode(99) not handled', $alert['alertArgs'][1]);
-        self::assertSame(['id' => -1, 'args' => $alert['alertArgs']], $alert['alertMessage'], 'o campo que o React lê');
+        self::assertSame(['id' => -1, 'args' => $alert['alertArgs']], $alert['alertMessage'], 'the field React reads');
 
-        $browser->submit(FakeBrowser::BROWSER, 1);   // OK do alerta
+        $browser->submit(FakeBrowser::BROWSER, 1);   // alert OK
         $after = $browser->state(FakeBrowser::BROWSER);
         self::assertSame([], $after['alertArgs']);
-        self::assertArrayNotHasKey('alertMessage', $after, 'sem alerta, o React não mostra nada');
+        self::assertArrayNotHasKey('alertMessage', $after, 'with no alert, React shows nothing');
     }
 
     #[Test]
@@ -271,9 +271,9 @@ final class RemoteProtocolTest extends TestCase
     {
         $browser = $this->loggedIn();
         $browser->send(['ping' => true], withRequestId: false);
-        self::assertSame([['releasedViews' => [$browser->released[0]]]], $browser->take(), 'o 1º ping avisa que o login foi liberado');
+        self::assertSame([['releasedViews' => [$browser->released[0]]]], $browser->take(), 'the 1st ping reports that the login was released');
         $browser->send(['ping' => true], withRequestId: false);
-        self::assertSame([], $browser->take(), 'nada a dizer');
+        self::assertSame([], $browser->take(), 'nothing to say');
 
         $this->nowMs += 5 * 60 * 1000;
         $browser->send(['ping' => true], withRequestId: false);
@@ -299,7 +299,7 @@ final class RemoteProtocolTest extends TestCase
         $pushes = $browser->take();
         self::assertNotEmpty($pushes);
         self::assertArrayNotHasKey('requestId', $pushes[0]);
-        self::assertSame(0, $browser->state($cart)['errorCode'], 'o aviso sumiu sozinho, empurrado pelo servidor');
+        self::assertSame(0, $browser->state($cart)['errorCode'], 'the warning went away by itself, pushed by the server');
     }
 
     #[Test]
@@ -307,20 +307,20 @@ final class RemoteProtocolTest extends TestCase
     {
         $browser = $this->loggedIn();
         $browser->submit($browser->screen()['productsPanelViewId'], 1, ['p.productId' => 2]);
-        $browser->send(['ping' => true], withRequestId: false);   // o cliente fica sabendo das views liberadas
+        $browser->send(['ping' => true], withRequestId: false);   // the client learns about the released views
         $browser->take();
         $known = array_keys($browser->views);
         $uri = $browser->uri;
 
-        $old = $browser->reconnect();   // queda de rede / F5 com a sessão viva
-        $this->dispatcher->onClose($browser->appId, $old);   // o fechamento da conexão velha chega depois
+        $old = $browser->reconnect();   // network drop / F5 with the session alive
+        $this->dispatcher->onClose($browser->appId, $old);   // the old connection's close arrives later
         $this->host->registry->flushAll();
         $browser->receive();
 
         [$push] = $browser->take();
         self::assertSame($uri, $push['uri']);
         self::assertEqualsCanonicalizing($known, array_column($push['states'], '#'));
-        self::assertSame(1, $this->host->registry->size(), 'o close da conexão velha foi ignorado');
+        self::assertSame(1, $this->host->registry->size(), 'the old connection close was ignored');
     }
 
     #[Test]
@@ -345,7 +345,7 @@ final class RemoteProtocolTest extends TestCase
     public function invalidAppId_isRejectedWith4001(): void
     {
         $connection = new RecordingConnection();
-        $this->dispatcher->onOpen('forjado.abc', 'x', $connection);
+        $this->dispatcher->onOpen('forged.abc', 'x', $connection);
 
         self::assertSame([RemoteDispatcher::CLOSE_SESSION_INVALID, 'reload_required'], [$connection->closeCode, $connection->closeReason]);
     }
@@ -381,11 +381,11 @@ final class RemoteProtocolTest extends TestCase
         $this->nowMs += 181_000;
         $this->host->registry->removeExpired();
 
-        $next = $this->newBrowser($first->storage);   // mesmo browser, outra aba / outro dia
+        $next = $this->newBrowser($first->storage);   // same browser, another tab / another day
         $next->start();
 
         self::assertSame(self::HOME, FakeBrowser::classOf($next->screen()['#']));
-        self::assertSame('João da Silva', $next->screen()['nickName']);
+        self::assertSame('John Smith', $next->screen()['nickName']);
     }
 
     #[Test]

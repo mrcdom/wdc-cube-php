@@ -14,8 +14,8 @@ use Throwable;
 use Wdc\Framework\Cube\Remote\RemoteDispatcher;
 
 /**
- * `/dispatcher/{id}`: cada conexão ganha uma Fiber própria que lê as mensagens uma a uma —
- * as mensagens de uma conexão nunca são processadas em paralelo.
+ * `/dispatcher/{id}`: each connection gets its own Fiber that reads messages one at a time —
+ * the messages of a connection are never processed in parallel.
  */
 final readonly class DispatcherEndpoint implements WebsocketClientHandler
 {
@@ -35,7 +35,7 @@ final readonly class DispatcherEndpoint implements WebsocketClientHandler
 
         $this->dispatcher->onOpen($appId, $request->getCookie(self::SIGNATURE_COOKIE)?->getValue(), $connection);
         try {
-            while ($message = $client->receive()) {   // suspende a Fiber até chegar a próxima mensagem
+            while ($message = $client->receive()) {   // suspends the Fiber until the next message arrives
                 $this->dispatcher->onMessage($appId, $connection, $message->buffer());
             }
         } catch (Throwable $e) {

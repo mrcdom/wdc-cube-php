@@ -10,7 +10,7 @@ use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubePresenter;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
-/** Guarda da área restrita (sem view). Sem usuário logado, volta para a área pública. */
+/** Guard of the restricted area (no view). With no logged-in user, goes back to the public area. */
 final class RestrictedPresenter implements CubePresenter
 {
     public function __construct(public readonly ShoppingApplication $app)
@@ -24,7 +24,7 @@ final class RestrictedPresenter implements CubePresenter
 
             return false;
         }
-        if ($deepest) {   // é só uma guarda: a tela padrão da área restrita é a home
+        if ($deepest) {   // it is just a guard: the restricted area's default screen is the home
             (new HomeKeys($this->app, $intent))->go();
 
             return false;

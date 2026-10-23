@@ -1,159 +1,160 @@
-# Criando um módulo na camada de apresentação (Cube MVP)
+# Building a module in the presentation layer (Cube MVP)
 
-Este guia ensina a criar um módulo novo na camada de apresentação (`src/Shopping/Presentation`):
-o presenter, o estado que ele manda para a tela, o place e a rota, as keys que leem o endereço,
-os presenters-filhos e as guardas. O público é quem já sabe rodar o projeto
-([setup-local.md](setup-local.md)) e já leu a ideia geral
-([../guia-para-quem-vem-do-php.md](../guia-para-quem-vem-do-php.md)), mas ainda não escreveu um
-presenter do zero.
+This guide teaches how to build a new module in the presentation layer (`src/Shopping/Presentation`):
+the presenter, the state it sends to the screen, the place and the route, the keys that read the
+address, child presenters and guards. It is for readers who can already run the project
+([setup-local.md](setup-local.md)) and have read the big picture
+([../guide-for-php-developers.md](../guide-for-php-developers.md)), but have not written a
+presenter from scratch yet.
 
-O **exemplo condutor** é o painel de **avaliações de produto**: dentro da tela de produto, o
-cliente vê a média, a lista de avaliações e um formulário para escrever a sua. As telas e keys
-que **já existem** (produto, home, guardas) servem de exemplo para o presenter roteado; o painel
-de avaliações (que você vai montar como exercício) serve de exemplo para o presenter-filho.
+The **running example** is the **product reviews** panel: inside the product screen, the
+customer sees the average, the list of reviews and a form to write their own. The screens and keys
+that **already exist** (product, home, guards) serve as examples of the routed presenter; the
+reviews panel (which you will build as an exercise) serves as the example of the child presenter.
 
-- A view React correspondente: [react-views.md](react-views.md).
-- A regra de negócio que o presenter usa: [application-service.md](application-service.md).
-- O repositório por baixo: [repository.md](repository.md).
-- A receita inteira, do banco à tela, na ordem certa: [criar-funcionalidade.md](criar-funcionalidade.md).
+- The matching React view: [react-views.md](react-views.md).
+- The business rules the presenter uses: [application-service.md](application-service.md).
+- The repository underneath: [repository.md](repository.md).
+- The whole recipe, from database to screen, in the right order: [building-a-feature.md](building-a-feature.md).
 
 ---
 
-## Índice
+## Contents
 
-1. [O que é o Cube MVP](#1-o-que-é-o-cube-mvp)
-2. [Mapa da camada](#2-mapa-da-camada)
-3. [O presenter roteado - `AbstractCubePresenter`](#3-o-presenter-roteado---abstractcubepresenter)
-4. [Registrando o place e a rota](#4-registrando-o-place-e-a-rota)
-5. [As keys: a leitura tipada do endereço](#5-as-keys-a-leitura-tipada-do-endereço)
-6. [O presenter-filho - `AbstractChildPresenter`](#6-o-presenter-filho---abstractchildpresenter)
-7. [Estado derivado com `commitComputedState()`](#7-estado-derivado-com-commitcomputedstate)
-8. [Quando faz sentido um presenter sem view](#8-quando-faz-sentido-um-presenter-sem-view)
-9. [Exemplo completo - o painel de avaliações](#9-exemplo-completo---o-painel-de-avaliações)
+1. [What Cube MVP is](#1-what-cube-mvp-is)
+2. [Layer map](#2-layer-map)
+3. [The routed presenter - `AbstractCubePresenter`](#3-the-routed-presenter---abstractcubepresenter)
+4. [Registering the place and the route](#4-registering-the-place-and-the-route)
+5. [Keys: typed reading of the address](#5-keys-typed-reading-of-the-address)
+6. [The child presenter - `AbstractChildPresenter`](#6-the-child-presenter---abstractchildpresenter)
+7. [Derived state with `commitComputedState()`](#7-derived-state-with-commitcomputedstate)
+8. [When a presenter without a view makes sense](#8-when-a-presenter-without-a-view-makes-sense)
+9. [Complete example - the reviews panel](#9-complete-example---the-reviews-panel)
 10. [Checklist](#10-checklist)
 
 ---
 
-## 1. O que é o Cube MVP
+## 1. What Cube MVP is
 
-No Cube a lógica de apresentação roda **no servidor**. Cada sessão de usuário é um objeto
-`CubeApplication` (aqui, `ShoppingApplication`) vivo dentro de um processo PHP de longa duração
-(Amp, event loop). Nela vivem os **presenters**: o que cada tela mostra, o que cada clique faz,
-para onde navegar. O browser roda um shell React fino, que só desenha os estados que recebe por
-WebSocket e devolve os eventos do usuário.
+In Cube, presentation logic runs **on the server**. Each user session is a `CubeApplication`
+object (here, `ShoppingApplication`) living inside a long-running PHP process (Amp, event loop).
+The **presenters** live in it: what each screen shows, what each click does, where to navigate.
+The browser runs a thin React shell that only draws the states it receives over WebSocket and
+sends back the user's events.
 
-Dois tipos de estado, cada um com dono:
+Two kinds of state, each with an owner:
 
-| Estado | Onde fica | Para quê |
+| State | Where it lives | What for |
 |---|---|---|
-| **De renderização** | o `ViewState` do presenter (`ProductViewState`) | o que a tela desenha; é serializado e enviado ao React |
-| **De controle** | os demais campos do presenter (`$ownerSlot`, `$productId`) | o que o presenter precisa saber para decidir; nunca sai do servidor |
+| **Rendering** | the presenter's `ViewState` (`ProductViewState`) | what the screen draws; it is serialized and sent to React |
+| **Control** | the presenter's other fields (`$ownerSlot`, `$productId`) | what the presenter needs to know to decide; it never leaves the server |
 
-Não há store global nem "reducer": quem muda o estado é o presenter que é dono dele, e ele avisa
-que a tela precisa ser redesenhada chamando `$this->update()`.
+There is no global store and no "reducer": the state is changed by the presenter that owns it,
+and it signals that the screen must be redrawn by calling `$this->update()`.
 
-O "cubo" é o conjunto de **faces** possíveis da aplicação: cada face é uma cadeia de **places**
-(raiz → área restrita → home → produto). O endereço de uma face é o nome do place mais fundo
-mais os parâmetros publicados, como `#product?rt-user=0&pr-id=3&sign=...`. Um **intent**
-(`CubeIntent`) é o pedido de mudar de face. A explicação completa está em
-[../arquitetura.md](../arquitetura.md); as regras, com o porquê de cada uma, em
+The "cube" is the set of possible **faces** of the application: each face is a chain of
+**places** (root → restricted area → home → product). The address of a face is the name of the
+deepest place plus the published parameters, like `#product?rt-user=0&pr-id=3&sign=...`. An
+**intent** (`CubeIntent`) is a request to change faces. The full explanation is in
+[../architecture.md](../architecture.md); the rules, with the reason behind each one, in
 [../../skills/cube-architecture-php/SKILL.md](../../skills/cube-architecture-php/SKILL.md).
 
 ---
 
-## 2. Mapa da camada
+## 2. Layer map
 
 ```mermaid
 flowchart TD
     subgraph pres["src/Shopping/Presentation"]
-        place["Place.php<br/>enum: um case por place"]
-        routes["Routes.php<br/>uma rota por face"]
-        app["ShoppingApplication.php<br/>a sessão: subject, repositórios, tx, scheduler"]
+        place["Place.php<br/>enum: one case per place"]
+        routes["Routes.php<br/>one route per face"]
+        app["ShoppingApplication.php<br/>the session: subject, repositories, tx, scheduler"]
         subgraph presenter["Presenter/"]
             rootk["RootKeys.php"]
-            open["Open/ - guarda + Login/"]
-            restr["Restricted/ - guarda + Home/, Cart/, Products/, Receipt/"]
+            open["Open/ - guard + Login/"]
+            restr["Restricted/ - guard + Home/, Cart/, Products/, Receipt/"]
         end
-        exc["Exception/<br/>falhas esperadas (NotFound, Invalid...)"]
+        exc["Exception/<br/>expected failures (NotFound, Invalid...)"]
     end
     host["src/Shopping/RemoteHost/ShoppingRemoteApplication.php<br/>installViewFactories(): presenter → RemoteView"]
     mock["tests/Shopping/Presentation/Mock/ShoppingApplicationMock.php<br/>installViewMocks(): presenter → XxxViewMock"]
-    react["frontend/shopping.shell.react/src/scripts/views/<br/>a view React de cada presenter"]
+    react["frontend/shopping.shell.react/src/scripts/views/<br/>the React view of each presenter"]
 
     place --> routes
     routes --> presenter
     host -.-> presenter
     mock -.-> presenter
-    presenter -. "estado (WebSocket)" .-> react
+    presenter -. "state (WebSocket)" .-> react
 ```
 
-Um módulo de tela mora numa pasta própria dentro de `Presenter/`, seguindo a árvore de places
-(`Presenter/Restricted/Products/` para o produto): keys, presenter, view state, as structs de
-apresentação (`ProductInfo`) e o serviço da tela (`ProductService`). A lista completa de um
-módulo está na seção 9.1.
+A screen module lives in its own folder inside `Presenter/`, following the place tree
+(`Presenter/Restricted/Products/` for the product): keys, presenter, view state, the presentation
+structs (`ProductInfo`) and the screen's service (`ProductService`). The full file list of a
+module is in section 9.1.
 
-Quatro tipos de presenter aparecem no projeto:
+Four kinds of presenter appear in the project:
 
-| Tipo | Tem place? | Desenha? | Base | Exemplo |
+| Kind | Has a place? | Draws? | Base | Example |
 |---|---|---|---|---|
-| **Tela** | sim | sim | `AbstractCubePresenter` | `ProductPresenter`, `CartPresenter` |
-| **Dono de slot** | sim | sim | `AbstractCubePresenter` | `HomePresenter` (as telas abrem dentro dela) |
-| **Guarda** | sim | não | `CubePresenter` direto | `RestrictedPresenter`, `OpenPresenter` |
-| **Filho (segmento)** | **não** | sim, um pedaço | `AbstractChildPresenter` | `ProductsPanelPresenter`, `ReviewsPanelPresenter` |
+| **Screen** | yes | yes | `AbstractCubePresenter` | `ProductPresenter`, `CartPresenter` |
+| **Slot owner** | yes | yes | `AbstractCubePresenter` | `HomePresenter` (screens open inside it) |
+| **Guard** | yes | no | `CubePresenter` directly | `RestrictedPresenter`, `OpenPresenter` |
+| **Child (segment)** | **no** | yes, a piece | `AbstractChildPresenter` | `ProductsPanelPresenter`, `ReviewsPanelPresenter` |
 
 ---
 
-## 3. O presenter roteado - `AbstractCubePresenter`
+## 3. The routed presenter - `AbstractCubePresenter`
 
-Um presenter roteado ocupa um place da cadeia ativa. A base (`src/Framework/Cube/AbstractCubePresenter.php`)
-guarda a view (`protected ?CubeView $view`), oferece `update()` e libera a view em `release()`.
-Você sobrescreve os quatro métodos do contrato:
+A routed presenter occupies a place in the active chain. The base (`src/Framework/Cube/AbstractCubePresenter.php`)
+holds the view (`protected ?CubeView $view`), provides `update()` and releases the view in
+`release()`. You override the four methods of the contract:
 
-| Método | Quando roda | Responsabilidade |
+| Method | When it runs | Responsibility |
 |---|---|---|
-| `applyParameters($intent, $initialization, $deepest)` | a cada navegação que passa por este place | aceitar (ou recusar) a face nova e **recuperar o estado a partir do intent** |
-| `publishParameters($intent)` | depois de cada navegação e a cada `updateHistory()` | escrever no intent a identificação **mínima** do estado (vira o endereço) |
-| `commitComputedState()` | logo antes de a view suja ser serializada | recalcular estado derivado (seção 7) |
-| `release()` | quando o presenter sai da face | soltar filhos, ouvintes e timers; chamar `parent::release()` por último |
+| `applyParameters($intent, $initialization, $deepest)` | on every navigation that goes through this place | accept (or refuse) the new face and **recover the state from the intent** |
+| `publishParameters($intent)` | after each navigation and on every `updateHistory()` | write the **minimum** identification of the state into the intent (it becomes the address) |
+| `commitComputedState()` | right before the dirty view is serialized | recompute derived state (section 7) |
+| `release()` | when the presenter leaves the face | let go of children, listeners and timers; call `parent::release()` last |
 
-### 3.1 O ciclo de navegação
+### 3.1 The navigation cycle
 
-Tudo passa por `CubeNavigation` (`$app->navigate()->step(...)->execute($intent)`). Entender este
-ciclo explica quase todas as regras do resto do guia:
+Everything goes through `CubeNavigation` (`$app->navigate()->step(...)->execute($intent)`).
+Understanding this cycle explains almost every rule in the rest of the guide:
 
 ```mermaid
 sequenceDiagram
-    participant H as HomePresenter (já vivo)
+    participant H as HomePresenter (already alive)
     participant N as CubeNavigation
     participant P as ProductPresenter
     H->>N: ProductKeys::of($app) + productId = 3 + go()
     N->>N: ROOT, RESTRICTED: applyParameters(initialization: false)
     N->>H: applyParameters(initialization: false, deepest: false)
-    H-->>N: true (reoferece o slot)
+    H-->>N: true (re-offers the slot)
     N->>P: new ProductPresenter + applyParameters(initialization: true, deepest: true)
-    alt produto existe
+    alt product exists
         P-->>N: true
-        N->>N: commit: libera quem saiu da face (folha primeiro)
-        N->>N: publishParameters de todos → endereço assinado
+        N->>N: commit: releases whoever left the face (leaf first)
+        N->>N: publishParameters of all → signed address
     else ProductNotFoundException
-        N->>N: rollback: os antigos recebem o intent anterior, P é liberado
-        N-->>H: relança a exceção
+        N->>N: rollback: the old ones get the previous intent, P is released
+        N-->>H: rethrows the exception
     end
 ```
 
-Consequências práticas:
+Practical consequences:
 
-- **Quem fica no caminho sobrevive.** Abrir um produto dentro da home passa pela home com
-  `initialization: false`. Crie view, filhos e ouvintes uma vez (`if ($initialization)`); leia
-  parâmetros e o slot **a cada** viagem.
-- **Passar pelo caminho não é recarregar.** Compare o que você tem com o que o intent pede e só
-  consulte o banco quando mudou.
-- **Uma navegação que falha é uma exceção em quem navegou.** O handler que chamou `go()` captura a
-  exceção esperada e mostra o erro no próprio estado; a tela fica onde estava.
-- **A identidade é derivada.** O endereço é a soma do que os presenters vivos publicam; quem saiu
-  da face para de publicar.
+- **Whoever stays on the path survives.** Opening a product inside the home goes through the home
+  with `initialization: false`. Create the view, children and listeners once
+  (`if ($initialization)`); read parameters and the slot on **every** trip.
+- **Passing along the path is not reloading.** Compare what you have with what the intent asks
+  for and only query the database when it changed.
+- **A failed navigation is an exception in whoever navigated.** The handler that called `go()`
+  catches the expected exception and shows the error in its own state; the screen stays where it
+  was.
+- **Identity is derived.** The address is the sum of what the live presenters publish; whoever
+  leaves the face stops publishing.
 
-### 3.2 O `ViewState`: o contrato com a view React
+### 3.2 The `ViewState`: the contract with the React view
 
 ```php
 // src/Shopping/Presentation/Presenter/Restricted/Products/ProductViewState.php
@@ -167,27 +168,27 @@ final class ProductViewState implements ViewState
 }
 ```
 
-O `ViewStateSerializer` (`src/Framework/Cube/Remote/ViewStateSerializer.php`) transforma esse
-objeto em JSON. As regras dele **são** o contrato:
+`ViewStateSerializer` (`src/Framework/Cube/Remote/ViewStateSerializer.php`) turns this object
+into JSON. Its rules **are** the contract:
 
-- escreve só propriedades **públicas** não estáticas, menos as marcadas com `#[Transient]`;
-- `bool`, `int` e `float` não anuláveis vão sempre, inclusive `0` e `false`;
-- `null` e **string em branco são omitidos** - a view React precisa ter um valor padrão para
-  todo campo que pode faltar;
-- um `CubeView` vira `"<nome>Id"`: `$reviewsPanelView` chega ao React como `reviewsPanelViewId`;
-- objetos aninhados são escritos com as suas propriedades **públicas**. Uma entidade de domínio
-  (campos privados) chegaria como `{}`. Por isso a tela usa structs de apresentação com campos
-  públicos (`ProductInfo`, `ReviewInfo`), montadas a partir da entidade;
-- dentro de listas e objetos as regras mudam um pouco: `null` fica `null` (mas propriedades `null`
-  de um objeto são puladas) e strings **não** são filtradas;
-- datas (`DateTimeInterface`) viram texto ISO-8601 em UTC; enums viram o seu valor.
+- it writes only **public** non-static properties, except those marked with `#[Transient]`;
+- non-nullable `bool`, `int` and `float` are always sent, including `0` and `false`;
+- `null` and **blank strings are omitted** - the React view needs a default value for every field
+  that may be missing;
+- a `CubeView` becomes `"<name>Id"`: `$reviewsPanelView` reaches React as `reviewsPanelViewId`;
+- nested objects are written with their **public** properties. A domain entity (private fields)
+  would arrive as `{}`. That is why the screen uses presentation structs with public fields
+  (`ProductInfo`, `ReviewInfo`), built from the entity;
+- inside lists and objects the rules change a little: `null` stays `null` (but `null` properties
+  of an object are skipped) and strings are **not** filtered;
+- dates (`DateTimeInterface`) become ISO-8601 text in UTC; enums become their value.
 
-O primeiro campo de todo estado serializado é `"#"`, o id da instância da view
-(`<classId>:<n>`), que o React usa para escolher o componente.
+The first field of every serialized state is `"#"`, the view instance id (`<classId>:<n>`),
+which React uses to pick the component.
 
-### 3.3 `applyParameters` - o método central
+### 3.3 `applyParameters` - the central method
 
-O `applyParameters` real do produto (antes do painel de avaliações):
+The real `applyParameters` of the product (before the reviews panel):
 
 ```php
 // src/Shopping/Presentation/Presenter/Restricted/Products/ProductPresenter.php
@@ -195,7 +196,7 @@ public function applyParameters(CubeIntent $intent, bool $initialization, bool $
 {
     $keys = new ProductKeys($this->app, $intent);
     $oldId = $this->state->product?->id;
-    $newId = $keys->productId ?? throw new ProductNotFoundException();   // ausente ou inválido
+    $newId = $keys->productId ?? throw new ProductNotFoundException();   // missing or invalid
 
     if ($this->state->product === null || $newId !== $oldId) {
         $this->state->product = $this->productService->loadProductById($newId);
@@ -204,28 +205,28 @@ public function applyParameters(CubeIntent $intent, bool $initialization, bool $
     if ($initialization) {
         $this->state->errorCode = 0;
         $this->state->errorMessage = null;
-        $this->view = (self::$createView ?? throw new LogicException('ProductPresenter::$createView não configurado'))($this);
+        $this->view = (self::$createView ?? throw new LogicException('ProductPresenter::$createView not configured'))($this);
     }
-    $this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+    $this->ownerSlot = $keys->ownerSlot;   // on every trip: the owner above decides the slot
     $this->ownerSlot?->setView($this->view);
 
     return true;
 }
 ```
 
-Leia em quatro passos:
+Read it in four steps:
 
-1. **Ler o intent pelas keys** (`new ProductKeys($this->app, $intent)`). O getter já validou: se
-   o endereço não traz um id utilizável, vem `null`, e o presenter transforma isso numa exceção
-   específica - a navegação faz rollback.
-2. **Carregar só se mudou.** `loadProductById` lança `ProductNotFoundException` para um id que não
-   existe mais; de novo, rollback.
-3. **Criar a view uma vez**, na inicialização, pela fábrica `$createView` (3.5).
-4. **Encaixar a view no slot do dono, a cada viagem** (3.6).
+1. **Read the intent through the keys** (`new ProductKeys($this->app, $intent)`). The getter has
+   already validated: if the address does not carry a usable id, you get `null`, and the
+   presenter turns that into a specific exception - the navigation rolls back.
+2. **Load only if it changed.** `loadProductById` throws `ProductNotFoundException` for an id
+   that no longer exists; again, rollback.
+3. **Create the view once**, on initialization, through the `$createView` factory (3.5).
+4. **Fit the view into the owner's slot, on every trip** (3.6).
 
-Retornar `false` interrompe a navegação (é o que as guardas fazem, seção 8).
+Returning `false` stops the navigation (that is what guards do, section 8).
 
-### 3.4 `publishParameters` e `update()`
+### 3.4 `publishParameters` and `update()`
 
 ```php
 public function publishParameters(CubeIntent $intent): void
@@ -237,26 +238,27 @@ public function publishParameters(CubeIntent $intent): void
 }
 ```
 
-Publique o **mínimo** que recria o estado - o id, não o produto. É isso que faz F5, favoritos e
-Voltar funcionarem: o `applyParameters` do próximo acesso lê esse id e reconstrói tudo.
+Publish the **minimum** that recreates the state - the id, not the product. That is what makes
+F5, bookmarks and Back work: the `applyParameters` of the next visit reads that id and rebuilds
+everything.
 
-`$this->update()` é **explícito**: nada observa o estado. Mudou um campo do `ViewState` e não
-chamou `update()`, a tela continua mostrando o valor antigo até que outra coisa suje a view.
-Chamar duas vezes não custa nada: as views sujas são coletadas e enviadas uma vez no fim da
-requisição (ou pelo flush de fundo de 50 ms). Se a mudança altera o que você **publica** sem
-navegar (trocar de página numa lista, por exemplo), chame também `$this->app->updateHistory()`
-para o endereço acompanhar.
+`$this->update()` is **explicit**: nothing observes the state. If you change a `ViewState` field
+and don't call `update()`, the screen keeps showing the old value until something else marks the
+view dirty. Calling it twice costs nothing: dirty views are collected and sent once at the end of
+the request (or by the 50 ms background flush). If the change alters what you **publish** without
+navigating (switching pages in a list, for example), also call `$this->app->updateHistory()` so
+the address keeps up.
 
-### 3.5 `$createView`: o presenter não conhece a view concreta
+### 3.5 `$createView`: the presenter does not know the concrete view
 
 ```php
 /** @var (Closure(self): CubeView)|null */
 public static ?Closure $createView = null;
 ```
 
-Quem hospeda a aplicação instala a fábrica. Em produção, o host remoto liga o presenter a uma
-`RemoteView`; nos testes, a um mock que só guarda o estado. Instale nos **dois** lugares - um
-presenter que falta num deles lança "`$createView` não configurado":
+Whoever hosts the application installs the factory. In production, the remote host binds the
+presenter to a `RemoteView`; in tests, to a mock that only holds the state. Install it in **both**
+places - a presenter missing from either one throws "`$createView` not configured":
 
 ```php
 // src/Shopping/RemoteHost/ShoppingRemoteApplication.php - installViewFactories()
@@ -266,51 +268,51 @@ ProductPresenter::$createView = static fn (ProductPresenter $p) => new RemoteVie
 ProductPresenter::$createView = static fn (ProductPresenter $p) => new ProductViewMock($p);
 ```
 
-O mock (`tests/Shopping/Presentation/Mock/ProductViewMock.php`) estende `AbstractViewMock` e guarda
-o presenter e o **mesmo** objeto de estado que ele altera - objetos PHP são compartilhados por
-handle, não copiados. É assim que um teste lê o que a tela mostraria.
+The mock (`tests/Shopping/Presentation/Mock/ProductViewMock.php`) extends `AbstractViewMock` and
+holds the presenter and the **same** state object it changes - PHP objects are shared by handle,
+not copied. That is how a test reads what the screen would show.
 
-### 3.6 Slots: onde a view aparece
+### 3.6 Slots: where the view appears
 
-Quem decide onde uma tela aparece é o dono acima dela. O dono embrulha um setter num
-`CubeViewSlot` e o oferece no intent pela propriedade `RootKeys::$ownerSlot` - o único nome
-reusado de propósito em toda a aplicação: cada nível encaixa a sua view no slot que recebeu e
-reoferece o próprio slot, com o mesmo nome, ao nível de baixo. Veja a `HomePresenter`:
+The owner above a screen decides where it appears. The owner wraps a setter in a `CubeViewSlot`
+and offers it in the intent through the `RootKeys::$ownerSlot` property - the only name reused on
+purpose across the whole application: each level fits its view into the slot it received and
+re-offers its own slot, under the same name, to the level below. Look at `HomePresenter`:
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/Home/HomePresenter.php (trechos)
-$this->contentSlot = new CubeViewSlot($this->setContentView(...));   // no construtor
+// src/Shopping/Presentation/Presenter/Restricted/Home/HomePresenter.php (excerpts)
+$this->contentSlot = new CubeViewSlot($this->setContentView(...));   // in the constructor
 
-$keys = new HomeKeys($this->app, $intent);                         // em applyParameters
-$this->ownerSlot = $keys->ownerSlot;   // a cada viagem: quem decide o slot é o dono acima
+$keys = new HomeKeys($this->app, $intent);                         // in applyParameters
+$this->ownerSlot = $keys->ownerSlot;   // on every trip: the owner above decides the slot
 if ($this->ownerSlot === null) {
     return false;
 }
 $this->ownerSlot->setView($this->view);
 if ($deepest) {
-    $this->setContentView(null);   // a home é o destino: mostra os painéis
+    $this->setContentView(null);   // the home is the destination: show the panels
 } else {
-    $keys->ownerSlot = $this->contentSlot;   // reoferece, com o mesmo nome, ao nível de baixo
+    $keys->ownerSlot = $this->contentSlot;   // re-offer, under the same name, to the level below
 }
 ```
 
-O `setContentView` só troca `$this->state->contentView` e chama `update()` quando o valor mudou.
-`HomeViewState::$contentView` vai ao React como `contentViewId`, e a `HomeView` desenha com
-`bridge.createView(state.contentViewId)` ([react-views.md](react-views.md)).
+`setContentView` only swaps `$this->state->contentView` and calls `update()` when the value
+changed. `HomeViewState::$contentView` goes to React as `contentViewId`, and `HomeView` draws it
+with `bridge.createView(state.contentViewId)` ([react-views.md](react-views.md)).
 
-Por que ler o slot **a cada** viagem? Porque um presenter que sobrevive não sabe se a decisão de
-cima mudou. Publicar a view no slot antigo faz a tela sumir ou aparecer no lugar errado. E, no
-`release()` do dono, zere os campos que apontam para views de filhos.
+Why read the slot on **every** trip? Because a presenter that survives does not know whether the
+decision above changed. Publishing the view into the old slot makes the screen vanish or appear in
+the wrong place. Also, in the owner's `release()`, clear the fields that point to child views.
 
-### 3.7 O `Skeleton`: eventos da view
+### 3.7 The `Skeleton`: view events
 
-A view React manda eventos numerados. O `skeleton()` liga cada número a um método:
+The React view sends numbered events. `skeleton()` maps each number to a method:
 
 ```php
 // ProductPresenter
 public function skeleton(): CubeSkeleton
 {
-    return new Skeleton('48b693f67410', function (int $event, int $qtde, array $form): void {
+    return new Skeleton('48b693f67410', function (int $event, int $count, array $form): void {
         match ($event) {
             1 => $this->onOpenProducts(),
             2 => $this->onAddToCart(Coerce::asInt($form['p.quantity'] ?? null)),
@@ -320,42 +322,42 @@ public function skeleton(): CubeSkeleton
 }
 ```
 
-- **O `classId`** (`'48b693f67410'`) é o elo com o React: o mesmo texto vai em
-  `BaseViewClass.FC(ProductViewClass, "48b693f67410")`. Diferente de um lado e do outro, a área da
-  tela não desenha. Para um módulo novo, gere um id aleatório de 12 hex:
+- **The `classId`** (`'48b693f67410'`) is the link to React: the same text goes in
+  `BaseViewClass.FC(ProductViewClass, "48b693f67410")`. If the two sides differ, the screen area
+  does not draw. For a new module, generate a random 12-hex id:
   `php -r 'echo bin2hex(random_bytes(6)), PHP_EOL;'`.
-- **Todo código que a view envia precisa de um braço no `match`.** O `default` chama
-  `Skeleton::unknownEvent`, que lança `eventCode(N) not handled`: a sessão registra no log e mostra
-  o alerta de erro inesperado. É de propósito - um evento que some em silêncio é muito pior.
-  Prefira constantes nomeadas (`self::EVENT_SUBMIT_REVIEW`) dos dois lados.
-- **Argumentos do evento chegam como `p.<nome>`** em `$form`. Chegam como escalares JSON:
-  converta com `Coerce::asInt` / `Coerce::asString` (de `Wdc\Framework\Commons\Lang\Coerce`, que
-  devolvem `null` quando o valor não serve) e valide no método.
-- **Campos sem o prefixo `p.`** são sincronização de estado: vão para o **terceiro** argumento do
-  `Skeleton`, o closure `syncState(array $form)`, que roda antes do evento. Se o skeleton não tem
-  `syncState`, esses campos são **descartados em silêncio**. Nenhum presenter do Shopping usa
-  `syncState` hoje; o padrão é mandar tudo como argumento `p.` no evento.
-- `$qtde` é a contagem de eventos repetidos que chegaram juntos na mesma requisição.
+- **Every code the view sends needs an arm in the `match`.** The `default` calls
+  `Skeleton::unknownEvent`, which throws `eventCode(N) not handled`: the session logs it and shows
+  the unexpected-error alert. This is on purpose - an event that disappears silently is much
+  worse. Prefer named constants (`self::EVENT_SUBMIT_REVIEW`) on both sides.
+- **Event arguments arrive as `p.<name>`** in `$form`. They arrive as JSON scalars: convert them
+  with `Coerce::asInt` / `Coerce::asString` (from `Wdc\Framework\Commons\Lang\Coerce`, which return
+  `null` when the value is not usable) and validate in the method.
+- **Fields without the `p.` prefix** are state synchronization: they go to the **third** argument
+  of `Skeleton`, the `syncState(array $form)` closure, which runs before the event. If the
+  skeleton has no `syncState`, those fields are **silently discarded**. No Shopping presenter uses
+  `syncState` today; the standard is to send everything as a `p.` argument on the event.
+- `$count` is the number of repeated events that arrived together in the same request.
 
-Por que uma closure e não uma classe anônima? Uma closure criada dentro do presenter enxerga os
-métodos privados dele; uma classe anônima não.
+Why a closure and not an anonymous class? A closure created inside the presenter can see its
+private methods; an anonymous class cannot.
 
-### 3.8 Handlers de evento: sempre guardados
+### 3.8 Event handlers: always guarded
 
-Todo método `onX` chamado pelo skeleton envolve o corpo num `try`. Falha **esperada** (registro
-não encontrado, entrada inválida) vira `errorCode` + `errorMessage` no estado do próprio
-presenter; o **inesperado** vai para `$this->app->alertUnexpectedError(...)`, que mostra o alerta
-global e registra a exceção. `HomePresenter::onOpenProduct` (seção 5.4) captura
-`ProductNotFoundException` e mostra o erro 3 na própria home; `ReviewsPanelPresenter::onSubmitReview`
-(seção 9.4) faz o mesmo com `InvalidReviewException`. Os métodos são `public` porque os testes os
-chamam diretamente, simulando o clique.
+Every `onX` method called by the skeleton wraps its body in a `try`. An **expected** failure
+(record not found, invalid input) becomes `errorCode` + `errorMessage` in the presenter's own
+state; the **unexpected** goes to `$this->app->alertUnexpectedError(...)`, which shows the global
+alert and logs the exception. `HomePresenter::onOpenProduct` (section 5.4) catches
+`ProductNotFoundException` and shows error 3 in the home itself; `ReviewsPanelPresenter::onSubmitReview`
+(section 9.4) does the same with `InvalidReviewException`. The methods are `public` because tests
+call them directly, simulating the click.
 
 ---
 
-## 4. Registrando o place e a rota
+## 4. Registering the place and the route
 
-Uma tela nova (com endereço próprio) precisa de três coisas: um case no enum `Place`, um método
-em `Routes` e uma classe de keys (seção 5). A árvore atual, do docblock de `Place.php`:
+A new screen (with its own address) needs three things: a case in the `Place` enum, a method in
+`Routes` and a keys class (section 5). The current tree, from the `Place.php` docblock:
 
 ```mermaid
 flowchart LR
@@ -368,26 +370,26 @@ flowchart LR
     HOME --> RECEIPT["RECEIPT = 7<br/>receipt"]
 ```
 
-### 4.1 O case no enum `Place`
+### 4.1 The case in the `Place` enum
 
-Em `src/Shopping/Presentation/Place.php`, o produto aparece em quatro pontos:
+In `src/Shopping/Presentation/Place.php`, the product shows up in four spots:
 
 ```php
-case PRODUCT = 6;                                   // o case, no bloco do nível 3
-self::PRODUCT => 'product',                         // em name(): o nome no endereço
-self::PRODUCT => new ProductPresenter($app),        // em createPresenter()
-self::PRODUCT => Routes::product($app, $intent),    // em go(): a rota
+case PRODUCT = 6;                                   // the case, in the level-3 block
+self::PRODUCT => 'product',                         // in name(): the name in the address
+self::PRODUCT => new ProductPresenter($app),        // in createPresenter()
+self::PRODUCT => Routes::product($app, $intent),    // in go(): the route
 ```
 
-- **O id cresce com a profundidade.** O motor libera os presenters da folha para a raiz usando
-  essa ordem. Um place novo no nível 3 seria `= 8`.
-- **`name()` é o nome no endereço.** Não confunda com a propriedade embutida `->name` de todo enum
-  PHP, que devolve o nome do case (`'PRODUCT'`).
-- Um `match` sobre um enum sem braço para um case lança `UnhandledMatchError` - e o PHPStan acusa
-  antes. Esquecer um dos três `match` não passa despercebido.
-- A rota fica no método `go()` porque um enum PHP não tem estado para guardá-la.
+- **The id grows with depth.** The engine releases presenters from leaf to root using this order.
+  A new place at level 3 would be `= 8`.
+- **`name()` is the name in the address.** Don't confuse it with the built-in `->name` property
+  of every PHP enum, which returns the case name (`'PRODUCT'`).
+- A `match` over an enum with no arm for a case throws `UnhandledMatchError` - and PHPStan flags
+  it earlier. Forgetting one of the three `match` expressions does not go unnoticed.
+- The route lives in the `go()` method because a PHP enum has no state to store it in.
 
-### 4.2 O método em `Routes`
+### 4.2 The method in `Routes`
 
 ```php
 // src/Shopping/Presentation/Routes.php
@@ -398,29 +400,30 @@ public static function product(ShoppingApplication $app, CubeIntent $intent): bo
 }
 ```
 
-A cadeia de `step` **é** a face. Repare em dois detalhes: a guarda `RESTRICTED` está no caminho
-(é ela que protege a tela, seção 8), e `product` exige o intent - não faz sentido abrir um produto
-"a partir do estado atual" sem dizer qual. Rotas sem parâmetro obrigatório aceitam `?CubeIntent
-$intent = null` e usam `$intent ?? $app->newIntent()`, como `Routes::cart`.
+The `step` chain **is** the face. Notice two details: the `RESTRICTED` guard is on the path (it
+is what protects the screen, section 8), and `product` requires the intent - it makes no sense to
+open a product "from the current state" without saying which one. Routes without a required
+parameter accept `?CubeIntent $intent = null` and use `$intent ?? $app->newIntent()`, like
+`Routes::cart`.
 
-Você raramente chama `Routes` diretamente: a navegação passa pelas keys do destino
+You rarely call `Routes` directly: navigation goes through the destination's keys
 (`ProductKeys::of($app)->go()` → `Place::go` → `Routes::product`).
 
 ---
 
-## 5. As keys: a leitura tipada do endereço
+## 5. Keys: typed reading of the address
 
-Nenhum presenter escreve `$intent->getParameter('pr-id')`. Os nomes de parâmetros e atributos
-vivem em **classes de keys**, uma por place, e só nelas.
+No presenter writes `$intent->getParameter('pr-id')`. Parameter and attribute names live in
+**keys classes**, one per place, and only there.
 
-### 5.1 Por que os nomes precisam ser únicos
+### 5.1 Why names must be unique
 
-Uma navegação passa o **mesmo** intent por todos os `applyParameters`, da raiz à folha. Se dois
-presenters usassem o nome `id`, um sobrescreveria o valor do outro no meio do caminho, sem erro.
-Por isso cada arquivo de keys declara um `PREFIX` de duas letras, único na aplicação, e todos os
-seus nomes começam com ele.
+A navigation passes the **same** intent through every `applyParameters`, from root to leaf. If
+two presenters used the name `id`, one would overwrite the other's value midway, with no error.
+That is why each keys file declares a two-letter `PREFIX`, unique in the application, and all its
+names start with it.
 
-### 5.2 A árvore de keys espelha a árvore de places
+### 5.2 The keys tree mirrors the place tree
 
 ```mermaid
 classDiagram
@@ -438,17 +441,17 @@ classDiagram
     class ReceiptKeys { rc; +purchaseId; +purchaseMade }
 ```
 
-`CubeKeys` (framework) dá o construtor, `of()` e o helper `idParameter()`. `RootKeys` implementa
-`go()` e declara o que toda tela usa: `$userId` e o slot `$ownerSlot`. Cada place estende as keys
-de quem está acima - assim um place mais fundo pode **ler** o que um ancestral publica (o
-`ProductPresenter` lê `$keys->ownerSlot`, que é de `RootKeys`). Um nome é declarado uma vez, nas
-keys do **dono**.
+`CubeKeys` (framework) provides the constructor, `of()` and the `idParameter()` helper. `RootKeys`
+implements `go()` and declares what every screen uses: `$userId` and the `$ownerSlot` slot. Each
+place extends the keys of the one above it - so a deeper place can **read** what an ancestor
+publishes (`ProductPresenter` reads `$keys->ownerSlot`, which belongs to `RootKeys`). A name is
+declared once, in the **owner's** keys.
 
-Todo place tem as suas keys, inclusive guardas e telas sem parâmetros. Uma keys sem nomes só
-declara `place()`:
+Every place has its keys, including guards and screens without parameters. A keys class with no
+names only declares `place()`:
 
 ```php
-/** Keys do carrinho: `cart`. */
+/** Cart keys: `cart`. */
 final class CartKeys extends HomeKeys
 {
     public function place(): CubePlace
@@ -458,23 +461,23 @@ final class CartKeys extends HomeKeys
 }
 ```
 
-### 5.3 Anatomia de uma classe de keys
+### 5.3 Anatomy of a keys class
 
 ```php
 // src/Shopping/Presentation/Presenter/Restricted/Receipt/ReceiptKeys.php
-/** Keys do recibo: `receipt?rc-id=7`. */
+/** Receipt keys: `receipt?rc-id=7`. */
 final class ReceiptKeys extends HomeKeys
 {
-    /** Prefixo dos nomes deste arquivo - único na aplicação. */
+    /** Prefix of the names in this file - unique in the application. */
     private const string PREFIX = 'rc';
 
-    /** Parâmetro: a compra do recibo. */
+    /** Parameter: the receipt's purchase. */
     private const string P_ID = self::PREFIX . '-id';
 
-    /** Atributo: "a compra acabou de ser feita" - o recibo mostra o aviso de sucesso. */
+    /** Attribute: "the purchase was just made" - the receipt shows the success notice. */
     private const string A_MADE = self::PREFIX . '-made';
 
-    /** A compra: inteiro não negativo, ou null se o endereço não traz uma utilizável. */
+    /** The purchase: a non-negative integer, or null if the address does not carry a usable one. */
     public ?int $purchaseId {
         get => $this->idParameter(self::P_ID);
         set (?int $value) {
@@ -482,7 +485,7 @@ final class ReceiptKeys extends HomeKeys
         }
     }
 
-    /** Se a navegação vem de uma compra recém-concluída (não vai para o endereço). */
+    /** Whether the navigation comes from a just-completed purchase (not part of the address). */
     public bool $purchaseMade {
         get => $this->intent->getAttribute(self::A_MADE) === true;
         set (bool $value) {
@@ -497,108 +500,109 @@ final class ReceiptKeys extends HomeKeys
 }
 ```
 
-| Prefixo da constante | É um... | Vai para o endereço? | Para quê |
+| Constant prefix | It is a... | Goes into the address? | What for |
 |---|---|---|---|
-| `P_` | parâmetro | sim | estado endereçável: ids, filtros, página |
-| `A_` | atributo | não | dado já em mãos, flags ("a compra acabou de ser feita") |
+| `P_` | parameter | yes | addressable state: ids, filters, page |
+| `A_` | attribute | no | data already at hand, flags ("the purchase was just made") |
 
-As propriedades usam **property hooks** (PHP 8.4): `get` e `set` rodam código a cada leitura e
-escrita, como um getter/setter, mas com sintaxe de propriedade. Duas regras para os hooks:
+The properties use **property hooks** (PHP 8.4): `get` and `set` run code on every read and
+write, like a getter/setter, but with property syntax. Two rules for the hooks:
 
-- **Valide na leitura.** O endereço é entrada de fora - mesmo assinado, um link antigo traz um
-  registro que não existe mais. O getter devolve um valor utilizável ou `null` (ids:
-  `idParameter()`, que só aceita inteiro não negativo; escolhas: lista permitida).
-- **Omita o padrão na escrita.** `setParameter($nome, null)` remove o parâmetro do endereço.
+- **Validate on read.** The address is outside input - even signed, an old link may carry a
+  record that no longer exists. The getter returns a usable value or `null` (ids:
+  `idParameter()`, which only accepts a non-negative integer; choices: an allow-list).
+- **Omit the default on write.** `setParameter($name, null)` removes the parameter from the
+  address.
 
-### 5.4 Usando as keys
+### 5.4 Using the keys
 
 ```php
-// 1) dentro de applyParameters / publishParameters: o intent da navegação em curso
+// 1) inside applyParameters / publishParameters: the intent of the ongoing navigation
 $keys = new ProductKeys($this->app, $intent);
 
-// 2) num handler de evento: uma viagem que parte do ESTADO atual
-$product = ProductKeys::of($this->app);   // newIntent(): cada presenter vivo publica
+// 2) in an event handler: a trip that starts from the current STATE
+$product = ProductKeys::of($this->app);   // newIntent(): every live presenter publishes
 $product->productId = $productId;
 $product->go();
 
-// 3) num redirecionamento dentro de applyParameters: passe o intent EM TRÂNSITO
+// 3) in a redirect inside applyParameters: pass the intent IN TRANSIT
 (new OpenKeys($this->app, $intent))->go();
 ```
 
-O caso 3 importa: redirecionar com `OpenKeys::of(...)` perderia o que o endereço acabou de trazer
-(por exemplo, o produto que o usuário queria ver antes de logar).
+Case 3 matters: redirecting with `OpenKeys::of(...)` would lose what the address just brought
+(for example, the product the user wanted to see before logging in).
 
-> **Armadilha do PHP:** escrever num hook de um objeto temporário é erro fatal.
-> `(new ProductKeys($this->app, $intent))->productId = 3` dá "Cannot use temporary expression in
-> write context". Atribua a uma variável primeiro, como nos exemplos acima. Ler e chamar métodos
-> (`(new OpenKeys(...))->go()`) não tem problema.
+> **PHP pitfall:** writing to a hook of a temporary object is a fatal error.
+> `(new ProductKeys($this->app, $intent))->productId = 3` gives "Cannot use temporary expression in
+> write context". Assign it to a variable first, as in the examples above. Reading and calling
+> methods (`(new OpenKeys(...))->go()`) is fine.
 
-### 5.5 `KeysNamesTest`: a regra verificada
+### 5.5 `KeysNamesTest`: the rule, verified
 
-`tests/Shopping/Presentation/KeysNamesTest.php` varre `src/Shopping/**/*Keys.php` e falha se:
+`tests/Shopping/Presentation/KeysNamesTest.php` scans `src/Shopping/**/*Keys.php` and fails if:
 
-- um nome não segue o formato `self::PREFIX . '-codigo'` numa constante `P_`/`A_`;
-- um arquivo que declara nomes não tem `PREFIX` de duas letras, ou repete um código local;
-- dois arquivos usam o mesmo prefixo;
-- um place não tem **exatamente uma** classe de keys;
-- algum código fora das keys acessa o intent por nome (`$intent->getParameter('...')`).
+- a name does not follow the `self::PREFIX . '-code'` format in a `P_`/`A_` constant;
+- a file that declares names has no two-letter `PREFIX`, or repeats a local code;
+- two files use the same prefix;
+- a place does not have **exactly one** keys class;
+- some code outside the keys accesses the intent by name (`$intent->getParameter('...')`).
 
-Ao criar um place, rode `composer check`: o teste avisa se faltou a keys.
+When you create a place, run `composer check`: the test tells you if the keys class is missing.
 
 ---
 
-## 6. O presenter-filho - `AbstractChildPresenter`
+## 6. The child presenter - `AbstractChildPresenter`
 
-O cubo controla os places. Mas, dentro da view de uma tela, um **segmento** pode ter o seu
-próprio presenter: a vitrine e o extrato da home, o painel de avaliações do produto. Um filho:
+The cube controls the places. But, inside a screen's view, a **segment** can have its own
+presenter: the home's showcase and purchase history, the product's reviews panel. A child:
 
-- **não tem place**, não aparece em `Place` nem em `Routes`, não tem keys e não publica nada;
-- é **criado, guardado e liberado pelo dono**;
-- tem view, `ViewState`, `skeleton()` e `$createView` como uma tela;
-- **delega a navegação ao dono** (`$this->owner->onOpenProduct($id)`).
+- **has no place**, does not appear in `Place` or `Routes`, has no keys and publishes nothing;
+- is **created, held and released by its owner**;
+- has a view, `ViewState`, `skeleton()` and `$createView` like a screen;
+- **delegates navigation to its owner** (`$this->owner->onOpenProduct($id)`).
 
-Trocar um painel não troca a face. Se o estado de um segmento precisa sobreviver ao F5 (a aba
-aberta, a página), ele é um **parâmetro do dono**: o dono lê em `applyParameters`, repassa ao
-filho e publica.
+Switching a panel does not switch the face. If a segment's state must survive F5 (the open tab,
+the page), it is an **owner parameter**: the owner reads it in `applyParameters`, passes it to
+the child and publishes it.
 
-### 6.1 O contrato
+### 6.1 The contract
 
-A base (`src/Framework/Cube/AbstractChildPresenter.php`) pede dois métodos protegidos -
-`onCreateView(): CubeView` (cria a view pela fábrica `$createView`) e `onInitialize(): void` (a
-carga inicial) - e oferece o `final public function initialize(): CubeView`, que chama os dois
-nessa ordem e **devolve a view** para o dono guardar no próprio estado. Mais `update()`,
-`release()` e um `commitComputedState()` vazio, como na tela. Não há `applyParameters`: o filho
-não participa da navegação; quem lhe diz o que mostrar é o dono.
+The base (`src/Framework/Cube/AbstractChildPresenter.php`) asks for two protected methods -
+`onCreateView(): CubeView` (creates the view through the `$createView` factory) and
+`onInitialize(): void` (the initial load) - and provides `final public function initialize(): CubeView`,
+which calls both in that order and **returns the view** for the owner to keep in its own state.
+Plus `update()`, `release()` and an empty `commitComputedState()`, as in a screen. There is no
+`applyParameters`: the child does not take part in navigation; the owner tells it what to show.
 
-### 6.2 O ciclo de vida, responsabilidade do dono
+### 6.2 The life cycle, the owner's responsibility
 
 ```mermaid
 sequenceDiagram
     participant N as CubeNavigation
-    participant P as ProductPresenter (dono)
-    participant R as ReviewsPanelPresenter (filho)
+    participant P as ProductPresenter (owner)
+    participant R as ReviewsPanelPresenter (child)
     N->>P: applyParameters(initialization: true)
     P->>R: new ReviewsPanelPresenter($app, $this)
     P->>R: initialize() → onCreateView() + onInitialize()
-    R-->>P: CubeView (vai para $state->reviewsPanelView)
-    P->>R: showProduct($newId) — a cada viagem
-    N->>P: applyParameters(initialization: false) — outro produto
-    P->>R: showProduct($outroId) → recarrega
-    N->>P: release() — saiu da face
+    R-->>P: CubeView (goes to $state->reviewsPanelView)
+    P->>R: showProduct($newId) — on every trip
+    N->>P: applyParameters(initialization: false) — another product
+    P->>R: showProduct($otherId) → reloads
+    N->>P: release() — left the face
     P->>R: release()
 ```
 
-O dono, em três pontos:
+The owner, in three spots:
 
 ```php
-// 1) na inicialização: cria UMA vez e guarda a view do filho no próprio estado
+// 1) on initialization: create ONCE and keep the child's view in the owner's own state
 $this->reviewsPanel = new ReviewsPanelPresenter($this->app, $this);
 $this->state->reviewsPanelView = $this->reviewsPanel->initialize();
 
-// 2) a cada viagem: diz ao filho o que mostrar (o filho compara e só recarrega se mudou)
+// 2) on every trip: tell the child what to show (the child compares and only reloads if it changed)
 $this->reviewsPanel?->showProduct($newId);
 
-// 3) no release(): zera o campo, libera o filho, e só então o pai
+// 3) in release(): clear the field, release the child, and only then the parent
 public function release(): void
 {
     $this->state->reviewsPanelView = null;
@@ -608,13 +612,13 @@ public function release(): void
 }
 ```
 
-O campo `?CubeView $reviewsPanelView` no `ProductViewState` vai ao React como
-`reviewsPanelViewId`, e a `ProductView` desenha o filho com `bridge.createView(...)`.
+The `?CubeView $reviewsPanelView` field in `ProductViewState` goes to React as
+`reviewsPanelViewId`, and `ProductView` draws the child with `bridge.createView(...)`.
 
-### 6.3 Navegação: sempre pelo dono
+### 6.3 Navigation: always through the owner
 
-O filho não chama `XxxKeys::of(...)->go()` por conta própria. A vitrine da home, por exemplo,
-repassa o clique:
+The child does not call `XxxKeys::of(...)->go()` on its own. The home showcase, for example,
+forwards the click:
 
 ```php
 // src/Shopping/Presentation/Presenter/Restricted/Home/Products/ProductsPanelPresenter.php
@@ -624,21 +628,22 @@ public function onOpenProduct(?int $productId): void
 }
 ```
 
-Assim o tratamento do erro (`ProductNotFoundException` → erro 3 na home) fica num só lugar, o
-dono, que é quem está na face e sabe o que fazer. O dono chega pelo construtor:
-`public readonly HomePresenter $owner` - o tipo concreto, para o filho chamar os métodos dele.
+That way error handling (`ProductNotFoundException` → error 3 in the home) stays in one place,
+the owner, which is the one on the face and knows what to do. The owner arrives through the
+constructor: `public readonly HomePresenter $owner` - the concrete type, so the child can call its
+methods.
 
 ---
 
-## 7. Estado derivado com `commitComputedState()`
+## 7. Derived state with `commitComputedState()`
 
-`commitComputedState()` roda **logo antes de uma view suja ser serializada**, dentro do lock da
-sessão. Serve para valores que derivam de outra coisa e que você não quer recalcular em cada
-ponto que a muda. O exemplo real é a contagem do carrinho na home:
+`commitComputedState()` runs **right before a dirty view is serialized**, inside the session
+lock. It is for values that derive from something else and that you don't want to recompute at
+every spot that changes it. The real example is the cart count in the home:
 
 ```php
 // HomePresenter
-/** Estado derivado, recalculado logo antes de a view ser enviada ao cliente. */
+/** Derived state, recomputed right before the view is sent to the client. */
 public function commitComputedState(): void
 {
     $count = $this->cart?->itemCount() ?? 0;
@@ -649,33 +654,33 @@ public function commitComputedState(): void
 }
 ```
 
-**Compare antes de atualizar.** `update()` suja a view; se `commitComputedState` chamasse
-`update()` sempre, a view ficaria suja para sempre e seria reenviada a cada flush.
+**Compare before updating.** `update()` marks the view dirty; if `commitComputedState` always
+called `update()`, the view would stay dirty forever and be resent on every flush.
 
-Quando **não** usar: se o valor deriva de algo que só muda num ponto conhecido, calcule ali. O
-painel de avaliações calcula média e contagem dentro de `loadReviews()`, logo depois de carregar a
-lista, porque a lista só muda nesse método; em `commitComputedState` o cálculo rodaria a cada
-envio da view, sem necessidade.
+When **not** to use it: if the value derives from something that only changes at a known spot,
+compute it there. The reviews panel computes the average and count inside `loadReviews()`, right
+after loading the list, because the list only changes in that method; in `commitComputedState`
+the computation would run on every send of the view, needlessly.
 
-Dois detalhes do motor:
+Two engine details:
 
-- No host remoto, `commitComputedState` é chamado para o presenter de **cada view suja** - filhos
-  incluídos. Uma view limpa não passa por ele; por isso a home também atualiza a contagem
-  diretamente no ouvinte de mudança do carrinho (`onCartChanged`).
-- Nos testes com mocks não há serialização, então ninguém o chama sozinho. Se o seu teste depende
-  de estado derivado, chame `$this->app->commitComputedState()` (percorre os presenters de place)
-  ou o método do presenter diretamente.
+- In the remote host, `commitComputedState` is called for the presenter of **each dirty view** -
+  children included. A clean view does not go through it; that is why the home also updates the
+  count directly in the cart change listener (`onCartChanged`).
+- In tests with mocks there is no serialization, so nobody calls it on its own. If your test
+  depends on derived state, call `$this->app->commitComputedState()` (walks the place presenters)
+  or the presenter's method directly.
 
 ---
 
-## 8. Quando faz sentido um presenter sem view
+## 8. When a presenter without a view makes sense
 
-Uma **guarda** ocupa um place, não desenha nada e decide se a navegação continua. Implementa
-`CubePresenter` direto, sem a base:
+A **guard** occupies a place, draws nothing and decides whether the navigation goes on. It
+implements `CubePresenter` directly, without the base:
 
 ```php
 // src/Shopping/Presentation/Presenter/Restricted/RestrictedPresenter.php
-/** Guarda da área restrita (sem view). Sem usuário logado, volta para a área pública. */
+/** Guard of the restricted area (no view). With no logged-in user, goes back to the public area. */
 final class RestrictedPresenter implements CubePresenter
 {
     public function __construct(public readonly ShoppingApplication $app)
@@ -689,7 +694,7 @@ final class RestrictedPresenter implements CubePresenter
 
             return false;
         }
-        if ($deepest) {   // é só uma guarda: a tela padrão da área restrita é a home
+        if ($deepest) {   // it is only a guard: the default screen of the restricted area is the home
             (new HomeKeys($this->app, $intent))->go();
 
             return false;
@@ -698,94 +703,95 @@ final class RestrictedPresenter implements CubePresenter
         return true;
     }
 
-    // publishParameters(), commitComputedState() e release(): vazios - a guarda não tem estado
+    // publishParameters(), commitComputedState() and release(): empty - the guard has no state
 }
 ```
 
-- **Redirecionar = navegar e devolver `false`.** O `go()` interno inicia uma navegação nova; a de
-  fora é marcada como interrompida (nem commit, nem rollback). Um laço de redirecionamentos é
-  detectado e abandonado, e a sessão continua utilizável.
-- **O intent em trânsito vai junto** (`new OpenKeys($this->app, $intent)`), para não perder o que o
-  endereço trouxe.
-- **`$deepest` na guarda:** um ramo sozinho não é tela. Quem pede `#restricted` vai para a home.
-- `OpenPresenter` é o espelho: quem já está logado é mandado para a área restrita; quem pede
-  `#open` vai para o login.
+- **Redirect = navigate and return `false`.** The inner `go()` starts a new navigation; the outer
+  one is marked as interrupted (neither commit nor rollback). A redirect loop is detected and
+  abandoned, and the session stays usable.
+- **The intent in transit goes along** (`new OpenKeys($this->app, $intent)`), so nothing the
+  address brought is lost.
+- **`$deepest` in the guard:** a branch by itself is not a screen. Whoever asks for `#restricted`
+  goes to the home.
+- `OpenPresenter` is the mirror image: whoever is already logged in is sent to the restricted
+  area; whoever asks for `#open` goes to the login.
 
-Tudo o que está **fora** do ramo guardado é público por construção. Para proteger uma tela nova,
-basta colocá-la sob `Place::RESTRICTED` na rota.
+Everything **outside** the guarded branch is public by construction. To protect a new screen,
+just put it under `Place::RESTRICTED` in the route.
 
 ---
 
-## 9. Exemplo completo - o painel de avaliações
+## 9. Complete example - the reviews panel
 
-O exercício: na tela de produto, um painel que mostra as avaliações (mais recentes primeiro),
-a média ("4,5 de 5"), a contagem e um formulário (nota de 1 a 5, comentário opcional de até 500
-caracteres). Nada disso vai para o endereço - o produto mostrado é decidido pelo dono.
+The exercise: on the product screen, a panel that shows the reviews (newest first), the average
+("4.5 out of 5"), the count and a form (rating from 1 to 5, optional comment of up to 500
+characters). None of this goes into the address - the product shown is decided by the owner.
 
-### 9.1 Arquivos
+### 9.1 Files
 
 ```text
 src/Shopping/Presentation/
-  Exception/InvalidReviewException.php                       falha esperada da validação
+  Exception/InvalidReviewException.php                       expected validation failure
   Presenter/Restricted/Products/
-    ProductPresenter.php                                      dono: cria, alimenta e libera o filho
+    ProductPresenter.php                                      owner: creates, feeds and releases the child
     ProductViewState.php                                      + ?CubeView $reviewsPanelView
     Reviews/
-      ReviewInfo.php                                          a avaliação como o painel a mostra + projeção
-      ReviewService.php                                       listForProduct(), add() com validação
-      ReviewsPanelViewState.php                               o estado do painel
-      ReviewsPanelPresenter.php                               o filho
+      ReviewInfo.php                                          the review as the panel shows it + projection
+      ReviewService.php                                       listForProduct(), add() with validation
+      ReviewsPanelViewState.php                               the panel state
+      ReviewsPanelPresenter.php                               the child
 src/Shopping/RemoteHost/ShoppingRemoteApplication.php         + $createView → RemoteView
 tests/Shopping/Presentation/
-  Mock/ReviewsPanelViewMock.php                               o mock da view
+  Mock/ReviewsPanelViewMock.php                               the view mock
   Mock/ShoppingApplicationMock.php                            + $createView → mock
-  ProductReviewsTest.php                                      o comportamento, sem browser
+  ProductReviewsTest.php                                      the behavior, no browser
 frontend/shopping.shell.react/src/scripts/views/product/
-  ReviewsPanel.tsx, reviews-sel.ts, reviews.scss              a view (react-views.md)
+  ReviewsPanel.tsx, reviews-sel.ts, reviews.scss              the view (react-views.md)
 ```
 
-A entidade `Review`, o critério e o repositório são o assunto de [repository.md](repository.md);
-o `ReviewService`, de [application-service.md](application-service.md). O serviço acha o
-repositório no `Beans`, pela interface (`Beans::of(ReviewRepository::class)`); o presenter só
-faz `new ReviewService()`.
+The `Review` entity, the criteria and the repository are the subject of
+[repository.md](repository.md); `ReviewService`, of [application-service.md](application-service.md).
+The service finds the repository in `Beans`, by interface (`Beans::of(ReviewRepository::class)`);
+the presenter just does `new ReviewService()`.
 
-### 9.2 O estado e a struct de apresentação
+### 9.2 The state and the presentation struct
 
 ```php
 final class ReviewsPanelViewState implements ViewState
 {
-    /** @var list<ReviewInfo> mais recentes primeiro */
+    /** @var list<ReviewInfo> newest first */
     public array $reviews = [];
     public int $count = 0;
-    /** "4,5 de 5"; vazio (omitido no envio) quando não há avaliações */
+    /** "4.5 out of 5"; empty (omitted when sent) when there are no reviews */
     public string $averageLabel = '';
-    /** 0 = sem erro */
+    /** 0 = no error */
     public int $errorCode = 0;
     public ?string $errorMessage = null;
 }
 ```
 
-`ReviewInfo` é a avaliação como o painel a mostra: campos públicos `$id`, `$author` (o nome de
-quem avaliou), `$rating`, `$comment` e `$createdAt` (milissegundos desde 1970, para o browser
-formatar no fuso de quem lê), mais `projection()` e `create(Review $review)`. A entidade `Review`,
-com campos privados, chegaria ao React como `{}`.
+`ReviewInfo` is the review as the panel shows it: public fields `$id`, `$author` (the reviewer's
+name), `$rating`, `$comment` and `$createdAt` (milliseconds since 1970, so the browser formats it
+in the reader's time zone), plus `projection()` and `create(Review $review)`. The `Review` entity,
+with private fields, would reach React as `{}`.
 
-O que o serializador faz com isso: `averageLabel` vazio não vai; `count` e `errorCode` vão sempre;
-a lista vai com os campos públicos de cada `ReviewInfo`. Dentro da lista as strings não são
-filtradas: um `comment` vazio vai como `""`.
+What the serializer does with it: an empty `averageLabel` is not sent; `count` and `errorCode`
+are always sent; the list goes with the public fields of each `ReviewInfo`. Inside the list,
+strings are not filtered: an empty `comment` goes as `""`.
 
-### 9.3 O dono: `ProductPresenter`
+### 9.3 The owner: `ProductPresenter`
 
-O dono ganha o campo `private ?ReviewsPanelPresenter $reviewsPanel = null;`, o campo
-`public ?CubeView $reviewsPanelView = null;` no `ProductViewState` e os três pontos da seção 6.2:
-criar o filho dentro do `if ($initialization)` do `applyParameters` da seção 3.3 (seguido de
-`$this->update()`), chamar `$this->reviewsPanel?->showProduct($newId)` **fora** do `if`, antes de
-encaixar a view no slot, e liberar o filho no `release()`.
+The owner gets the field `private ?ReviewsPanelPresenter $reviewsPanel = null;`, the field
+`public ?CubeView $reviewsPanelView = null;` in `ProductViewState`, and the three spots from
+section 6.2: create the child inside the `if ($initialization)` of the `applyParameters` from
+section 3.3 (followed by `$this->update()`), call `$this->reviewsPanel?->showProduct($newId)`
+**outside** the `if`, before fitting the view into the slot, and release the child in `release()`.
 
-`showProduct()` roda dentro do `applyParameters`: se a consulta das avaliações falhar, a exceção
-sobe para a navegação e há rollback, como com o próprio produto.
+`showProduct()` runs inside `applyParameters`: if the reviews query fails, the exception bubbles
+up to the navigation and it rolls back, just like with the product itself.
 
-### 9.4 O filho: `ReviewsPanelPresenter`
+### 9.4 The child: `ReviewsPanelPresenter`
 
 ```php
 /** @extends AbstractChildPresenter<ShoppingApplication> */
@@ -795,13 +801,13 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     private const int ERROR_INVALID_REVIEW = 1;
     private const int MAX_REVIEWS = 50;
 
-    /** @var (Closure(self): CubeView)|null instalado pelo host remoto e pelos testes (mock) */
+    /** @var (Closure(self): CubeView)|null installed by the remote host and by the tests (mock) */
     public static ?Closure $createView = null;
 
     public readonly ReviewsPanelViewState $state;
     private readonly ReviewService $service;
 
-    /** estado de controle: o produto cujas avaliações estão carregadas (null = nenhum ainda) */
+    /** control state: the product whose reviews are loaded (null = none yet) */
     private ?int $productId = null;
 
     public function __construct(ShoppingApplication $app, public readonly ProductPresenter $owner)
@@ -811,27 +817,27 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
         $this->service = new ReviewService();
     }
 
-    /** Chamado pelo dono em todo applyParameters. Passar pelo caminho não é recarregar. */
+    /** Called by the owner on every applyParameters. Passing along the path is not reloading. */
     public function showProduct(int $productId): void
     {
         if ($this->productId === $productId) {
             return;
         }
         $this->loadReviews($productId);
-        $this->productId = $productId;   // só depois da carga: se ela falhar, o painel fica como estava
-        $this->clearError();             // o erro era do formulário do produto anterior
+        $this->productId = $productId;   // only after loading: if it fails, the panel stays as it was
+        $this->clearError();             // the error belonged to the previous product's form
     }
 
     public function onSubmitReview(?int $rating, ?string $comment): void
     {
         try {
-            $subject = $this->app->subject() ?? throw new LogicException('Sem usuário logado');
-            $productId = $this->productId ?? throw new LogicException('Sem produto carregado');
+            $subject = $this->app->subject() ?? throw new LogicException('No logged-in user');
+            $productId = $this->productId ?? throw new LogicException('No product loaded');
             $this->service->add($subject, $productId, $rating, $comment);
             $this->clearError();
-            $this->loadReviews($productId);   // a nova avaliação entra no topo
+            $this->loadReviews($productId);   // the new review goes to the top
         } catch (InvalidReviewException $caught) {
-            // esperada: vai para o estado do painel; a lista fica como estava
+            // expected: goes to the panel state; the list stays as it was
             $this->state->errorCode = self::ERROR_INVALID_REVIEW;
             $this->state->errorMessage = $caught->getMessage();
             $this->update();
@@ -842,7 +848,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
 
     public function skeleton(): CubeSkeleton
     {
-        return new Skeleton('8cc32236e32a', function (int $event, int $qtde, array $form): void {
+        return new Skeleton('8cc32236e32a', function (int $event, int $count, array $form): void {
             match ($event) {
                 self::EVENT_SUBMIT_REVIEW => $this->onSubmitReview(
                     Coerce::asInt($form['p.rating'] ?? null),
@@ -855,10 +861,10 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
 
     protected function onCreateView(): CubeView
     {
-        return (self::$createView ?? throw new LogicException('ReviewsPanelPresenter::$createView não configurado'))($this);
+        return (self::$createView ?? throw new LogicException('ReviewsPanelPresenter::$createView not configured'))($this);
     }
 
-    /** Só desenha (vazio): a carga espera o dono dizer qual é o produto. */
+    /** Only draws (empty): loading waits for the owner to say which product it is. */
     protected function onInitialize(): void
     {
         $this->update();
@@ -871,24 +877,25 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
         $this->state->count = count($reviews);
         $this->state->averageLabel = $reviews === []
             ? ''
-            : number_format(array_sum(array_map(static fn (ReviewInfo $r) => $r->rating, $reviews)) / count($reviews), 1, ',', '') . ' de 5';
+            : number_format(array_sum(array_map(static fn (ReviewInfo $r) => $r->rating, $reviews)) / count($reviews), 1) . ' out of 5';
         $this->update();
     }
 
-    // clearError(): zera errorCode/errorMessage e chama update() só se havia erro
+    // clearError(): resets errorCode/errorMessage and calls update() only if there was an error
 }
 ```
 
-Pontos para reparar:
+Points to notice:
 
-- **O autor nunca vem da view.** `onSubmitReview` usa `$this->app->subject()`; a view manda só
-  nota e comentário.
-- **A validação é do servidor**: `ReviewService::add` lança `InvalidReviewException` (nota fora de
-  1..5, comentário com mais de 500 caracteres). A view pode ajudar, mas não decide.
-- **Falha esperada não é alerta**: vira `errorCode`/`errorMessage` do painel.
-- `$productId` é **estado de controle**: a tela não precisa dele, então não está no `ViewState`.
+- **The author never comes from the view.** `onSubmitReview` uses `$this->app->subject()`; the
+  view sends only the rating and the comment.
+- **Validation belongs to the server**: `ReviewService::add` throws `InvalidReviewException`
+  (rating outside 1..5, comment longer than 500 characters). The view can help, but it does not
+  decide.
+- **An expected failure is not an alert**: it becomes the panel's `errorCode`/`errorMessage`.
+- `$productId` is **control state**: the screen does not need it, so it is not in the `ViewState`.
 
-### 9.5 A amarração da view
+### 9.5 Wiring the view
 
 ```php
 // ShoppingRemoteApplication::installViewFactories()
@@ -898,21 +905,22 @@ ReviewsPanelPresenter::$createView = static fn (ReviewsPanelPresenter $p) => new
 ReviewsPanelPresenter::$createView = static fn (ReviewsPanelPresenter $p) => new ReviewsPanelViewMock($p);
 ```
 
-`ReviewsPanelViewMock` é igual ao `ProductViewMock` da seção 3.5, trocando os tipos. O lado React
-(`ReviewsPanel.tsx`, com o mesmo `classId`) está em [react-views.md](react-views.md).
+`ReviewsPanelViewMock` is the same as the `ProductViewMock` from section 3.5, with the types
+swapped. The React side (`ReviewsPanel.tsx`, with the same `classId`) is in
+[react-views.md](react-views.md).
 
-### 9.6 O teste, sem browser
+### 9.6 The test, no browser
 
-`PresentationTestCase` dá um banco de teste re-semeado por teste, autenticação real, um
-`ManualScheduler` e a aplicação com mocks; `login()` devolve o mock da home. O teste chama os
-métodos que o skeleton chamaria e confere o estado dos mocks:
+`PresentationTestCase` provides a test database re-seeded per test, real authentication, a
+`ManualScheduler` and the application with mocks; `login()` returns the home mock. The test calls
+the methods the skeleton would call and checks the mocks' state:
 
 ```php
-// tests/Shopping/Presentation/ProductReviewsTest.php (trechos)
-private function openCafeteira(): ReviewsPanelViewMock
+// tests/Shopping/Presentation/ProductReviewsTest.php (excerpts)
+private function openCoffeeMaker(): ReviewsPanelViewMock
 {
-    $home = $this->login('fulano', 'fulano');
-    $home->presenter->onOpenProduct(Seed::CAFETEIRA_ID);
+    $home = $this->login('john', 'john');
+    $home->presenter->onOpenProduct(Seed::COFFEE_MAKER_ID);
     $product = ProductViewMock::cast($home->state->contentView);
 
     return ReviewsPanelViewMock::cast($product->state->reviewsPanelView);
@@ -921,72 +929,73 @@ private function openCafeteira(): ReviewsPanelViewMock
 #[Test]
 public function invalidRating_setsTheError_andKeepsTheList(): void
 {
-    $panel = $this->openCafeteira();
+    $panel = $this->openCoffeeMaker();
     $before = self::ids($panel->state->reviews);
 
-    $panel->presenter->onSubmitReview(9, 'Nota fora da escala');
+    $panel->presenter->onSubmitReview(9, 'Rating off the scale');
 
     self::assertSame(1, $panel->state->errorCode);
     self::assertSame($before, self::ids($panel->state->reviews));
-    self::assertNull($this->app->rootView()->state->errorMessage, 'falha esperada não vira alerta');
+    self::assertNull($this->app->rootView()->state->errorMessage, 'an expected failure does not become an alert');
 }
 ```
 
-Os outros testes do arquivo cobrem o caminho feliz, o produto sem avaliações, a passagem pelo
-mesmo produto **sem nenhuma consulta** (`onQuery(...)` no `Database` devolvido por `TestDatabase::open()` conta as instruções) e a
-liberação do painel ao sair do produto (`$panel->released`). `::cast($view)` confere o tipo do
-mock com uma mensagem útil ("Esperava X, veio null") e o devolve já tipado.
+The other tests in the file cover the happy path, the product with no reviews, passing through
+the same product **with no query at all** (`onQuery(...)` on the `Database` returned by
+`TestDatabase::open()` counts the statements) and releasing the panel when leaving the product
+(`$panel->released`). `::cast($view)` checks the mock's type with a helpful message ("Expected X,
+got null") and returns it already typed.
 
-> **Armadilha do PHPStan (nível 8):** depois de `self::assertSame(1, $panel->state->errorCode)`, o
-> PHPStan "lembra" que o valor é `1`, mesmo depois de você chamar um método em **outro** objeto
-> (`$panel->presenter->onSubmitReview(...)`) que o altera. Repetir `assertSame(1, ...)` sobre a
-> mesma propriedade é marcado como `alreadyNarrowedType`. Asserte algo que **difere** entre os
-> passos - em `missingRating_orLongComment_areRejected`, a mensagem de erro de cada envio.
+> **PHPStan pitfall (level 8):** after `self::assertSame(1, $panel->state->errorCode)`, PHPStan
+> "remembers" that the value is `1`, even after you call a method on **another** object
+> (`$panel->presenter->onSubmitReview(...)`) that changes it. Repeating `assertSame(1, ...)` on the
+> same property is flagged as `alreadyNarrowedType`. Assert something that **differs** between
+> steps - in `missingRating_orLongComment_areRejected`, the error message of each submission.
 
-Rode `composer check` (PHPStan + PHPUnit) e, para ver no browser, `bin/build-frontend.sh` e o
-servidor ([setup-local.md](setup-local.md)).
+Run `composer check` (PHPStan + PHPUnit) and, to see it in the browser, `bin/build-frontend.sh`
+and the server ([setup-local.md](setup-local.md)).
 
 ---
 
 ## 10. Checklist
 
-**Tela nova (com place)**
+**New screen (with a place)**
 
-- [ ] Case em `Place` com id que cresce com a profundidade, nos três `match` (`name()`,
-      `createPresenter()`, `go()`).
-- [ ] Método em `Routes` com a cadeia completa de `step`, passando pela guarda certa.
-- [ ] `XxxKeys` estendendo as keys do place de cima, com `place()`. Se declara nomes: `PREFIX`
-      novo de duas letras, constantes `P_`/`A_`, hooks que validam no `get` e omitem o padrão no
-      `set`.
-- [ ] `XxxViewState` com propriedades públicas; nada de entidade de domínio dentro - use uma
-      struct com campos públicos.
-- [ ] Presenter: `applyParameters` lê pelas keys, só recarrega se mudou, cria a view em
-      `$initialization`, lê e preenche o slot **a cada** viagem.
-- [ ] `publishParameters` escreve o mínimo que recria o estado.
-- [ ] `update()` depois de toda mudança no `ViewState`; `updateHistory()` se mudou o que é
-      publicado sem navegar.
+- [ ] Case in `Place` with an id that grows with depth, in all three `match` expressions
+      (`name()`, `createPresenter()`, `go()`).
+- [ ] Method in `Routes` with the full `step` chain, going through the right guard.
+- [ ] `XxxKeys` extending the keys of the place above, with `place()`. If it declares names: a new
+      two-letter `PREFIX`, `P_`/`A_` constants, hooks that validate on `get` and omit the default
+      on `set`.
+- [ ] `XxxViewState` with public properties; no domain entity inside - use a struct with public
+      fields.
+- [ ] Presenter: `applyParameters` reads through the keys, only reloads if something changed,
+      creates the view on `$initialization`, reads and fills the slot on **every** trip.
+- [ ] `publishParameters` writes the minimum that recreates the state.
+- [ ] `update()` after every change to the `ViewState`; `updateHistory()` if what is published
+      changed without navigating.
 
-**Filho (sem place)**
+**Child (no place)**
 
-- [ ] Estende `AbstractChildPresenter`, recebe o dono no construtor, implementa `onCreateView()` e
-      `onInitialize()`.
-- [ ] O dono cria uma vez, guarda a view num campo `?CubeView` do próprio estado e, em
-      `release()`, zera o campo e libera o filho antes de `parent::release()`.
-- [ ] Navegação delegada ao dono.
+- [ ] Extends `AbstractChildPresenter`, receives the owner in the constructor, implements
+      `onCreateView()` and `onInitialize()`.
+- [ ] The owner creates it once, keeps the view in a `?CubeView` field of its own state and, in
+      `release()`, clears the field and releases the child before `parent::release()`.
+- [ ] Navigation delegated to the owner.
 
-**Em todo presenter com view**
+**In every presenter with a view**
 
-- [ ] `skeleton()` com `classId` novo (`php -r 'echo bin2hex(random_bytes(6)), PHP_EOL;'`), o
-      mesmo do `BaseViewClass.FC` no React.
-- [ ] Um braço no `match` para cada código que a view envia; `default => Skeleton::unknownEvent($event)`.
-- [ ] Argumentos como `p.<nome>`, convertidos com `Coerce` e validados no método.
-- [ ] Handlers com `try`: falha esperada → erro no próprio estado; inesperada →
+- [ ] `skeleton()` with a new `classId` (`php -r 'echo bin2hex(random_bytes(6)), PHP_EOL;'`), the
+      same as in `BaseViewClass.FC` in React.
+- [ ] One `match` arm for each code the view sends; `default => Skeleton::unknownEvent($event)`.
+- [ ] Arguments as `p.<name>`, converted with `Coerce` and validated in the method.
+- [ ] Handlers with `try`: expected failure → error in the presenter's own state; unexpected →
       `alertUnexpectedError`.
-- [ ] `$createView` em `ShoppingRemoteApplication::installViewFactories()` **e** em
-      `ShoppingApplicationMock::installViewMocks()`, mais o `XxxViewMock`.
-- [ ] Estado derivado em `commitComputedState()` comparando antes de `update()` - ou calculado no
-      único ponto onde a origem muda.
-- [ ] Timers e ouvintes: guarde o `Registration` e chame `remove()` em `release()`.
-- [ ] Teste em `tests/Shopping/Presentation` estendendo `PresentationTestCase`.
-- [ ] `composer check` verde (inclui `KeysNamesTest`).
-- [ ] A view React: [react-views.md](react-views.md).
+- [ ] `$createView` in `ShoppingRemoteApplication::installViewFactories()` **and** in
+      `ShoppingApplicationMock::installViewMocks()`, plus the `XxxViewMock`.
+- [ ] Derived state in `commitComputedState()`, comparing before `update()` - or computed at the
+      single spot where its source changes.
+- [ ] Timers and listeners: keep the `Registration` and call `remove()` in `release()`.
+- [ ] Test in `tests/Shopping/Presentation` extending `PresentationTestCase`.
+- [ ] `composer check` green (includes `KeysNamesTest`).
+- [ ] The React view: [react-views.md](react-views.md).

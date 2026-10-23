@@ -8,10 +8,10 @@ use Closure;
 use Wdc\Framework\Commons\Storage\ClientStorage;
 
 /**
- * Uma visão de um escopo do RemoteClientStorage.
+ * A view over one scope of the RemoteClientStorage.
  *
- * Recebe o mapa de dados **por referência** (`&$data`): várias visões (persistent e
- * persistent-secure) leem e gravam o mesmo mapa, que mora no RemoteClientStorage.
+ * Receives the data map **by reference** (`&$data`): several views (persistent and
+ * persistent-secure) read and write the same map, which lives in the RemoteClientStorage.
  *
  * @internal
  */
@@ -29,7 +29,7 @@ final class ScopedClientStorage implements ClientStorage
         private readonly Closure $recordDelta,
         private readonly ?ClientStorage $secureVariant = null,
     ) {
-        $this->data = &$data;   // a propriedade passa a ser um apelido do array do dono
+        $this->data = &$data;   // the property becomes an alias of the owner's array
     }
 
     public function secure(): ClientStorage

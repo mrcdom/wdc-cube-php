@@ -9,8 +9,8 @@ use Wdc\Framework\Domain\Criteria\Criterion;
 use Wdc\Framework\Domain\Criteria\Operator;
 
 /**
- * Tradução única de Criterion → SQL. Cada repositório só diz qual coluna corresponde a
- * cada campo (e, se preciso, como converter o valor).
+ * The single Criterion → SQL translation. Each repository only says which column matches
+ * each field (and, if needed, how to convert the value).
  */
 final class CriterionTranslator
 {
@@ -20,7 +20,7 @@ final class CriterionTranslator
 
     /**
      * @param Criterion<*, *>             $criterion
-     * @param (Closure(mixed): mixed)|null $converter  ex.: DateTime → string do banco
+     * @param (Closure(mixed): mixed)|null $converter  e.g. DateTime → database string
      */
     public static function translate(string $column, Criterion $criterion, ?Closure $converter = null): ?Sql
     {
@@ -42,7 +42,7 @@ final class CriterionTranslator
 
             $values = $converter === null ? $predicate->values : array_map($converter, $predicate->values);
             if (!$op->accepts(count($values))) {
-                continue;   // não emite SQL inválido
+                continue;   // never emit invalid SQL
             }
 
             $conditions[] = match ($op) {

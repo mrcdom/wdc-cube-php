@@ -19,16 +19,16 @@ use Wdc\Framework\Domain\Security\CurrentSecurityContext;
 use Wdc\Framework\Domain\Security\SecurityContext;
 
 /**
- * Adapta um endpoint `Closure(RestRequest): Response` ao servidor HTTP do Amp:
+ * Adapts a `Closure(RestRequest): Response` endpoint to Amp's HTTP server:
  *
- * 1. lê o corpo (a única espera);
- * 2. roda o filtro (segurança), que pode interromper ou dar o contexto de segurança;
- * 3. roda o endpoint com esse contexto como o corrente — síncrono, sem outra Fiber no meio;
- * 4. traduz as exceções nos códigos HTTP da API.
+ * 1. reads the body (the only wait);
+ * 2. runs the (security) filter, which may short-circuit or supply the security context;
+ * 3. runs the endpoint with that context as the current one — synchronously, with no other Fiber in between;
+ * 4. maps exceptions to the API's HTTP status codes.
  */
 final readonly class RestHandler implements RequestHandler
 {
-    /** Limite padrão do corpo: 1 MiB. */
+    /** Default body limit: 1 MiB. */
     public const int DEFAULT_BODY_LIMIT = 1_048_576;
 
     /**
@@ -44,11 +44,11 @@ final readonly class RestHandler implements RequestHandler
 
     public function handleRequest(Request $request): Response
     {
-        // erro ao ler o corpo (cliente caiu, corpo grande demais) segue para o Amp, que responde
+        // an error reading the body (client gone, body too large) propagates to Amp, which responds
         return $this->handle(RestRequest::from($request, $this->bodyLimit));
     }
 
-    /** O mesmo caminho, sem HTTP (testes). */
+    /** The same path, without HTTP (tests). */
     public function handle(RestRequest $request): Response
     {
         try {
@@ -68,8 +68,8 @@ final readonly class RestHandler implements RequestHandler
     }
 
     /**
-     * Ao contrário do `runAs` comum, aqui o contexto é sempre trocado — inclusive para null —, para
-     * uma requisição anônima nunca herdar o contexto de outra.
+     * Unlike the regular `runAs`, here the context is always replaced — even with null — so that
+     * an anonymous request never inherits another request's context.
      *
      * @param Closure(): Response $work
      */

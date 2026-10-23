@@ -7,10 +7,10 @@ namespace Wdc\Framework\Cube;
 use Closure;
 
 /**
- * Lugar onde um presenter-filho encaixa a sua view, oferecido pelo pai.
+ * A spot where a child presenter plugs in its view, offered by the parent.
  *
- * Em PHP uma Closure não implementa interfaces, então o slot
- * é um pequeno objeto que embrulha a closure: `new CubeViewSlot($this->setContentView(...))`.
+ * In PHP a Closure cannot implement interfaces, so the slot
+ * is a small object wrapping the closure: `new CubeViewSlot($this->setContentView(...))`.
  */
 final readonly class CubeViewSlot
 {

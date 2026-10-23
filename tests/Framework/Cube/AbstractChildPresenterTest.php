@@ -16,7 +16,7 @@ final class AbstractChildPresenterTest extends TestCase
     #[Test]
     public function initialize_createsTheViewBeforeOnInitialize(): void
     {
-        // classe anônima: útil para um presenter descartável de teste
+        // anonymous class: handy for a throwaway test presenter
         $panel = new class (new TestApp()) extends AbstractChildPresenter {
             public ?string $seenView = null;
 
@@ -34,7 +34,7 @@ final class AbstractChildPresenterTest extends TestCase
         $view = $panel->initialize();
 
         self::assertSame('panel:1', $view->instanceId());
-        self::assertSame('panel:1', $panel->seenView, 'onInitialize já enxerga a view');
+        self::assertSame('panel:1', $panel->seenView, 'onInitialize already sees the view');
 
         $panel->update();
         $panel->release();

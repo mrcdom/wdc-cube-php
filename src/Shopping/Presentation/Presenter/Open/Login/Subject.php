@@ -7,7 +7,7 @@ namespace Wdc\Shopping\Presentation\Presenter\Open\Login;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\User\User;
 
-/** O usuário logado, do ponto de vista da apresentação. */
+/** The logged-in user, from the presentation's point of view. */
 final readonly class Subject
 {
     public function __construct(

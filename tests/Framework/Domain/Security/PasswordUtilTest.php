@@ -11,15 +11,16 @@ use Wdc\Framework\Domain\Security\PasswordUtil;
 final class PasswordUtilTest extends TestCase
 {
     /**
-     * Hashes gravados no seed do banco.
+     * Hashes stored in the database seed.
      *
      * @return iterable<string, array{string, string}>
      */
     public static function seedUsers(): iterable
     {
         yield 'admin' => ['admin', '1ymiigxvce4vzea4zp5bsfbgj'];
-        yield 'fulano' => ['fulano', '318zxmmy2df32oxnkh6k4km88'];
-        yield 'beotrano (negativo)' => ['beotrano', '-17msdx5ah76k0tdyvaoieqemg'];
+        yield 'john' => ['john', '4vsoa1b14a1q1gjxpuovrmnid'];
+        yield 'jane' => ['jane', '584hj4ft2527slv7czmmjdoxn'];
+        yield 'shopping (negative)' => ['shopping', '-4k4g46ozrhcc0ed8pgz69wgxx'];
     }
 
     #[DataProvider('seedUsers')]

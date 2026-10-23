@@ -15,8 +15,8 @@ final class Purchase
     private ?DateTimeImmutable $buyDate = null;
     private ?User $user = null;
     /**
-     * Nos resultados é sempre uma lista; numa projeção pode ser uma ProjectionList
-     * (forma + critério + recorte dos itens). `|` = union type.
+     * In results it is always a list; in a projection it may be a ProjectionList
+     * (shape + criterion + slice of the items). `|` = union type.
      *
      * @var list<PurchaseItem>|ProjectionList<PurchaseItem>|null
      */
@@ -74,6 +74,6 @@ final class Purchase
 
     public function userId(): ?int
     {
-        return $this->user?->id();   // ?-> : "nullsafe" — se user for null, o resultado é null
+        return $this->user?->id();   // ?-> : "nullsafe" — if user is null, the result is null
     }
 }

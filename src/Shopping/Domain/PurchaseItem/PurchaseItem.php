@@ -11,7 +11,7 @@ final class PurchaseItem
 {
     private ?int $id = null;
     private ?int $amount = null;
-    /** preço unitário no momento da compra */
+    /** unit price at the time of purchase */
     private ?float $price = null;
     private ?Purchase $purchase = null;
     private ?Product $product = null;

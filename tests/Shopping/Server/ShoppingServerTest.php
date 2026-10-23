@@ -25,8 +25,8 @@ use Wdc\Tests\Support\TestDatabase;
 use function Amp\Websocket\Client\connect;
 
 /**
- * O servidor de verdade, de ponta a ponta: HTTP + WebSocket numa porta livre, com um cliente
- * WebSocket real seguindo os passos do shell React (cookies do index.html, handshake, `wdc`).
+ * The real server, end to end: HTTP + WebSocket on a free port, with a real WebSocket
+ * client following the React shell's steps (index.html cookies, handshake, `wdc`).
  */
 final class ShoppingServerTest extends TestCase
 {
@@ -43,7 +43,7 @@ final class ShoppingServerTest extends TestCase
     protected function setUp(): void
     {
         if (!is_file(dirname(__DIR__, 3) . '/work/frontend/shopping.shell.react/index.html')) {
-            self::markTestSkipped('shell React ausente: rode bin/build-frontend.sh');
+            self::markTestSkipped('React shell missing: run bin/build-frontend.sh');
         }
         $this->dir = sys_get_temp_dir() . '/wdc-server-' . bin2hex(random_bytes(4));
         mkdir("{$this->dir}/config", 0o775, true);
@@ -51,19 +51,19 @@ final class ShoppingServerTest extends TestCase
         $config = ShoppingConfig::configure(AppConfig::fromArray(TestDatabase::serverConfig() + [
             'app.basedir' => '..',
             'server.devMode' => 'true',
-            'security.jwt.secret' => 'segredo-e2e',
+            'security.jwt.secret' => 'e2e-secret',
         ], "{$this->dir}/config/application.toml"));
 
         $this->server = new ShoppingServer($config, new NullLogger());
         ShoppingSchema::reset($this->server->db);
-        $this->server->start(0, '127.0.0.1');   // porta 0: o sistema escolhe uma livre
+        $this->server->start(0, '127.0.0.1');   // port 0: the system picks a free one
         $this->base = '127.0.0.1:' . $this->server->port();
         $this->http = HttpClientBuilder::buildDefault();
     }
 
     protected function tearDown(): void
     {
-        // sem o frontend compilado, o setUp pula o teste antes de criar o servidor
+        // without the built frontend, setUp skips the test before creating the server
         if (isset($this->server)) {
             $this->server->stop();
             exec('rm -rf ' . escapeshellarg($this->dir));
@@ -71,7 +71,7 @@ final class ShoppingServerTest extends TestCase
         Beans::clear();
     }
 
-    /** @return array{string, string} app_id e app_skey, como o browser os recebe */
+    /** @return array{string, string} app_id and app_skey, as the browser receives them */
     private function loadIndex(): array
     {
         $response = $this->http->request(new Request("http://{$this->base}/shopping.shell.react/index.html"));
@@ -86,7 +86,7 @@ final class ShoppingServerTest extends TestCase
         }
         self::assertArrayHasKey('app_id', $cookies);
         self::assertSame(10, $cookies['app_id']->getMaxAge());
-        self::assertFalse($cookies['app_id']->isHttpOnly(), 'o JavaScript do shell precisa ler o cookie');
+        self::assertFalse($cookies['app_id']->isHttpOnly(), 'the shell JavaScript needs to read the cookie');
 
         return [$cookies['app_id']->getValue(), $cookies['app_skey']->getValue()];
     }
@@ -102,17 +102,17 @@ final class ShoppingServerTest extends TestCase
     }
 
     /**
-     * Manda e espera a resposta daquele requestId (pushes de fundo no meio são aplicados também).
+     * Sends and waits for the response to that requestId (background pushes in between are applied too).
      *
      * @param array<string, mixed>                $message
-     * @param array<mixed>                         $views views por id, como o shell as guarda
+     * @param array<mixed>                         $views views by id, as the shell stores them
      */
     private static function exchange(WebsocketConnection $ws, array $message, array &$views): void
     {
         $ws->sendText(json_encode($message, JSON_THROW_ON_ERROR));
         do {
             $incoming = $ws->receive();
-            self::assertNotNull($incoming, 'o servidor fechou a conexão');
+            self::assertNotNull($incoming, 'the server closed the connection');
             $response = json_decode($incoming->buffer(), true, 64, JSON_THROW_ON_ERROR);
             foreach ($response['states'] ?? [] as $state) {
                 $views[$state['#']] = $state;
@@ -120,11 +120,11 @@ final class ShoppingServerTest extends TestCase
         } while (($response['requestId'] ?? null) !== $message['requestId']);
     }
 
-    /** O frontend é o primeiro segmento da URL, e só vale uma pasta com index.html - nunca fora dela. */
+    /** The frontend is the first URL segment, and only a folder with an index.html counts - never outside it. */
     #[Test]
     public function frontendContexts_areFoldersWithAnIndex_andNeverEscapeIt(): void
     {
-        $client = (new HttpClientBuilder())->followRedirects(0)->build();   // ver o 302, não segui-lo
+        $client = (new HttpClientBuilder())->followRedirects(0)->build();   // see the 302, do not follow it
         $status = function (string $path) use ($client): array {
             $response = $client->request(new Request("http://{$this->base}{$path}"));
 
@@ -133,9 +133,9 @@ final class ShoppingServerTest extends TestCase
 
         self::assertSame([302, '/' . ShoppingServer::DEFAULT_SHELL . '/index.html'], $status('/'));
         self::assertSame(200, $status('/' . ShoppingServer::DEFAULT_SHELL . '/index.html')[0]);
-        self::assertSame([302, '/' . ShoppingServer::DEFAULT_SHELL . '/index.html'], $status('/' . ShoppingServer::DEFAULT_SHELL . '/alguma/tela'), 'rota da SPA volta ao index');
-        self::assertSame(404, $status('/naoexiste/index.html')[0]);
-        self::assertSame(404, $status('/..%2F..%2Fcomposer.json/index.html')[0], 'não sai da pasta de frontends');
+        self::assertSame([302, '/' . ShoppingServer::DEFAULT_SHELL . '/index.html'], $status('/' . ShoppingServer::DEFAULT_SHELL . '/some/screen'), 'an SPA route goes back to the index');
+        self::assertSame(404, $status('/doesnotexist/index.html')[0]);
+        self::assertSame(404, $status('/..%2F..%2Fcomposer.json/index.html')[0], 'does not leave the frontends folder');
         self::assertSame(404, $status('/.hidden/index.html')[0]);
     }
 
@@ -145,7 +145,7 @@ final class ShoppingServerTest extends TestCase
         [$appId, $webKey] = $this->loadIndex();
         $crypto = ClientCrypto::handshake($webKey);
         $ws = $this->open($appId, $crypto);
-        self::assertSame('wdc', $ws->getHandshakeResponse()->getHeader('sec-websocket-protocol'), 'subprotocolo negociado');
+        self::assertSame('wdc', $ws->getHandshakeResponse()->getHeader('sec-websocket-protocol'), 'negotiated subprotocol');
 
         $views = [];
         self::exchange($ws, ['event' => [self::BROWSER . ':-1'], self::BROWSER => ['p.path' => '/'], 'requestId' => 0], $views);
@@ -157,13 +157,13 @@ final class ShoppingServerTest extends TestCase
         $login = $screen()['#'];
         self::assertStringStartsWith('c677cda52d14:', $login);
 
-        self::exchange($ws, ['event' => ["{$login}:1"], $login => ['p.userName' => 'fulano', 'p.password' => $crypto->cipher('fulano')], 'requestId' => 1], $views);
+        self::exchange($ws, ['event' => ["{$login}:1"], $login => ['p.userName' => 'john', 'p.password' => $crypto->cipher('john')], 'requestId' => 1], $views);
         $home = $screen();
-        self::assertSame('Fulano de Tal', $home['nickName']);
+        self::assertSame('John Doe', $home['nickName']);
 
         self::exchange($ws, ['event' => ["{$home['productsPanelViewId']}:1"], $home['productsPanelViewId'] => ['p.productId' => 1], 'requestId' => 2], $views);
         $product = $views[$screen()['contentViewId']];
-        self::assertSame('Bola Wilson', $product['product']['name']);
+        self::assertSame('Wilson ball', $product['product']['name']);
 
         self::exchange($ws, ['event' => ["{$product['#']}:2"], $product['#'] => ['p.quantity' => 3], 'requestId' => 3], $views);
         $cart = $views[$screen()['contentViewId']];
@@ -185,10 +185,10 @@ final class ShoppingServerTest extends TestCase
         $init = json_decode($this->http->request(new Request("http://{$this->base}/api/session/init"))->getBody()->buffer(), true, 4, JSON_THROW_ON_ERROR);
         self::assertIsArray($init);
         $crypto = ClientCrypto::handshake($init['appSKey']);
-        $ws = $this->open($init['appId'], null);   // sem cookie: o secret vai na 1ª mensagem
+        $ws = $this->open($init['appId'], null);   // no cookie: the secret goes in the 1st message
 
-        $ws->sendText(json_encode(['secret' => $crypto->secret, 'event' => []], JSON_THROW_ON_ERROR));   // sem requestId
-        $push = $ws->receive();   // o push de fundo (50 ms) traz as views da sessão nova
+        $ws->sendText(json_encode(['secret' => $crypto->secret, 'event' => []], JSON_THROW_ON_ERROR));   // no requestId
+        $push = $ws->receive();   // the background push (50 ms) brings the new session's views
         self::assertNotNull($push);
         $states = json_decode($push->buffer(), true, 64, JSON_THROW_ON_ERROR)['states'] ?? [];
         self::assertContains(self::BROWSER, array_column($states, '#'));
@@ -198,7 +198,7 @@ final class ShoppingServerTest extends TestCase
     #[Test]
     public function invalidAppId_isClosedWith4001(): void
     {
-        $ws = $this->open('forjado.xyz', null);
+        $ws = $this->open('forged.xyz', null);
         self::assertNull($ws->receive());
         self::assertSame(RemoteDispatcher::CLOSE_SESSION_INVALID, $ws->getCloseInfo()->getCode());
         self::assertSame('reload_required', $ws->getCloseInfo()->getReason());
