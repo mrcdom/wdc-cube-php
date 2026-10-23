@@ -183,6 +183,9 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     /** Campo virtual `productId`: existe item desta compra com o produto pedido. */
     private function existsItemMatching(PurchaseCriteria $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        if (!$criteria->productId()->isSet()) {
+            return null;   // campo não pedido: nem reserva alias
+        }
         $pi = $ctx->alias('pi');
         $c = Sql::alias($a);
         $i = Sql::alias($pi);

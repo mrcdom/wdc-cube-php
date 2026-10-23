@@ -267,12 +267,15 @@ Um critério pode ter campos que não são colunas da tabela. `PurchaseCriteria:
 /** Campo virtual `productId`: existe item desta compra com o produto pedido. */
 private function existsItemMatching(PurchaseCriteria $criteria, string $a, QueryContext $ctx): ?Sql
 {
+    if (!$criteria->productId()->isSet()) {
+        return null;                               // campo não pedido ⇒ nenhuma condição
+    }
     $pi = $ctx->alias('pi');                       // alias novo: não colide com nenhum outro
     $c = Sql::alias($a);
     $i = Sql::alias($pi);
     $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId());
     if ($onProduct === null) {
-        return null;                               // campo não pedido ⇒ nenhuma condição
+        return null;                               // só para o PHPStan: translate() devolve ?Sql
     }
 
     return new Sql(
@@ -283,7 +286,9 @@ private function existsItemMatching(PurchaseCriteria $criteria, string $a, Query
 }
 ```
 
-Ele entra em `conditions()` como mais uma parcela do `Sql::and([...])`. O alias da subconsulta vem
+Ele entra em `conditions()` como mais uma parcela do `Sql::and([...])`. Primeiro ele confere se o
+campo foi pedido: só então reserva o alias, para não gastar um número do contador (e deixar o SQL
+gerado dependente dos filtros vazios) à toa. O alias da subconsulta vem
 do `$ctx` — é para isso que `conditions` recebe o `QueryContext`. A tabela e as colunas do item
 vêm das constantes públicas de `PurchaseItemRepositoryImpl` (concatenadas, porque o PHP não
 interpola constantes em strings). `PurchaseItemRepositoryImpl` faz o inverso (`userId` do item =

@@ -174,6 +174,9 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
     /** Campo virtual `userId`: o dono da compra deste item. */
     private function existsPurchaseOfUser(PurchaseItemCriteria $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        if (!$criteria->userId()->isSet()) {
+            return null;   // campo não pedido: nem reserva alias
+        }
         $pu = $ctx->alias('pu');
         $c = Sql::alias($a);
         $p = Sql::alias($pu);
