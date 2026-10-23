@@ -89,7 +89,7 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
                   <div key={idx} className={Sel.itemRow}>
                     <span className={Sel.itemDesc}>{item.description}</span>
                     <span className={Sel.itemQty}>{NumberUtils.format(item.quantity, 0)}</span>
-                    <span className={Sel.itemValue}>R$ {NumberUtils.format(item.value)}</span>
+                    <span className={Sel.itemValue}>${NumberUtils.format(item.value)}</span>
                   </div>
                 ))}
               </div>
@@ -97,7 +97,7 @@ class ReceiptViewClass extends BaseViewClass<ViewProps, ReceiptViewState> {
               {/* Total */}
               <div className={Sel.totalRow}>
                 <span className={Sel.totalLabel}>TOTAL:</span>
-                <span className={Sel.totalValue}>R$ {NumberUtils.format(state.receipt?.total ?? 0)}</span>
+                <span className={Sel.totalValue}>${NumberUtils.format(state.receipt?.total ?? 0)}</span>
               </div>
             </div>
 

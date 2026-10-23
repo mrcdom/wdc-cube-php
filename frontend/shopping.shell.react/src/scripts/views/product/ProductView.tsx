@@ -59,7 +59,7 @@ class ProductViewClass extends BaseViewClass<ViewProps, ProductViewState> {
           {/* Price + Image row */}
           <div className={Sel.priceImageRow}>
             <div className={Sel.priceCol}>
-              <span className={Sel.priceBadge}>R$ {NumberUtils.format(product.price)}</span>
+              <span className={Sel.priceBadge}>${NumberUtils.format(product.price)}</span>
               <div className={Sel.qtyRow}>
                 <span className={Sel.qtyLabel}>Qty:</span>
                 <ActionButton quiet size="s" onClick={this.emitDecrement}>

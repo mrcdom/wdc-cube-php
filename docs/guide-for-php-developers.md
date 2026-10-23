@@ -345,12 +345,12 @@ Today the cart view **computes the total on its own**, in TypeScript:
 
 ```tsx
 const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-const totalText = `R$ ${total.toFixed(2)}`
+const totalText = `$${total.toFixed(2)}`
 ```
 
 By the rule in section 4.5, this is in the wrong place: it is arithmetic, and arithmetic belongs
-to the presenter. Let's fix it and, as a bonus, show a notice: "Free shipping!" from R$ 100.00
-up, or "R$ X left for free shipping".
+to the presenter. Let's fix it and, as a bonus, show a notice: "Free shipping!" from $100.00
+up, or "$X left for free shipping".
 
 ### Step 1 - the state gets the fields
 
@@ -361,7 +361,7 @@ final class CartViewState implements ViewState
 {
     /** @var list<CartItem> */
     public array $items = [];
-    public string $total = '';               // already formatted: "R$ 112.00"
+    public string $total = '';               // already formatted: "$112.00"
     public ?string $shippingNote = null;     // the shipping notice
     public int $errorCode = 0;
     public ?string $errorMessage = null;
@@ -382,10 +382,10 @@ public function commitComputedState(): void
     foreach ($this->state->items as $item) {
         $sum += $item->price * $item->quantity;
     }
-    $total = 'R$ ' . number_format($sum, 2);
+    $total = '$' . number_format($sum, 2);
     $note = $sum >= self::FREE_SHIPPING_FROM
         ? 'Free shipping!'
-        : 'R$ ' . number_format(self::FREE_SHIPPING_FROM - $sum, 2) . ' left for free shipping';
+        : '$' . number_format(self::FREE_SHIPPING_FROM - $sum, 2) . ' left for free shipping';
 
     if ($this->state->total !== $total || $this->state->shippingNote !== $note) {
         $this->state->total = $total;
@@ -414,7 +414,7 @@ export type CartViewState = {
 
 ### Step 4 - a test, no browser
 
-In `tests/Shopping/Presentation/`, a new test (the flash drive costs R$ 16.00):
+In `tests/Shopping/Presentation/`, a new test (the flash drive costs $16.00):
 
 ```php
 final class FreeShippingTest extends PresentationTestCase
@@ -424,18 +424,18 @@ final class FreeShippingTest extends PresentationTestCase
     {
         $home = $this->login();
         $home->presenter->onOpenProduct(Seed::FLASH_DRIVE2GB_ID);
-        ProductViewMock::cast($home->state->contentView)->presenter->onAddToCart(7);   // R$ 112.00
+        ProductViewMock::cast($home->state->contentView)->presenter->onAddToCart(7);   // $112.00
 
         $cart = CartViewMock::cast($home->state->contentView);
         $cart->presenter->commitComputedState();      // on the server, this runs before sending
 
-        self::assertSame('R$ 112.00', $cart->state->total);
+        self::assertSame('$112.00', $cart->state->total);
         self::assertSame('Free shipping!', $cart->state->shippingNote);
     }
 }
 ```
 
-Run `composer check`. Also write the case below R$ 100.00 - that one is yours.
+Run `composer check`. Also write the case below $100.00 - that one is yours.
 
 ### Step 5 - see it working
 

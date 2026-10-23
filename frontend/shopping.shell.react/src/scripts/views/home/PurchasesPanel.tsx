@@ -180,7 +180,7 @@ class PurchaseItemRowClass extends BasePanelClass<PurchaseItemRowProps> {
         {/* Line 2: products + total */}
         <div className={Sel.purchasesItemLine2}>
           <span className={Sel.purchasesItemItems}>{formatItems(purchase.items)}</span>
-          <span className={Sel.purchasesItemTotal}>R$ {NumberUtils.format(purchase.total)}</span>
+          <span className={Sel.purchasesItemTotal}>${NumberUtils.format(purchase.total)}</span>
         </div>
       </div>
     )

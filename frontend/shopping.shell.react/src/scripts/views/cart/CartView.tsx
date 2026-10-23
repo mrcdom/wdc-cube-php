@@ -36,7 +36,7 @@ class CartViewClass extends BaseViewClass<ViewProps, CartViewState> {
     const items = state.items ?? []
     const empty = items.length === 0
     const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const totalText = `R$ ${total.toFixed(2)}`
+    const totalText = `$${total.toFixed(2)}`
 
     return (
       <div className={clsx(Sel.pageScrollRoot, className)}>
@@ -105,7 +105,7 @@ class CartViewClass extends BaseViewClass<ViewProps, CartViewState> {
   }
 
   private renderItem(item: CartItem) {
-    const subtotal = `R$ ${(item.price * item.quantity).toFixed(2)}`
+    const subtotal = `$${(item.price * item.quantity).toFixed(2)}`
     return (
       <div key={item.id} className={Sel.itemRow}>
         <span className={Sel.itemName}>{item.name}</span>

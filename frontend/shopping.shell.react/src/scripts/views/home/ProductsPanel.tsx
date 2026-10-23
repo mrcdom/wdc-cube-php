@@ -67,7 +67,7 @@ class ProductCardClass extends BasePanelClass<ProductCardProps> {
         </div>
         <div className={Sel.productCardBody}>
           <p className={Sel.productCardName}>{product.name}</p>
-          <span className={Sel.productCardPrice}>R$ {NumberUtils.format(product.price)}</span>
+          <span className={Sel.productCardPrice}>${NumberUtils.format(product.price)}</span>
         </div>
       </div>
     )
