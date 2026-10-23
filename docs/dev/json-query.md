@@ -173,6 +173,7 @@ valor em si não importa; `ProjectionValues` (normalmente importado como `PV`) s
 | `PV::singletonList($shape, $criteria)` | coleção 1:N com critério e recorte (seção 9) |
 
 ```php
+use LogicException;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 
 // o que o painel de avaliações mostra
@@ -271,12 +272,10 @@ private function existsItemMatching(PurchaseCriteria $criteria, string $a, Query
         return null;                               // campo não pedido ⇒ nenhuma condição
     }
     $pi = $ctx->alias('pi');                       // alias novo: não colide com nenhum outro
+    $i = Sql::alias($pi);                          // a condição é montada sobre a coluna da subconsulta
+    $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId())
+        ?? throw new LogicException('critério preenchido sem condição');   // não acontece: isSet() acima
     $c = Sql::alias($a);
-    $i = Sql::alias($pi);
-    $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId());
-    if ($onProduct === null) {
-        return null;                               // só para o PHPStan: translate() devolve ?Sql
-    }
 
     return new Sql(
         'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE
@@ -288,7 +287,9 @@ private function existsItemMatching(PurchaseCriteria $criteria, string $a, Query
 
 Ele entra em `conditions()` como mais uma parcela do `Sql::and([...])`. Primeiro ele confere se o
 campo foi pedido: só então reserva o alias, para não gastar um número do contador (e deixar o SQL
-gerado dependente dos filtros vazios) à toa. O alias da subconsulta vem
+gerado dependente dos filtros vazios) à toa. Depois disso o `translate()` sempre devolve uma
+condição; o `?? throw` só existe porque o tipo de retorno é `?Sql`, e transforma uma mudança
+futura nele num erro visível em vez de um filtro ignorado. O alias da subconsulta vem
 do `$ctx` — é para isso que `conditions` recebe o `QueryContext`. A tabela e as colunas do item
 vêm das constantes públicas de `PurchaseItemRepositoryImpl` (concatenadas, porque o PHP não
 interpola constantes em strings). `PurchaseItemRepositoryImpl` faz o inverso (`userId` do item =

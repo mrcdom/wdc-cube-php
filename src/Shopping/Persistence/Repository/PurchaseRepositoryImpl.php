@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Persistence\Repository;
 
+use LogicException;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Framework\Persistence\AbstractRepository;
 use Wdc\Framework\Persistence\Column;
@@ -187,12 +188,10 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
             return null;   // campo não pedido: nem reserva alias
         }
         $pi = $ctx->alias('pi');
-        $c = Sql::alias($a);
         $i = Sql::alias($pi);
-        $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId());
-        if ($onProduct === null) {
-            return null;
-        }
+        $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId())
+            ?? throw new LogicException('critério preenchido sem condição');   // não acontece: isSet() acima
+        $c = Sql::alias($a);
 
         return new Sql(
             'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE
