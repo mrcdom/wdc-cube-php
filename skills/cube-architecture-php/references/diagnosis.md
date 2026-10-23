@@ -37,7 +37,7 @@ first, and confirm the hypothesis before changing code.
 1. Reproduce it in an acceptance test (`PresentationTestCase`): call the presenter methods the
    events would call and assert the mocks' state. If the test reproduces it, the defect is in
    the presentation; if not, it is in the React view, the build or the protocol.
-2. Protocol level: `tests/Shopping/RemoteHost/RemoteProtocolTest` drives a session through
+2. Protocol level: `tests/Store/RemoteHost/RemoteProtocolTest` drives a session through
    the real wire format - reproduce the message sequence there.
 3. Follow the cycle: which presenter received `applyParameters` with which `initialization`
    and `deepest`, who returned `false`, who threw, who was released.

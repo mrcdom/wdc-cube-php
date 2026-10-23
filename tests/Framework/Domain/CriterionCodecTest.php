@@ -10,11 +10,11 @@ use PHPUnit\Framework\TestCase;
 use Wdc\Framework\Commons\Serialization\Json;
 use Wdc\Framework\Domain\Criteria\Operator;
 use Wdc\Framework\Domain\Exception\InvalidRequestException;
-use Wdc\Shopping\Domain\Product\ProductCodec;
-use Wdc\Shopping\Domain\Product\ProductCriteria;
-use Wdc\Shopping\Domain\Product\ProductOrderBy;
-use Wdc\Shopping\Domain\Purchase\PurchaseCodec;
-use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
+use Wdc\Store\Domain\Product\ProductCodec;
+use Wdc\Store\Domain\Product\ProductCriteria;
+use Wdc\Store\Domain\Product\ProductOrderBy;
+use Wdc\Store\Domain\Purchase\PurchaseCodec;
+use Wdc\Store\Domain\Purchase\PurchaseCriteria;
 
 final class CriterionCodecTest extends TestCase
 {

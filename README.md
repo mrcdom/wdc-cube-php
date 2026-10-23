@@ -4,7 +4,7 @@
 on a long-lived PHP server, and the client only draws the state it receives. The bundled client is
 a React shell that talks to the server over WebSocket.
 
-The repository contains the framework and a complete demo application, **Shopping**.
+The repository contains the framework and a complete demo application, **Store**.
 
 - [docs/guide-for-php-developers.md](docs/guide-for-php-developers.md) — start here if you write
   PHP with template frameworks (Laravel, Symfony, Twig): the idea explained from what you already
@@ -15,7 +15,7 @@ The repository contains the framework and a complete demo application, **Shoppin
   protocol, N+1-free persistence, security.
 - [docs/scaling.md](docs/scaling.md) — multiple instances behind a load balancer.
 
-## Shopping
+## Store
 
 A simple shop, end to end:
 
@@ -57,7 +57,7 @@ php bin/server.php        # starts the server at http://localhost:8080 (Ctrl+C s
 Open http://localhost:8080/ (it redirects to the React shell) and log in with `admin`/`admin`.
 
 To work on the frontend with automatic rebuilds:
-`(cd frontend/shopping.shell.react && npm run watch)`.
+`(cd frontend/store.shell.react && npm run watch)`.
 
 ## Tests
 
@@ -66,7 +66,7 @@ never use the server's database. Configure it in `application.local.toml`:
 
 ```toml
 [test.database]
-url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php_test"
+url = "pgsql:host=localhost;port=5432;dbname=wedocode_store_php_test"
 username = "postgres"
 password = "..."
 ```
@@ -90,7 +90,7 @@ On the first start, the server creates the database (if the user has permission)
 the demo data, and generates development keys in `application.local.toml`. **Replace them in
 production**, along with `security.jwt.secret`.
 
-Environment variables: `SERVER_PORT`, `LOG_LEVEL` (`debug`, `info`, ...) and `SHOPPING_CONFIG_FILE`
+Environment variables: `SERVER_PORT`, `LOG_LEVEL` (`debug`, `info`, ...) and `STORE_CONFIG_FILE`
 (a different configuration file).
 
 ## Database
@@ -98,7 +98,7 @@ Environment variables: `SERVER_PORT`, `LOG_LEVEL` (`debug`, `info`, ...) and `SH
 PostgreSQL, accessed asynchronously (`amphp/postgres`): a query suspends only the session that
 issued it, and several queries run at the same time, each on a pooled connection. Under `[database]`:
 
-- `url` — address, default `pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php`;
+- `url` — address, default `pgsql:host=localhost;port=5432;dbname=wedocode_store_php`;
 - `username`, `password` — in `application.local.toml`;
 - `pool.maxConnections` — pool size (default 16).
 
@@ -129,8 +129,8 @@ curl -X POST localhost:8080/api/repo/product/count \
 ## Layout
 
 - `src/Framework/` — the Cube framework: engine, remote protocol, persistence, REST API
-- `src/Shopping/` — the demo application: domain, persistence, presentation, server
-- `frontend/shopping.shell.react/` — the React shell (React, TypeScript, MUI)
+- `src/Store/` — the demo application: domain, persistence, presentation, server
+- `frontend/store.shell.react/` — the React shell (React, TypeScript, MUI)
 - `frontend/remote.bridge.react/` — the bridge: the client side of the Cube protocol
 - `tests/` — PHPUnit
 - `bin/` — server and frontend build

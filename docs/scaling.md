@@ -1,7 +1,7 @@
 # Scaling Cube MVP in PHP
 
 How to go from one server to several when a single PHP process is no longer enough. For anyone
-deploying or operating a Cube application in PHP (Shopping is the example).
+deploying or operating a Cube application in PHP (Store is the example).
 
 **Summary:** run several server instances behind a WebSocket-capable load balancer, all with the
 same PostgreSQL and the same keys. The load balancer always sends each session to the same
@@ -87,8 +87,8 @@ Example `application.local.toml` shared by every instance:
 
 ```toml
 [database]
-url = "pgsql:host=db.internal;port=5432;dbname=shopping"
-username = "shopping"
+url = "pgsql:host=db.internal;port=5432;dbname=store"
+username = "store"
 password = "..."
 
 [security]
@@ -197,14 +197,14 @@ Each instance is a `php bin/server.php <port>` with the same configuration. With
 template unit does the job:
 
 ```ini
-# /etc/systemd/system/wdc-shopping@.service
+# /etc/systemd/system/wdc-store@.service
 [Unit]
-Description=WDC Shopping (PHP) on port %i
+Description=WDC Store (PHP) on port %i
 After=network.target
 
 [Service]
 WorkingDirectory=/opt/wdc-cube-php
-Environment=SHOPPING_CONFIG_FILE=/etc/wdc/application.toml
+Environment=STORE_CONFIG_FILE=/etc/wdc/application.toml
 Environment=LOG_LEVEL=info
 ExecStart=/usr/bin/php bin/server.php %i
 Restart=always
@@ -215,10 +215,10 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-systemctl enable --now wdc-shopping@8081 wdc-shopping@8082 wdc-shopping@8083 wdc-shopping@8084
+systemctl enable --now wdc-store@8081 wdc-store@8082 wdc-store@8083 wdc-store@8084
 ```
 
-`SIGTERM` shuts the instance down gracefully (`ShoppingServer::stop()`).
+`SIGTERM` shuts the instance down gracefully (`StoreServer::stop()`).
 
 In production, turn off PHP assertions (`zend.assertions = -1` in `php.ini`). Amp logs a warning
 when they are on.
@@ -235,7 +235,7 @@ when they are on.
   connection expires after `server.sessionTtlSeconds` (default 180 s).
 - **Connections per IP:** the server accepts up to 1000 simultaneous connections per IP. Behind a
   load balancer they all come from its IP, so that is the practical ceiling of connections per
-  instance. The value lives in `ShoppingServer` (`connectionLimitPerIp`); raise it if you need more.
+  instance. The value lives in `StoreServer` (`connectionLimitPerIp`); raise it if you need more.
 - **Memory:** grows with the number of sessions (presenters and screen state). Measure with your
   real usage before fixing the number of sessions per instance.
 

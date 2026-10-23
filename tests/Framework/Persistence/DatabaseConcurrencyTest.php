@@ -9,10 +9,10 @@ use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Transaction\TransactionService;
-use Wdc\Shopping\Domain\Product\Product;
-use Wdc\Shopping\Domain\Product\ProductCriteria;
-use Wdc\Shopping\Domain\Product\ProductRepository;
-use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
+use Wdc\Store\Domain\Product\Product;
+use Wdc\Store\Domain\Product\ProductCriteria;
+use Wdc\Store\Domain\Product\ProductRepository;
+use Wdc\Tests\Store\Persistence\RepositoryTestCase;
 use function Amp\Future\await;
 use function Amp\async;
 

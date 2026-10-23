@@ -2,7 +2,7 @@
 
 This guide explains how to write a presenter's React view: the component that draws the state the
 server sends and sends clicks back as events. The shell lives in
-`frontend/shopping.shell.react`; the protocol client (WebSocket, states, forms) in
+`frontend/store.shell.react`; the protocol client (WebSocket, states, forms) in
 `frontend/remote.bridge.react`, re-exported by the shell as `@root/bridge` (`src/scripts/bridge/index.tsx`).
 
 The running example is the product **reviews panel** (`ReviewsPanel.tsx`), the view of the
@@ -57,7 +57,7 @@ is a special case: a function component that calls `bridge.bindView` directly.
 The skeleton of the reviews panel, with the parts every view repeats:
 
 ```tsx
-// frontend/shopping.shell.react/src/scripts/views/product/ReviewsPanel.tsx
+// frontend/store.shell.react/src/scripts/views/product/ReviewsPanel.tsx
 import React, { ReactNode } from "react"
 import clsx from "clsx"
 import bridge, { type ViewProps } from "@root/bridge"
@@ -410,14 +410,14 @@ directly. Plain HTML elements (`<select>`, `<textarea>`) work too, styled by the
 - **Data images** (the product photo) come from the server: `EndpointUtils.productImagePath(id)`
   builds `./image/product/<id>.png`, served by the PHP `ProductImageHandler`. If your screen needs
   another image per record, create the route on the server and a helper in `EndpointUtils`.
-- **Small static artwork** becomes an inline SVG component, like `views/home/ShoppingLogo.tsx`.
+- **Small static artwork** becomes an inline SVG component, like `views/home/StoreLogo.tsx`.
 
 ---
 
 ## 9. File structure of a view module
 
 ```text
-frontend/shopping.shell.react/src/scripts/views/product/
+frontend/store.shell.react/src/scripts/views/product/
   ProductView.tsx       the ProductPresenter view (classId 48b693f67410)
   product-sel.ts        product selectors (imports product.scss)
   product.scss
@@ -439,7 +439,7 @@ Every view with a `classId` must be registered, otherwise the bridge does not kn
 it:
 
 ```tsx
-// frontend/shopping.shell.react/src/scripts/index.tsx
+// frontend/store.shell.react/src/scripts/index.tsx
 import ProductView from "./views/product/ProductView"
 import ReviewsPanel from "./views/product/ReviewsPanel"
 // ...
@@ -466,12 +466,12 @@ them.
 
 ```bash
 bin/build-frontend.sh                                   # full build
-(cd frontend/shopping.shell.react && npm run watch)     # development: rebuilds on every change
+(cd frontend/store.shell.react && npm run watch)     # development: rebuilds on every change
 ```
 
-`bin/build-frontend.sh` calls `frontend/shopping.shell.react/build.sh`, which installs the
+`bin/build-frontend.sh` calls `frontend/store.shell.react/build.sh`, which installs the
 dependencies the first time (shell and bridge) and runs `npm run build:clean`. The output goes to
-`work/frontend/shopping.shell.react`, from where the PHP server serves it - no need to restart
+`work/frontend/store.shell.react`, from where the PHP server serves it - no need to restart
 the server, just reload the browser. Environment details in [setup-local.md](setup-local.md).
 
 > **The build does not check types.** Parcel transpiles TypeScript with SWC, which **strips** the

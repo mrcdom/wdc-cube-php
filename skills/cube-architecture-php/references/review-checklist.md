@@ -83,7 +83,7 @@ rest is a suggestion.
       string literal. *Symptom: a typo caught only when the query runs, not by PHPStan.*
 - [ ] A service looks up its repositories / `TransactionService` with
       `Beans::of(XxxInterface::class)` in its constructor; the presenter does `new XxxService()`. A new repository has its
-      `Beans::set` in `ShoppingRepositories::register()`. *Symptom: "No implementation
+      `Beans::set` in `StoreRepositories::register()`. *Symptom: "No implementation
       registered" at runtime.*
 - [ ] Multi-write operations in `Beans::of(TransactionService::class)->required(...)`.
 - [ ] REST: owner scope enforced for users without `data:all`.

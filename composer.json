@@ -1,6 +1,6 @@
 {
     "name": "wedocode/wdc-cube-php",
-    "description": "Cube MVP in PHP: server-side presenters, thin client over WebSocket — with the Shopping demo application",
+    "description": "Cube MVP in PHP: server-side presenters, thin client over WebSocket — with the Store demo application",
     "type": "project",
     "license": "MIT",
     "require": {
@@ -19,7 +19,7 @@
     "autoload": {
         "psr-4": {
             "Wdc\\Framework\\": "src/Framework/",
-            "Wdc\\Shopping\\": "src/Shopping/"
+            "Wdc\\Store\\": "src/Store/"
         }
     },
     "autoload-dev": {

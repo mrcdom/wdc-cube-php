@@ -1,6 +1,6 @@
 # Running the project locally — step by step
 
-> **Who it is for:** anyone running Shopping on their own machine for the first time.
+> **Who it is for:** anyone running Store on their own machine for the first time.
 > **By the end:** the server up at `http://localhost:8080`, login working, the frontend
 > rebuilding on its own and the tests passing.
 
@@ -8,15 +8,15 @@ The project has two parts you will build and run:
 
 - **the PHP server** (`bin/server.php`) — a long-lived process with an event loop (Amp) that runs
   the presenters of every session, talks to PostgreSQL and serves the frontend;
-- **the React shell** (`frontend/shopping.shell.react`) — built into `work/frontend/`, from where
+- **the React shell** (`frontend/store.shell.react`) — built into `work/frontend/`, from where
   the PHP server itself serves it. There is no Node server, neither in production nor in development.
 
 ```mermaid
 flowchart LR
     B["Browser"] -- "HTTP: index.html, JS, CSS" --> S["php bin/server.php<br/>:8080"]
     B <-- "WebSocket /dispatcher/..." --> S
-    S -- "reads files from" --> F["work/frontend/<br/>shopping.shell.react"]
-    S -- "async pool" --> PG[("PostgreSQL<br/>wedocode_shopping_php")]
+    S -- "reads files from" --> F["work/frontend/<br/>store.shell.react"]
+    S -- "async pool" --> PG[("PostgreSQL<br/>wedocode_store_php")]
     N["bin/build-frontend.sh<br/>or npm run watch"] -- "builds into" --> F
 ```
 
@@ -112,7 +112,7 @@ password = "..."
 
 [test.database]
 # a database ONLY for the tests: it is dropped and recreated on every run
-url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php_test"
+url = "pgsql:host=localhost;port=5432;dbname=wedocode_store_php_test"
 username = "postgres"
 password = "..."
 ```
@@ -120,7 +120,7 @@ password = "..."
 What each block does:
 
 - **`[database]`** — the server database. The URL lives in `application.toml`
-  (`pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php`); only the credentials go here. If
+  (`pgsql:host=localhost;port=5432;dbname=wedocode_store_php`); only the credentials go here. If
   your PostgreSQL runs on another port or machine, override `url` here too.
 - **`[test.database]`** — the database used **only** by the tests. Its name must be **different**
   from the server database: the tests drop all of its tables at the start of every run.
@@ -136,7 +136,7 @@ Useful environment variables:
 |---|---|
 | `SERVER_PORT` | server port (default: the file's `server.port`, 8080) |
 | `LOG_LEVEL` | `debug`, `info` (default), `notice`, `warning`, `error`... |
-| `SHOPPING_CONFIG_FILE` | uses another file instead of `work/config/application.toml` (`application.local.toml` is looked up in its folder) |
+| `STORE_CONFIG_FILE` | uses another file instead of `work/config/application.toml` (`application.local.toml` is looked up in its folder) |
 | `WDC_TEST_DB_URL`, `WDC_TEST_DB_USER`, `WDC_TEST_DB_PASSWORD` | replace `[test.database]` (useful in CI) |
 
 ---
@@ -161,16 +161,16 @@ bin/build-frontend.sh
 
 The script:
 
-1. the **first time**, runs `npm install` in `frontend/shopping.shell.react` and in
+1. the **first time**, runs `npm install` in `frontend/store.shell.react` and in
    `frontend/remote.bridge.react` (the bridge is the client side of the Cube protocol) — it takes
    a few minutes;
 2. builds the shell with Parcel (`npm run build:clean`);
-3. writes the result to **`work/frontend/shopping.shell.react/`**.
+3. writes the result to **`work/frontend/store.shell.react/`**.
 
-At the end you see `Deploy complete: ../../work/frontend/shopping.shell.react`. Check:
+At the end you see `Deploy complete: ../../work/frontend/store.shell.react`. Check:
 
 ```bash
-ls work/frontend/shopping.shell.react/index.html
+ls work/frontend/store.shell.react/index.html
 ```
 
 ---
@@ -183,7 +183,7 @@ php bin/server.php
 
 The process stays in the foreground, showing the log. On the **first** start it:
 
-1. connects to PostgreSQL and, if the `wedocode_shopping_php` database **does not exist, creates
+1. connects to PostgreSQL and, if the `wedocode_store_php` database **does not exist, creates
    it** (through the `postgres` maintenance database; it needs `CREATE DATABASE` permission);
 2. creates the tables and sequences, and seeds the **demo data** (users and products) — only when
    there are no tables yet;
@@ -192,7 +192,7 @@ The process stays in the foreground, showing the log. On the **first** start it:
 When it is ready, the log shows:
 
 ```text
-Shopping (PHP) at http://localhost:8080/shopping.shell.react/index.html
+Store (PHP) at http://localhost:8080/store.shell.react/index.html
 ```
 
 Another port: `php bin/server.php 8081` (the argument takes precedence over `SERVER_PORT`, which
@@ -214,7 +214,7 @@ curl -s localhost:8080/health
 # {"status":"UP"}
 
 curl -sI localhost:8080/ | grep -i location
-# location: /shopping.shell.react/index.html
+# location: /store.shell.react/index.html
 ```
 
 In the browser:
@@ -243,12 +243,12 @@ curl -X POST localhost:8080/__dev/db-reset
 In a separate terminal:
 
 ```bash
-cd frontend/shopping.shell.react
+cd frontend/store.shell.react
 npm run watch
 ```
 
 `watch` keeps Parcel watching the sources and rebuilding into the same
-`work/frontend/shopping.shell.react/` that the server serves. Saved a `.tsx` or `.scss`?
+`work/frontend/store.shell.react/` that the server serves. Saved a `.tsx` or `.scss`?
 **Reload the page** in the browser. The PHP server does **not** need a restart for frontend
 changes.
 
@@ -298,7 +298,7 @@ Runs, in sequence:
 To run only a part:
 
 ```bash
-vendor/bin/phpunit tests/Shopping/Presentation          # a folder
+vendor/bin/phpunit tests/Store/Presentation          # a folder
 vendor/bin/phpunit --filter SqlTransactionServiceTest   # a class or method
 ```
 
@@ -307,8 +307,8 @@ What the tests need:
 - **`[test.database]` configured** (section 3). The test database is also created if it does not
   exist; on every run, the tables are dropped and recreated once, and the demo data is reseeded
   before each test. **Never point it at the server database.**
-- **the built frontend** for `ShoppingServerTest`, which starts the server and loads the React
-  shell. Without `work/frontend/shopping.shell.react/index.html`, that test is **skipped**
+- **the built frontend** for `StoreServerTest`, which starts the server and loads the React
+  shell. Without `work/frontend/store.shell.react/index.html`, that test is **skipped**
   (`React shell missing: run bin/build-frontend.sh`), not failed.
 
 PHPUnit is configured to also fail on *warnings* and *risky* tests.
@@ -347,7 +347,7 @@ another port: `php bin/server.php 8081`.
 
 ```text
 Test database not configured: set [test.database] url, username and password in
-work/config/application.local.toml (e.g. url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php_test")
+work/config/application.local.toml (e.g. url = "pgsql:host=localhost;port=5432;dbname=wedocode_store_php_test")
 ```
 
 The `[test.database]` block is missing from `application.local.toml` (or the `WDC_TEST_DB_*`
@@ -356,15 +356,15 @@ variables). See section 3.
 ### The database does not exist and could not be created
 
 ```text
-Database 'wedocode_shopping_php' does not exist and could not be created: ...
+Database 'wedocode_store_php' does not exist and could not be created: ...
 ```
 
 The configured user lacks `CREATE DATABASE` permission. Either grant it
 (`ALTER ROLE <user> CREATEDB;`), or ask for / create the database with a user that has it:
 
 ```bash
-createdb -U postgres wedocode_shopping_php
-createdb -U postgres wedocode_shopping_php_test
+createdb -U postgres wedocode_store_php
+createdb -U postgres wedocode_store_php_test
 ```
 
 If the message is about a **refused connection** or **authentication**, PostgreSQL is not running
@@ -381,7 +381,7 @@ installed (`which php`): it is common to have more than one PHP on the machine. 
 ### Empty page or `Not found`
 
 The frontend was not built (or was deleted): the server answers `Not found` at
-`/shopping.shell.react/index.html` and the startup log warns
+`/store.shell.react/index.html` and the startup log warns
 `Frontends folder not found`. Run `bin/build-frontend.sh` (or leave `npm run watch`
 running) and reload. If the page opens but stays blank, look at the browser console: it is usually
 a build error that `watch` showed in its terminal.
@@ -405,7 +405,7 @@ the tests on a branch that created an extra table (for example `EN_REVIEW`, whic
 **test database**:
 
 ```bash
-psql -h localhost -U postgres -d wedocode_shopping_php_test -c 'DROP TABLE en_review CASCADE;'
+psql -h localhost -U postgres -d wedocode_store_php_test -c 'DROP TABLE en_review CASCADE;'
 ```
 
 Or recreate the whole test database (`dropdb` + `createdb`, or let the tests recreate it).
@@ -417,7 +417,7 @@ there are no migrations. On a development database that already existed, drop it
 server recreate it on the next start:
 
 ```bash
-dropdb -h localhost -U postgres wedocode_shopping_php
+dropdb -h localhost -U postgres wedocode_store_php
 php bin/server.php
 ```
 

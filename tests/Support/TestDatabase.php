@@ -8,8 +8,8 @@ use RuntimeException;
 use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Config\AppConfig;
 use Wdc\Framework\Persistence\Database;
-use Wdc\Shopping\Persistence\ShoppingRepositories;
-use Wdc\Shopping\Persistence\ShoppingSchema;
+use Wdc\Store\Persistence\StoreRepositories;
+use Wdc\Store\Persistence\StoreSchema;
 
 /**
  * The test database: a PostgreSQL database reserved for tests, defined in `[test.database]` (url, username,
@@ -32,15 +32,15 @@ final class TestDatabase
         if (self::$shared === null) {
             $s = self::settings();
             self::$shared = Database::open($s['url'], $s['username'], $s['password']);
-            ShoppingSchema::drop(self::$shared);
-            ShoppingSchema::create(self::$shared);
+            StoreSchema::drop(self::$shared);
+            StoreSchema::create(self::$shared);
         } else {
             self::$shared->onQuery(null);
-            ShoppingSchema::reset(self::$shared);
+            StoreSchema::reset(self::$shared);
         }
 
         Beans::clear();
-        ShoppingRepositories::register(self::$shared);
+        StoreRepositories::register(self::$shared);
 
         return self::$shared;
     }
@@ -69,12 +69,12 @@ final class TestDatabase
             return self::$settings;
         }
         $env = static fn (string $name): ?string => ($v = getenv($name)) === false || $v === '' ? null : $v;
-        $config = AppConfig::load('SHOPPING_CONFIG_FILE', dirname(__DIR__, 2) . '/work/config/application.toml');
+        $config = AppConfig::load('STORE_CONFIG_FILE', dirname(__DIR__, 2) . '/work/config/application.toml');
         $url = $env('WDC_TEST_DB_URL') ?? $config->get('test.database.url');
         if ($url === null || trim($url) === '') {
             throw new RuntimeException(
                 'Test database not configured: set [test.database] url, username and password in '
-                . 'work/config/application.local.toml (e.g. url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php_test")',
+                . 'work/config/application.local.toml (e.g. url = "pgsql:host=localhost;port=5432;dbname=wedocode_store_php_test")',
             );
         }
 

@@ -17,7 +17,7 @@ rating from 1 to 5, with an optional comment.
 2. [Step 1 — The entity](#step-1--the-entity)
 3. [Step 2 — The criteria and the ordering enum](#step-2--the-criteria-and-the-ordering-enum)
 4. [Step 3 — The repository interface](#step-3--the-repository-interface)
-5. [Step 4 — Schema and seed (`ShoppingSchema`)](#step-4--schema-and-seed-shoppingschema)
+5. [Step 4 — Schema and seed (`StoreSchema`)](#step-4--schema-and-seed-storeschema)
 6. [Step 5 — The implementation (`AbstractRepository` + `JsonQuery`)](#step-5--the-implementation-abstractrepository--jsonquery)
 7. [Step 6 — Permissions](#step-6--permissions)
 8. [Step 7 — Wiring it all (composition root)](#step-7--wiring-it-all-composition-root)
@@ -33,11 +33,11 @@ rating from 1 to 5, with an optional comment.
 A new entity touches several files, but each one has a single responsibility:
 
 ```text
-src/Shopping/Domain/Review/                     ← contract: entity, criteria, OrderBy, interface
-src/Shopping/Persistence/ShoppingSchema.php     ← DDL and seed (there is no migration tool)
-src/Shopping/Persistence/Repository/            ← SQL implementation (JsonQuery + Table)
-src/Shopping/Persistence/ShoppingRepositories   ← assembly: creates the repositories and registers them in Beans
-tests/Shopping/Persistence/                     ← tests against a real PostgreSQL
+src/Store/Domain/Review/                     ← contract: entity, criteria, OrderBy, interface
+src/Store/Persistence/StoreSchema.php     ← DDL and seed (there is no migration tool)
+src/Store/Persistence/Repository/            ← SQL implementation (JsonQuery + Table)
+src/Store/Persistence/StoreRepositories   ← assembly: creates the repositories and registers them in Beans
+tests/Store/Persistence/                     ← tests against a real PostgreSQL
 ```
 
 ```mermaid
@@ -45,12 +45,12 @@ flowchart LR
     P[Presenter / application service] -->|ReviewRepository| I[ReviewRepositoryImpl]
     I -->|JsonQuery: 1 SELECT| DB[(PostgreSQL)]
     I -.->|insertBean / updateBean| DB
-    R[ShoppingRepositories] -->|creates| I
+    R[StoreRepositories] -->|creates| I
     R -->|"register($db): Beans::set"| B[Beans]
     P -->|"Beans::of(ReviewRepository::class)"| B
 ```
 
-The domain (`Wdc\Shopping\Domain`) knows nothing about SQL: whoever uses the repository only
+The domain (`Wdc\Store\Domain`) knows nothing about SQL: whoever uses the repository only
 knows the `ReviewRepository` interface. The implementation knows nothing about the session. That's
 why each part is testable on its own — and why the list of files is long.
 
@@ -58,7 +58,7 @@ why each part is testable on its own — and why the list of files is long.
 
 ## Step 1 — The entity
 
-`src/Shopping/Domain/Review/Review.php`. It is a plain class, with **every field nullable** and a
+`src/Store/Domain/Review/Review.php`. It is a plain class, with **every field nullable** and a
 fluent API: `field()` reads, `withField()` writes and returns `$this`.
 
 ```php
@@ -172,7 +172,7 @@ Which `Criterion` type to use:
 | number, date                 | `ComparableCriterion` | `gt ge lt le between`                         |
 | text                         | `TextCriterion`       | `like ilike containing startingWith`          |
 
-The ordering enum lives next to the criteria (`src/Shopping/Domain/Review/ReviewOrderBy.php`) and
+The ordering enum lives next to the criteria (`src/Store/Domain/Review/ReviewOrderBy.php`) and
 lists only the orderings some screen uses:
 
 ```php
@@ -209,10 +209,10 @@ and (b) hold its own operations when there are any — like `ProductRepository::
 
 ---
 
-## Step 4 — Schema and seed (`ShoppingSchema`)
+## Step 4 — Schema and seed (`StoreSchema`)
 
 **There is no migration tool.** The whole schema lives in constants in
-`src/Shopping/Persistence/ShoppingSchema.php`:
+`src/Store/Persistence/StoreSchema.php`:
 
 | Method     | What it does                                                                        |
 |------------|-------------------------------------------------------------------------------------|
@@ -310,7 +310,7 @@ On that path the table is created **empty** (the seed only runs on a new databas
 
 ## Step 5 — The implementation (`AbstractRepository` + `JsonQuery`)
 
-`src/Shopping/Persistence/Repository/ReviewRepositoryImpl.php`. The `AbstractRepository` base
+`src/Store/Persistence/Repository/ReviewRepositoryImpl.php`. The `AbstractRepository` base
 (`src/Framework/Persistence/AbstractRepository.php`) already implements `count`, `fetch`,
 `fetchPage`, `fetchById` and `insertOrUpdate`, and provides `insertBean`, `updateBean` and
 `deleteWhere`. The subclass describes **the table, the relations, the conditions and the
@@ -353,7 +353,7 @@ final class ReviewRepositoryImpl extends AbstractRepository implements ReviewRep
   `"{$c(self::CREATEDAT)} DESC, {$c(self::ID)} DESC"`.
 - **Hand-written SQL concatenates** the table constants:
   `'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE . " {$pi} WHERE ...)"`.
-- The DDL in `ShoppingSchema` remains plain SQL text; a mismatch between it and the constants is
+- The DDL in `StoreSchema` remains plain SQL text; a mismatch between it and the constants is
   caught by the repository tests.
 
 ### 5b. Constructor: `Table` + `JsonQuery`
@@ -562,10 +562,10 @@ the **owner** (the `ReviewCriteria`), so the chain continues with `withProjectio
 
 ## Step 6 — Permissions
 
-Permissions live in `src/Shopping/Domain/Security/Role.php`, in the `entity:operation` format.
+Permissions live in `src/Store/Domain/Security/Role.php`, in the `entity:operation` format.
 The example added `'review:*'` to `ADMIN` and `'review:read', 'review:write'` to `CUSTOMER`.
 
-They are checked by the **REST API** (`SecurityEnforcer`, in `src/Shopping/Persistence/Rest/`):
+They are checked by the **REST API** (`SecurityEnforcer`, in `src/Store/Persistence/Rest/`):
 there the request arrives ready-made from a client we don't control, so each endpoint checks
 whether the caller has the permission and, without `data:all`, restricts the criteria to the
 user's own data.
@@ -579,7 +579,7 @@ draws.
 
 ## Step 7 — Wiring it all (composition root)
 
-There is no dependency injection container: objects are created by hand in `ShoppingRepositories`
+There is no dependency injection container: objects are created by hand in `StoreRepositories`
 and registered, by interface, in `Beans` (`src/Framework/Commons/Beans.php`). The class keeps
 nothing: there is no field per repository, and a new repository is **one line**.
 
@@ -594,7 +594,7 @@ public static function register(Database $db): void
 }
 ```
 
-The server calls `ShoppingRepositories::open(...)` once, at startup: it opens the database,
+The server calls `StoreRepositories::open(...)` once, at startup: it opens the database,
 creates the schema and the seed if needed, calls `register($db)` and returns the `Database`. From
 then on, presenters and services find the repository by interface:
 
@@ -720,7 +720,7 @@ Repository tests run against a **real PostgreSQL**, configured in `[test.databas
 base provides `$this->db` (the `Database`) with the database **at the seed** and the repositories
 registered in `Beans` at the start of each test (`TestDatabase::open()`).
 
-`tests/Shopping/Persistence/ReviewRepositoryTest.php` covers reading with a relation, orderings,
+`tests/Store/Persistence/ReviewRepositoryTest.php` covers reading with a relation, orderings,
 the default projection, insertion, counting and updating. The most important test proves there is
 **no N+1**:
 
@@ -754,7 +754,7 @@ The example's other cases: orderings (`OLDEST_FIRST`, `BEST_RATED_FIRST`), the d
 
 - `insert` must generate the id from the sequence (`2`, because the seed restarted `SQ_REVIEW` at 2).
 - Test dates with `assertEquals` (same instant), not `assertSame` (object identity).
-- Run `vendor/bin/phpunit tests/Shopping/Persistence/ReviewRepositoryTest.php` and, before
+- Run `vendor/bin/phpunit tests/Store/Persistence/ReviewRepositoryTest.php` and, before
   committing, `composer check` (PHPStan level 8 + the whole suite).
 
 ---
@@ -778,7 +778,7 @@ Real problems found while implementing the example:
 - **FKs that are not bean fields** go as extra columns in `insertBean`/`updateBean`. Forget one
   and it reaches the database as `NULL` (or violates `NOT NULL`).
 - **Repository not registered**: without the `Beans::set` line in
-  `ShoppingRepositories::register()`, `Beans::of` (and the `repositoryOf` of whoever uses it)
+  `StoreRepositories::register()`, `Beans::of` (and the `repositoryOf` of whoever uses it)
   throws "No implementation registered".
 - **`create()` returns early** when `EN_USER` exists: a new table needs its own step.
 - **A criterion with `null` doesn't filter** — a required id can't arrive null.
@@ -788,7 +788,7 @@ Real problems found while implementing the example:
 
 ## Checklist
 
-Domain (`src/Shopping/Domain/<Entity>/`)
+Domain (`src/Store/Domain/<Entity>/`)
 
 - [ ] Entity with nullable fields, `field()`/`withField()`, relations as entities and FK shortcuts.
 - [ ] `XxxCriteria implements Criteria`: one `Criterion` per filterable field, created in the
@@ -796,7 +796,7 @@ Domain (`src/Shopping/Domain/<Entity>/`)
 - [ ] `XxxOrderBy` with only the orderings in use.
 - [ ] `XxxRepository extends Repository` with `@extends Repository<Xxx, XxxCriteria>`.
 
-Schema (`ShoppingSchema`)
+Schema (`StoreSchema`)
 
 - [ ] DDL in its own constant (`XXX_DDL`), unquoted identifiers, FKs with `REFERENCES`.
 - [ ] `create()` also creates the new table on an existing database.
@@ -818,7 +818,7 @@ Implementation (`XxxRepositoryImpl`)
 Wiring and security
 
 - [ ] Permissions in `Role`.
-- [ ] `Beans::set(XxxRepository::class, new XxxRepositoryImpl($db))` in `ShoppingRepositories::register()`.
+- [ ] `Beans::set(XxxRepository::class, new XxxRepositoryImpl($db))` in `StoreRepositories::register()`.
 
 Tests
 

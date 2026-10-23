@@ -57,7 +57,7 @@ the result in the state.
 > **The presenter decides what the screen shows; the service decides what is true for the business.**
 >
 > The service doesn't know the screen: it doesn't touch the `ViewState`, doesn't call `update()`,
-> doesn't navigate, doesn't keep the `ShoppingApplication`. It receives values, returns
+> doesn't navigate, doesn't keep the `StoreApplication`. It receives values, returns
 > presentation *structs* (or nothing) and, when the rule refuses the operation, **throws an
 > expected exception**.
 >
@@ -86,7 +86,7 @@ flowchart LR
 Three points of the design:
 
 - **Authorization is the responsibility of the presenter and the service.** The
-  `ShoppingApplication` (the session) hands out repositories with no security wrapper. Code
+  `StoreApplication` (the session) hands out repositories with no security wrapper. Code
   running on the server is already written to respect the rules: the service filters by the
   logged-in user (`$app->subject()`) when the screen is "my data". Role-based permission checks
   exist only in the REST API, where the request arrives ready-made from a client we don't control.
@@ -105,15 +105,15 @@ global `Services/` folder: the service is part of the feature.
 
 | Service | Folder | Used by |
 |---|---|---|
-| `ProductService` | `src/Shopping/Presentation/Presenter/Restricted/Products/` | `ProductPresenter`, `ProductsPanelPresenter` |
-| `ReceiptService` | `src/Shopping/Presentation/Presenter/Restricted/Receipt/` | `ReceiptPresenter` |
-| `LoginService` | `src/Shopping/Presentation/Presenter/Open/Login/` | `LoginPresenter` |
-| `PurchasesPanelService` | `src/Shopping/Presentation/Presenter/Restricted/Home/Purchases/` | `PurchasesPanelPresenter` |
-| `CartManager` | `src/Shopping/Presentation/Presenter/Restricted/Cart/` | `HomePresenter` (creates it), `CartPresenter`, `ProductPresenter` |
+| `ProductService` | `src/Store/Presentation/Presenter/Restricted/Products/` | `ProductPresenter`, `ProductsPanelPresenter` |
+| `ReceiptService` | `src/Store/Presentation/Presenter/Restricted/Receipt/` | `ReceiptPresenter` |
+| `LoginService` | `src/Store/Presentation/Presenter/Open/Login/` | `LoginPresenter` |
+| `PurchasesPanelService` | `src/Store/Presentation/Presenter/Restricted/Home/Purchases/` | `PurchasesPanelPresenter` |
+| `CartManager` | `src/Store/Presentation/Presenter/Restricted/Cart/` | `HomePresenter` (creates it), `CartPresenter`, `ProductPresenter` |
 
 `CartManager` is a special case: besides business rules, it **keeps session state** (the cart
 items in memory until the purchase) and notifies listeners. That's why it is created once per
-session and lives in the `ShoppingApplication` (`cart()` / `setCart()`), instead of being created
+session and lives in the `StoreApplication` (`cart()` / `setCart()`), instead of being created
 by each presenter. The other services keep no state and each presenter creates its own.
 
 In the guided example in [building-a-feature.md](building-a-feature.md) (product reviews), the
@@ -124,9 +124,9 @@ Naming convention:
 
 - `XxxService` — the service;
 - `XxxInfo` (or `XxxItem`, `XxxForm`) — the struct it returns, in the same folder;
-- expected exceptions in `src/Shopping/Presentation/Exception/` (`ProductNotFoundException`,
+- expected exceptions in `src/Store/Presentation/Exception/` (`ProductNotFoundException`,
   `WrongParametersException`, `InvalidReviewException`...) or, when they belong to the domain, in
-  `src/Shopping/Domain/Exception/` (`InvalidCartItemException`).
+  `src/Store/Domain/Exception/` (`InvalidCartItemException`).
 
 ---
 
@@ -156,7 +156,7 @@ public function __construct()
 Looking up in the constructor, and not on every call, makes a forgotten registration show up right
 away, when the service is created. The registry doesn't change after startup, so the stored field
 stays valid. To swap an implementation in a test, register the other one with `Beans::set(...)`
-before creating the service (`ShoppingServiceTest` registers the repositories in `setUp`).
+before creating the service (`StoreServiceTest` registers the repositories in `setUp`).
 
 > **PHP tip:** a `readonly` field can only be assigned once, from inside the class itself - here,
 > in the constructor. After that, trying to change it is an error. `final class` prevents
@@ -529,7 +529,7 @@ already does for the login key derivation). See [../architecture.md](../architec
 
 ### ❌ A service that touches the screen
 
-Receiving the `ShoppingApplication` in the constructor (to call `$this->app->go(...)`, for example)
+Receiving the `StoreApplication` in the constructor (to call `$this->app->go(...)`, for example)
 gives the service access to everything — navigation, state, alerts — and ties it to the session.
 Receive only the repositories it needs; leave navigation and `update()` to the presenter.
 
@@ -549,7 +549,7 @@ Receive only the repositories it needs; leave navigation and `update()` to the p
 | Validation refused? | `throw new XxxException('message for the user')`; the presenter turns it into `errorCode` + `errorMessage`. |
 | Several writes? | Inside `$this->tx->required(fn () => ...)`; validate before, side effects after. |
 | Can it keep state? | No (exception: `CartManager`, which is the session's cart). |
-| Can it call `update()`, navigate, keep the `ShoppingApplication`? | No. |
+| Can it call `update()`, navigate, keep the `StoreApplication`? | No. |
 | Can it use `sleep()`, `file_get_contents` on a URL, a synchronous HTTP client? | No: they block every session. |
 
 **Next:** [repository.md](repository.md) (the other side of the call),

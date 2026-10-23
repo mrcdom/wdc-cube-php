@@ -1,6 +1,6 @@
 # Building a module in the presentation layer (Cube MVP)
 
-This guide teaches how to build a new module in the presentation layer (`src/Shopping/Presentation`):
+This guide teaches how to build a new module in the presentation layer (`src/Store/Presentation`):
 the presenter, the state it sends to the screen, the place and the route, the keys that read the
 address, child presenters and guards. It is for readers who can already run the project
 ([setup-local.md](setup-local.md)) and have read the big picture
@@ -37,7 +37,7 @@ reviews panel (which you will build as an exercise) serves as the example of the
 ## 1. What Cube MVP is
 
 In Cube, presentation logic runs **on the server**. Each user session is a `CubeApplication`
-object (here, `ShoppingApplication`) living inside a long-running PHP process (Amp, event loop).
+object (here, `StoreApplication`) living inside a long-running PHP process (Amp, event loop).
 The **presenters** live in it: what each screen shows, what each click does, where to navigate.
 The browser runs a thin React shell that only draws the states it receives over WebSocket and
 sends back the user's events.
@@ -65,10 +65,10 @@ deepest place plus the published parameters, like `#product?rt-user=0&pr-id=3&si
 
 ```mermaid
 flowchart TD
-    subgraph pres["src/Shopping/Presentation"]
+    subgraph pres["src/Store/Presentation"]
         place["Place.php<br/>enum: one case per place"]
         routes["Routes.php<br/>one route per face"]
-        app["ShoppingApplication.php<br/>the session: subject, repositories, tx, scheduler"]
+        app["StoreApplication.php<br/>the session: subject, repositories, tx, scheduler"]
         subgraph presenter["Presenter/"]
             rootk["RootKeys.php"]
             open["Open/ - guard + Login/"]
@@ -76,9 +76,9 @@ flowchart TD
         end
         exc["Exception/<br/>expected failures (NotFound, Invalid...)"]
     end
-    host["src/Shopping/RemoteHost/ShoppingRemoteApplication.php<br/>installViewFactories(): presenter → RemoteView"]
-    mock["tests/Shopping/Presentation/Mock/ShoppingApplicationMock.php<br/>installViewMocks(): presenter → XxxViewMock"]
-    react["frontend/shopping.shell.react/src/scripts/views/<br/>the React view of each presenter"]
+    host["src/Store/RemoteHost/StoreRemoteApplication.php<br/>installViewFactories(): presenter → RemoteView"]
+    mock["tests/Store/Presentation/Mock/StoreApplicationMock.php<br/>installViewMocks(): presenter → XxxViewMock"]
+    react["frontend/store.shell.react/src/scripts/views/<br/>the React view of each presenter"]
 
     place --> routes
     routes --> presenter
@@ -157,7 +157,7 @@ Practical consequences:
 ### 3.2 The `ViewState`: the contract with the React view
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/Products/ProductViewState.php
+// src/Store/Presentation/Presenter/Restricted/Products/ProductViewState.php
 final class ProductViewState implements ViewState
 {
     public ?ProductInfo $product = null;
@@ -191,7 +191,7 @@ which React uses to pick the component.
 The real `applyParameters` of the product (before the reviews panel):
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/Products/ProductPresenter.php
+// src/Store/Presentation/Presenter/Restricted/Products/ProductPresenter.php
 public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
 {
     $keys = new ProductKeys($this->app, $intent);
@@ -261,14 +261,14 @@ presenter to a `RemoteView`; in tests, to a mock that only holds the state. Inst
 places - a presenter missing from either one throws "`$createView` not configured":
 
 ```php
-// src/Shopping/RemoteHost/ShoppingRemoteApplication.php - installViewFactories()
+// src/Store/RemoteHost/StoreRemoteApplication.php - installViewFactories()
 ProductPresenter::$createView = static fn (ProductPresenter $p) => new RemoteView(self::of($p->app), $p, $p->state, $p->skeleton());
 
-// tests/Shopping/Presentation/Mock/ShoppingApplicationMock.php - installViewMocks()
+// tests/Store/Presentation/Mock/StoreApplicationMock.php - installViewMocks()
 ProductPresenter::$createView = static fn (ProductPresenter $p) => new ProductViewMock($p);
 ```
 
-The mock (`tests/Shopping/Presentation/Mock/ProductViewMock.php`) extends `AbstractViewMock` and
+The mock (`tests/Store/Presentation/Mock/ProductViewMock.php`) extends `AbstractViewMock` and
 holds the presenter and the **same** state object it changes - PHP objects are shared by handle,
 not copied. That is how a test reads what the screen would show.
 
@@ -280,7 +280,7 @@ purpose across the whole application: each level fits its view into the slot it 
 re-offers its own slot, under the same name, to the level below. Look at `HomePresenter`:
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/Home/HomePresenter.php (excerpts)
+// src/Store/Presentation/Presenter/Restricted/Home/HomePresenter.php (excerpts)
 $this->contentSlot = new CubeViewSlot($this->setContentView(...));   // in the constructor
 
 $keys = new HomeKeys($this->app, $intent);                         // in applyParameters
@@ -335,7 +335,7 @@ public function skeleton(): CubeSkeleton
   `null` when the value is not usable) and validate in the method.
 - **Fields without the `p.` prefix** are state synchronization: they go to the **third** argument
   of `Skeleton`, the `syncState(array $form)` closure, which runs before the event. If the
-  skeleton has no `syncState`, those fields are **silently discarded**. No Shopping presenter uses
+  skeleton has no `syncState`, those fields are **silently discarded**. No Store presenter uses
   `syncState` today; the standard is to send everything as a `p.` argument on the event.
 - `$count` is the number of repeated events that arrived together in the same request.
 
@@ -372,7 +372,7 @@ flowchart LR
 
 ### 4.1 The case in the `Place` enum
 
-In `src/Shopping/Presentation/Place.php`, the product shows up in four spots:
+In `src/Store/Presentation/Place.php`, the product shows up in four spots:
 
 ```php
 case PRODUCT = 6;                                   // the case, in the level-3 block
@@ -392,8 +392,8 @@ self::PRODUCT => Routes::product($app, $intent),    // in go(): the route
 ### 4.2 The method in `Routes`
 
 ```php
-// src/Shopping/Presentation/Routes.php
-public static function product(ShoppingApplication $app, CubeIntent $intent): bool
+// src/Store/Presentation/Routes.php
+public static function product(StoreApplication $app, CubeIntent $intent): bool
 {
     return $app->navigate()->step(Place::ROOT)->step(Place::RESTRICTED)->step(Place::HOME)->step(Place::PRODUCT)
         ->execute($intent);
@@ -464,7 +464,7 @@ final class CartKeys extends HomeKeys
 ### 5.3 Anatomy of a keys class
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/Receipt/ReceiptKeys.php
+// src/Store/Presentation/Presenter/Restricted/Receipt/ReceiptKeys.php
 /** Receipt keys: `receipt?rc-id=7`. */
 final class ReceiptKeys extends HomeKeys
 {
@@ -539,7 +539,7 @@ Case 3 matters: redirecting with `OpenKeys::of(...)` would lose what the address
 
 ### 5.5 `KeysNamesTest`: the rule, verified
 
-`tests/Shopping/Presentation/KeysNamesTest.php` scans `src/Shopping/**/*Keys.php` and fails if:
+`tests/Store/Presentation/KeysNamesTest.php` scans `src/Store/**/*Keys.php` and fails if:
 
 - a name does not follow the `self::PREFIX . '-code'` format in a `P_`/`A_` constant;
 - a file that declares names has no two-letter `PREFIX`, or repeats a local code;
@@ -621,7 +621,7 @@ The child does not call `XxxKeys::of(...)->go()` on its own. The home showcase, 
 forwards the click:
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/Home/Products/ProductsPanelPresenter.php
+// src/Store/Presentation/Presenter/Restricted/Home/Products/ProductsPanelPresenter.php
 public function onOpenProduct(?int $productId): void
 {
     $this->owner->onOpenProduct($productId);
@@ -679,11 +679,11 @@ A **guard** occupies a place, draws nothing and decides whether the navigation g
 implements `CubePresenter` directly, without the base:
 
 ```php
-// src/Shopping/Presentation/Presenter/Restricted/RestrictedPresenter.php
+// src/Store/Presentation/Presenter/Restricted/RestrictedPresenter.php
 /** Guard of the restricted area (no view). With no logged-in user, goes back to the public area. */
 final class RestrictedPresenter implements CubePresenter
 {
-    public function __construct(public readonly ShoppingApplication $app)
+    public function __construct(public readonly StoreApplication $app)
     {
     }
 
@@ -731,7 +731,7 @@ characters). None of this goes into the address - the product shown is decided b
 ### 9.1 Files
 
 ```text
-src/Shopping/Presentation/
+src/Store/Presentation/
   Exception/InvalidReviewException.php                       expected validation failure
   Presenter/Restricted/Products/
     ProductPresenter.php                                      owner: creates, feeds and releases the child
@@ -741,12 +741,12 @@ src/Shopping/Presentation/
       ReviewService.php                                       listForProduct(), add() with validation
       ReviewsPanelViewState.php                               the panel state
       ReviewsPanelPresenter.php                               the child
-src/Shopping/RemoteHost/ShoppingRemoteApplication.php         + $createView → RemoteView
-tests/Shopping/Presentation/
+src/Store/RemoteHost/StoreRemoteApplication.php         + $createView → RemoteView
+tests/Store/Presentation/
   Mock/ReviewsPanelViewMock.php                               the view mock
-  Mock/ShoppingApplicationMock.php                            + $createView → mock
+  Mock/StoreApplicationMock.php                            + $createView → mock
   ProductReviewsTest.php                                      the behavior, no browser
-frontend/shopping.shell.react/src/scripts/views/product/
+frontend/store.shell.react/src/scripts/views/product/
   ReviewsPanel.tsx, reviews-sel.ts, reviews.scss              the view (react-views.md)
 ```
 
@@ -794,7 +794,7 @@ up to the navigation and it rolls back, just like with the product itself.
 ### 9.4 The child: `ReviewsPanelPresenter`
 
 ```php
-/** @extends AbstractChildPresenter<ShoppingApplication> */
+/** @extends AbstractChildPresenter<StoreApplication> */
 final class ReviewsPanelPresenter extends AbstractChildPresenter
 {
     private const int EVENT_SUBMIT_REVIEW = 1;
@@ -810,7 +810,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     /** control state: the product whose reviews are loaded (null = none yet) */
     private ?int $productId = null;
 
-    public function __construct(ShoppingApplication $app, public readonly ProductPresenter $owner)
+    public function __construct(StoreApplication $app, public readonly ProductPresenter $owner)
     {
         parent::__construct($app);
         $this->state = new ReviewsPanelViewState();
@@ -898,10 +898,10 @@ Points to notice:
 ### 9.5 Wiring the view
 
 ```php
-// ShoppingRemoteApplication::installViewFactories()
+// StoreRemoteApplication::installViewFactories()
 ReviewsPanelPresenter::$createView = static fn (ReviewsPanelPresenter $p) => new RemoteView(self::of($p->app), $p, $p->state, $p->skeleton());
 
-// ShoppingApplicationMock::installViewMocks()
+// StoreApplicationMock::installViewMocks()
 ReviewsPanelPresenter::$createView = static fn (ReviewsPanelPresenter $p) => new ReviewsPanelViewMock($p);
 ```
 
@@ -916,7 +916,7 @@ swapped. The React side (`ReviewsPanel.tsx`, with the same `classId`) is in
 the methods the skeleton would call and checks the mocks' state:
 
 ```php
-// tests/Shopping/Presentation/ProductReviewsTest.php (excerpts)
+// tests/Store/Presentation/ProductReviewsTest.php (excerpts)
 private function openCoffeeMaker(): ReviewsPanelViewMock
 {
     $home = $this->login('john', 'john');
@@ -991,11 +991,11 @@ and the server ([setup-local.md](setup-local.md)).
 - [ ] Arguments as `p.<name>`, converted with `Coerce` and validated in the method.
 - [ ] Handlers with `try`: expected failure → error in the presenter's own state; unexpected →
       `alertUnexpectedError`.
-- [ ] `$createView` in `ShoppingRemoteApplication::installViewFactories()` **and** in
-      `ShoppingApplicationMock::installViewMocks()`, plus the `XxxViewMock`.
+- [ ] `$createView` in `StoreRemoteApplication::installViewFactories()` **and** in
+      `StoreApplicationMock::installViewMocks()`, plus the `XxxViewMock`.
 - [ ] Derived state in `commitComputedState()`, comparing before `update()` - or computed at the
       single spot where its source changes.
 - [ ] Timers and listeners: keep the `Registration` and call `remove()` in `release()`.
-- [ ] Test in `tests/Shopping/Presentation` extending `PresentationTestCase`.
+- [ ] Test in `tests/Store/Presentation` extending `PresentationTestCase`.
 - [ ] `composer check` green (includes `KeysNamesTest`).
 - [ ] The React view: [react-views.md](react-views.md).

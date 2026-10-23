@@ -1,6 +1,6 @@
 ---
 name: cube-architecture-php
-description: How to write, change, review and debug code in the PHP version of the Cube architecture - presenters running on a long-lived PHP server (Amp event loop) with a remote React view over WebSocket - places, CubeIntent, presenters, ViewState, Skeleton events, view slots, child presenters, the signed address derived from state, and the persistence layer (Repository, Criteria, projection, JsonQuery). Use ALWAYS when the task touches `src/Framework/Cube/**`, `src/Shopping/**` or a project built on them - `*Presenter.php`, `*ViewState.php`, `*Keys.php`, `Place.php`, `Routes.php`, `applyParameters`, `publishParameters`, `Skeleton`, `CubeViewSlot`, `$createView`, `commitComputedState`, `*Repository*.php`, `*Criteria.php`, `JsonQuery`, the React views in `frontend/shopping.shell.react` - including "create a screen", "add a parameter to the URL", "take the user from one screen to another", "add a panel", "review this presenter", "write a repository query", or investigating a "blank area", "button that does nothing", "screen that does not change", "eventCode not handled", "N+1", "server that freezes".
+description: How to write, change, review and debug code in the PHP version of the Cube architecture - presenters running on a long-lived PHP server (Amp event loop) with a remote React view over WebSocket - places, CubeIntent, presenters, ViewState, Skeleton events, view slots, child presenters, the signed address derived from state, and the persistence layer (Repository, Criteria, projection, JsonQuery). Use ALWAYS when the task touches `src/Framework/Cube/**`, `src/Store/**` or a project built on them - `*Presenter.php`, `*ViewState.php`, `*Keys.php`, `Place.php`, `Routes.php`, `applyParameters`, `publishParameters`, `Skeleton`, `CubeViewSlot`, `$createView`, `commitComputedState`, `*Repository*.php`, `*Criteria.php`, `JsonQuery`, the React views in `frontend/store.shell.react` - including "create a screen", "add a parameter to the URL", "take the user from one screen to another", "add a panel", "review this presenter", "write a repository query", or investigating a "blank area", "button that does nothing", "screen that does not change", "eventCode not handled", "N+1", "server that freezes".
 ---
 
 # Cube architecture (PHP, remote view)
@@ -65,7 +65,7 @@ switch faces.
 | Cube                           | `Place` enum (implements `CubePlace`) + `Routes` (one static method per face: the chain of places) |
 | Intent                         | `CubeIntent`: place + parameters (go to the address) + attributes and view slots (do not)           |
 | Change face                    | `XxxKeys::of($app)->go()` → `Place::go` → `Routes` → `$app->navigate()->step(...)->execute()`       |
-| Session                        | `CubeApplication` subclass (`ShoppingApplication`); remote host subclass for the WebSocket session  |
+| Session                        | `CubeApplication` subclass (`StoreApplication`); remote host subclass for the WebSocket session  |
 | Presenter                      | `AbstractCubePresenter`; control state is its fields; `public readonly XxxViewState $state`         |
 | Rendering state                | `XxxViewState implements ViewState`: public properties, serialized to JSON for the React view       |
 | Redraw request                 | `$this->update()` - explicit; nothing observes the state                                            |
@@ -73,7 +73,7 @@ switch faces.
 | Where a child appears          | `CubeViewSlot`, offered in the intent as `$keys->ownerSlot` (`RootKeys`)                            |
 | Segment with its own presenter | `AbstractChildPresenter`, created and released by the owner; its view goes in a state field        |
 | Typed reading of the intent    | keys class (`XxxKeys extends RootKeys`), the only one that knows parameter and attribute names       |
-| The view                       | React class in `frontend/shopping.shell.react/src/scripts/views/`, registered by the same `classId`   |
+| The view                       | React class in `frontend/store.shell.react/src/scripts/views/`, registered by the same `classId`   |
 
 Almost every defect in a Cube application comes from breaking the contract without
 noticing - and almost all of them break SILENTLY: it compiles, the test passes, and the
@@ -85,7 +85,7 @@ screen does the wrong thing. That is why the rules come with the why.
    protocol, `Persistence/`, `Domain/`, `Rest/`, `Commons/`). Application in `src/<App>/`:
    `Domain/` (entities, criteria, codecs), `Persistence/` (repositories, schema, REST API),
    `Presentation/` (places, routes, presenters, view states, services), `RemoteHost/`
-   (the WebSocket session) and `Server/`. Views in `frontend/shopping.shell.react/`.
+   (the WebSocket session) and `Server/`. Views in `frontend/store.shell.react/`.
 2. **The local conventions.** Read `README.md`, `docs/architecture.md` and the docblocks of
    `Place.php`, `Routes.php` and the keys classes (`Presenter/RootKeys.php` and each `*Keys.php`).
 3. **Run the checks before and after**: `composer check` (PHPStan level 8 + PHPUnit; the
@@ -121,7 +121,7 @@ Consequences:
 ## The skeleton of a presenter
 
 ```php
-/** @extends AbstractCubePresenter<ShoppingApplication> */
+/** @extends AbstractCubePresenter<StoreApplication> */
 final class OrderPresenter extends AbstractCubePresenter
 {
     /** @var (Closure(self): CubeView)|null installed by the host (remote view) and by the tests (mock) */
@@ -131,7 +131,7 @@ final class OrderPresenter extends AbstractCubePresenter
     private readonly OrderService $service;
     private ?CubeViewSlot $ownerSlot = null;
 
-    public function __construct(ShoppingApplication $app)
+    public function __construct(StoreApplication $app)
     {
         parent::__construct($app);
         $this->state = new OrderViewState();
@@ -215,8 +215,8 @@ view, wiring, tests) are in [references/patterns.md](references/patterns.md).
    prefix is a state sync, delivered to the skeleton's THIRD argument (`syncState`); without
    it, the value is silently dropped.
 5. **Install `$createView` in both places.** The remote host
-   (`ShoppingRemoteApplication::installViewFactories`) binds each presenter to a
-   `RemoteView`; the test application (`ShoppingApplicationMock::installViewMocks`) binds it
+   (`StoreRemoteApplication::installViewFactories`) binds each presenter to a
+   `RemoteView`; the test application (`StoreApplicationMock::installViewMocks`) binds it
    to a view mock. A new presenter missing from either throws "`$createView` not set".
 6. **Read the slot on EVERY `applyParameters`, and fill it.**
    `$keys->ownerSlot` then `->setView($this->view)`. The
@@ -314,7 +314,7 @@ Details and templates in [references/patterns.md](references/patterns.md).
 4. Write: view state → info structs + service (with the projection) → presenter (with
    `skeleton()` and a NEW random 12-hex `classId`) → `$createView` in the remote host AND in
    the test mock (+ a view mock class) → the React view with the same `classId` and event
-   codes → register it in `frontend/shopping.shell.react/src/scripts/index.tsx`.
+   codes → register it in `frontend/store.shell.react/src/scripts/index.tsx`.
 5. Test without a browser (`PresentationTestCase`): call the presenter methods the events
    would call, assert the view state of the mocks. Then `bin/build-frontend.sh`, run the
    server, and try it in the browser.

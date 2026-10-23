@@ -89,11 +89,11 @@ It is started once (`php bin/server.php`) and serves every user.
 
 | You know | In Cube | Where to look |
 |---|---|---|
-| Route (`routes/web.php`) | **Place** (a possible screen) + **Routes** (the path to it) | `src/Shopping/Presentation/Place.php`, `Routes.php` |
+| Route (`routes/web.php`) | **Place** (a possible screen) + **Routes** (the path to it) | `src/Store/Presentation/Place.php`, `Routes.php` |
 | Controller | **Presenter**: the logic of one screen | `.../Presenter/Restricted/Products/ProductPresenter.php` |
 | Controller action (`show`, `store`) | `applyParameters` (entering the screen) and `onXxx` methods (events) | same |
 | Variables passed to the template | **ViewState**: an object with what the screen shows | `ProductViewState.php` |
-| Blade/Twig template | **React view**: only draws the ViewState | `frontend/shopping.shell.react/src/scripts/views/` |
+| Blade/Twig template | **React view**: only draws the ViewState | `frontend/store.shell.react/src/scripts/views/` |
 | `$request->query('id')` | `$keys->productId` (the **Keys** read the address, already validated) | `ProductKeys.php` |
 | `redirect()->route('cart')` | `CartKeys::of($this->app)->go()` | `ProductPresenter::onAddToCart` |
 | `session()->flash('success')` | an intent attribute (`$keys->purchaseMade = true`) | `ReceiptKeys.php` |
@@ -109,7 +109,7 @@ keeps existing while the screen is open**. Everything else follows from that.
 
 ## 4. A screen from the inside: the product detail
 
-Let's open the product screen of Shopping (the demo shop) and read its four pieces.
+Let's open the product screen of Store (the demo shop) and read its four pieces.
 
 ### 4.1 The screen state
 
@@ -303,7 +303,7 @@ In practice:
 
 - **Screen logic in a single place, testable without a browser.** A test calls
   `$presenter->onAddToCart(2)` and checks the state - no HTTP, no HTML, no Selenium. See
-  `tests/Shopping/Presentation/ShoppingWorkflowTest.php`.
+  `tests/Store/Presentation/StoreWorkflowTest.php`.
 - **Fewer trips to the database.** What the screen already loaded stays in memory; and each
   query brings exactly what the screen shows, with the relations already assembled (goodbye,
   N+1).
@@ -354,7 +354,7 @@ up, or "$X left for free shipping".
 
 ### Step 1 - the state gets the fields
 
-`src/Shopping/Presentation/Presenter/Restricted/Cart/CartViewState.php`:
+`src/Store/Presentation/Presenter/Restricted/Cart/CartViewState.php`:
 
 ```php
 final class CartViewState implements ViewState
@@ -397,7 +397,7 @@ public function commitComputedState(): void
 
 ### Step 3 - the view only draws
 
-In `frontend/shopping.shell.react/src/scripts/views/cart/CartView.tsx`:
+In `frontend/store.shell.react/src/scripts/views/cart/CartView.tsx`:
 
 ```tsx
 export type CartViewState = {
@@ -414,7 +414,7 @@ export type CartViewState = {
 
 ### Step 4 - a test, no browser
 
-In `tests/Shopping/Presentation/`, a new test (the flash drive costs $16.00):
+In `tests/Store/Presentation/`, a new test (the flash drive costs $16.00):
 
 ```php
 final class FreeShippingTest extends PresentationTestCase
@@ -459,5 +459,5 @@ browser.
 - [scaling.md](scaling.md) - when one process is not enough.
 - `skills/cube-architecture-php/` - the rules of the model, in detail, with a review checklist and
   a diagnosis table (written for coding assistants, but useful for people too).
-- The Shopping code: start at `src/Shopping/Presentation/Place.php` and follow it to the product
+- The Store code: start at `src/Store/Presentation/Place.php` and follow it to the product
   screen - it is the best example of what this guide describes.

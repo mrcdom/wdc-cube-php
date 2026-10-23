@@ -30,12 +30,12 @@ tests in `tests/Framework/Cube/` (`CubeNavigationTest` documents the cycle case 
 - Database: PostgreSQL through `amphp/postgres` (asynchronous, pooled). See
   [persistence.md](persistence.md).
 - Heavy CPU (PBKDF2 of the handshake) runs in worker processes (`amphp/parallel`).
-- View: the React shell in `frontend/shopping.shell.react` + the protocol client in
+- View: the React shell in `frontend/store.shell.react` + the protocol client in
   `frontend/remote.bridge.react`, built with `bin/build-frontend.sh` into `work/frontend/`.
 
 ## 2. Session: `CubeApplication`
 
-One instance per user session. The application subclass (`ShoppingApplication`) adds what
+One instance per user session. The application subclass (`StoreApplication`) adds what
 every presenter needs: the logged user (`subject()`), services and repositories (already
 wrapped with the session's security), the transaction service (`tx()`), the scheduler
 (`scheduler()`), the context (`context`, with the async `sleep`), `go()` by name and
@@ -43,9 +43,9 @@ wrapped with the session's security), the transaction service (`tx()`), the sche
 
 The environment-dependent parts are abstract and implemented twice:
 
-- the remote host (`ShoppingRemoteApplication`): `updateHistory()`, client storage, cipher,
+- the remote host (`StoreRemoteApplication`): `updateHistory()`, client storage, cipher,
   installs the `RemoteView` factories;
-- the test application (`ShoppingApplicationMock`): in-memory storage, counts
+- the test application (`StoreApplicationMock`): in-memory storage, counts
   `updateHistory()` calls, installs the view mocks.
 
 Useful API: `newIntent()` (intent filled by the live presenters), `navigate()`,
@@ -66,7 +66,7 @@ enum Place: int implements CubePlace
     // ...
     public function name(): string { /* the name in the address */ }
     public function createPresenter(CubeApplication $app): CubePresenter { /* match */ }
-    public function go(ShoppingApplication $app, CubeIntent $intent): bool { /* match → Routes */ }
+    public function go(StoreApplication $app, CubeIntent $intent): bool { /* match → Routes */ }
 }
 ```
 
@@ -134,7 +134,7 @@ final class ProductKeys extends RootKeys          // inherits userId and ownerSl
 - Writing a hooked property of a temporary object is a PHP error
   (`(new ProductKeys(...))->productId = 3` → "Cannot use temporary expression in write
   context"): assign the keys to a variable first.
-- `KeysNamesTest` scans `src/Shopping/**/*Keys.php`: two-letter prefix unique per file, every
+- `KeysNamesTest` scans `src/Store/**/*Keys.php`: two-letter prefix unique per file, every
   name `self::PREFIX . '-code'` in a `P_`/`A_` constant, no `$intent->...('literal')` anywhere
   outside the keys.
 
@@ -280,15 +280,15 @@ signature prevents tampering, not stale data: validate parameters anyway.
 
 ## 14. Tests
 
-- `tests/Shopping/Presentation/PresentationTestCase`: a fresh seed in the test database per
+- `tests/Store/Presentation/PresentationTestCase`: a fresh seed in the test database per
   test, real authentication, a `ManualScheduler` (advance the clock by hand), and
-  `ShoppingApplicationMock` with view mocks. `login()` returns the home view mock.
+  `StoreApplicationMock` with view mocks. `login()` returns the home view mock.
 - A view mock keeps the presenter and the SAME state object (`$mock->state`), counts
   `update()`s, and `::cast($view)` asserts the type with a useful message.
 - Simulate the client by calling the presenter methods the skeleton would call
   (`$home->presenter->onOpenProduct($id)`), then assert the mocks' state.
-- Protocol-level tests (`tests/Shopping/RemoteHost`) drive a whole session through the wire
-  format with a fake browser; end-to-end server tests (`tests/Shopping/Server`,
-  `tests/Shopping/Rest`) start the real server on a free port.
+- Protocol-level tests (`tests/Store/RemoteHost`) drive a whole session through the wire
+  format with a fake browser; end-to-end server tests (`tests/Store/Server`,
+  `tests/Store/Rest`) start the real server on a free port.
 - The database: PostgreSQL configured in `[test.database]` of `application.local.toml`
   (or `WDC_TEST_DB_*` variables); recreated per run, re-seeded per test.

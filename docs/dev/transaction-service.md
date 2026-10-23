@@ -42,7 +42,7 @@ database transaction, which is committed at the end or undone entirely.
 
 The interface is `Wdc\Framework\Domain\Transaction\TransactionService`; the implementation is
 `Wdc\Framework\Persistence\SqlTransactionService`. There is one instance per server, created and
-registered in `Beans` by `ShoppingRepositories::register()`:
+registered in `Beans` by `StoreRepositories::register()`:
 
 | Where you are | How to get it |
 |---|---|
@@ -408,15 +408,15 @@ Code:
 - `src/Framework/Persistence/Database.php` — pool, `beginTransaction()`, `bind()`, `newConnection()`
 - `src/Framework/Commons/Concurrent/FiberValue.php` — the per-Fiber value
 - `src/Framework/Persistence/Transaction/SqlRemoteTransactionCoordinator.php`, `RemoteTransactionOptions.php`
-- `src/Shopping/Persistence/Rest/TxApiController.php`, `RepositoryApiRoutes.php` — the `/api/tx/*` routes and the write wrapper
-- `src/Shopping/Presentation/Presenter/Restricted/Cart/CartManager.php` — the real usage
+- `src/Store/Persistence/Rest/TxApiController.php`, `RepositoryApiRoutes.php` — the `/api/tx/*` routes and the write wrapper
+- `src/Store/Presentation/Presenter/Restricted/Cart/CartManager.php` — the real usage
 
 Tests:
 
 - `tests/Framework/Persistence/SqlTransactionServiceTest.php` — commit, rollback, rollback-only, nesting
 - `tests/Framework/Persistence/DatabaseConcurrencyTest.php` — the transaction doesn't capture other Fibers
 - `tests/Framework/Persistence/RemoteTransactionCoordinatorTest.php` — idempotency, owner, limits, sweep
-- `tests/Shopping/Rest/RestApiTest.php` — the protocol over HTTP
+- `tests/Store/Rest/RestApiTest.php` — the protocol over HTTP
 
 Guides: [application-service.md](application-service.md), [repository.md](repository.md),
 [../architecture.md](../architecture.md) (asynchronous access and REST API),

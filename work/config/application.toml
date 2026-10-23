@@ -1,6 +1,6 @@
-# WeDoCode Shopping (PHP) - application configuration
+# WeDoCode Store (PHP) - application configuration
 # Default path: work/config/application.toml (relative to the project root)
-# Another file: SHOPPING_CONFIG_FILE=/path/application.toml
+# Another file: STORE_CONFIG_FILE=/path/application.toml
 # Local overrides (not in git): application.local.toml in this same folder.
 
 [app]
@@ -13,7 +13,7 @@ basedir = ".."
 #   username = "postgres"
 #   password = "..."
 # If the database does not exist, the server tries to create it; the schema and seed are created on first start.
-url = "pgsql:host=localhost;port=5432;dbname=wedocode_shopping_php"
+url = "pgsql:host=localhost;port=5432;dbname=wedocode_store_php"
 # concurrent database connections (each in-flight query takes one)
 pool.maxConnections = 16
 
@@ -22,7 +22,7 @@ port = 8080
 devMode = true
 
 [security]
-jwt.secret = "wdc-shopping-jwt-s3cr3t-k3y-ch4ng3-1n-pr0duct10n"
+jwt.secret = "wdc-store-jwt-s3cr3t-k3y-ch4ng3-1n-pr0duct10n"
 
 [simulation]
 # Simulates a slow login (3 s) in LoginPresenter

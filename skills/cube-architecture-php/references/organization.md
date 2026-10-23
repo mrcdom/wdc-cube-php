@@ -1,7 +1,7 @@
 # Code organization
 
 How this repository is laid out. A new application built on the framework follows the same
-shape as `src/Shopping/`. The idea that ties it together: **the presenter folders mirror the
+shape as `src/Store/`. The idea that ties it together: **the presenter folders mirror the
 place tree** - opening a folder shows where the screen is in the cube.
 
 ## Contents
@@ -21,10 +21,10 @@ place tree** - opening a folder shows where the screen is in the cube.
 ```
 bin/            server.php (start), build-frontend.sh (React shell)
 docs/           architecture and operations
-frontend/       shopping.shell.react (the views), remote.bridge.react (the protocol client)
+frontend/       store.shell.react (the views), remote.bridge.react (the protocol client)
 skills/         this skill
 src/Framework/  the framework (no application code)
-src/Shopping/   the demo application
+src/Store/   the demo application
 tests/          PHPUnit (mirrors src/)
 work/           config/ (application.toml + application.local.toml, out of git), data/, log/
 ```
@@ -49,7 +49,7 @@ Framework code never imports application code.
 ## 3. The application
 
 ```
-src/Shopping/
+src/Store/
   Domain/          entities, XxxCriteria, XxxOrderBy, repository interfaces, codecs, roles, config
   Persistence/     repository implementations, schema + seed, authentication, REST controllers
   Presentation/    places, routes, keys, presenters, view states, services
@@ -64,8 +64,8 @@ Presentation/
   Place.php              the cube: one enum case per place
   Routes.php             one method per face: the chain of places
   StorageKeys.php        client storage keys
-  ShoppingApplication.php  the session base: services, subject, cart, alerts
-  ShoppingContext.php    what every session shares besides the beans: scheduler, logger, simulation flags
+  StoreApplication.php  the session base: services, subject, cart, alerts
+  StoreContext.php    what every session shares besides the beans: scheduler, logger, simulation flags
   Exception/             expected navigation failures (XxxNotFound, WrongParameters)
   Presenter/
     RootPresenter.php        place ROOT (+ the alert view)
@@ -90,7 +90,7 @@ others import from there.
 ## 5. The view (React shell)
 
 ```
-frontend/shopping.shell.react/src/scripts/
+frontend/store.shell.react/src/scripts/
   index.tsx                 registerComponents(...) - every view must be listed
   views/<screen>/XxxView.tsx   BaseViewClass.FC(XxxViewClass, "<classId>")
   views/<screen>/xxx-sel.ts    style selectors
@@ -98,8 +98,8 @@ frontend/shopping.shell.react/src/scripts/
 frontend/remote.bridge.react/   the protocol client (connection, storage, view registry)
 ```
 
-Build with `bin/build-frontend.sh` (output in `work/frontend/shopping.shell.react/`); during
-development `cd frontend/shopping.shell.react && npm run watch`.
+Build with `bin/build-frontend.sh` (output in `work/frontend/store.shell.react/`); during
+development `cd frontend/store.shell.react && npm run watch`.
 
 ## 6. Tests
 
@@ -107,11 +107,11 @@ development `cd frontend/shopping.shell.react && npm run watch`.
 tests/
   Support/TestDatabase.php        the PostgreSQL test database
   Framework/...                   engine, persistence, protocol, commons
-  Shopping/Presentation/          PresentationTestCase, view mocks, acceptance tests
-    Mock/                         one XxxViewMock per presenter + ShoppingApplicationMock
-  Shopping/Persistence/           repositories (RepositoryTestCase)
-  Shopping/RemoteHost/            the wire protocol with a fake browser
-  Shopping/Server/, Shopping/Rest/   the real server on a free port
+  Store/Presentation/          PresentationTestCase, view mocks, acceptance tests
+    Mock/                         one XxxViewMock per presenter + StoreApplicationMock
+  Store/Persistence/           repositories (RepositoryTestCase)
+  Store/RemoteHost/            the wire protocol with a fake browser
+  Store/Server/, Store/Rest/   the real server on a free port
 ```
 
 ## 7. Names

@@ -6,7 +6,7 @@ filter, order and paginate, and how to bring 1:1 and 1:N relations — always in
 
 The 1:1 examples use the `Review` entity (product review) built in
 [repository.md](repository.md); the 1:N ones use the existing `Purchase`/`PurchaseItem` code
-(`src/Shopping/Persistence/Repository/`).
+(`src/Store/Persistence/Repository/`).
 
 > Related guides: [building-a-feature.md](building-a-feature.md),
 > [repository.md](repository.md), [application-service.md](application-service.md),
@@ -500,7 +500,7 @@ aggregate nor in a derived table (which wouldn't see the parent row). That's why
 in the child's ordering is as important as at the root. Alias numbers may skip: each
 `conditions()` can reserve aliases for its `EXISTS`.
 
-Tests showing each case: `tests/Shopping/Persistence/JsonProjectionTest.php`
+Tests showing each case: `tests/Store/Persistence/JsonProjectionTest.php`
 (`collectionSlice_isPerParent_inTheSameStatement`, `collectionFilter_bindsItsParametersInTheRightPlace`)
 and `PurchaseRepositoryTest` (`collection_limitIsPerParent`, `collection_subCriteriaComposesWithSlice`).
 

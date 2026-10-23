@@ -22,7 +22,7 @@ flowchart LR
 
 What you gain:
 
-- **A single implementation of the screen logic**, testable without a browser: the Shopping
+- **A single implementation of the screen logic**, testable without a browser: the Store
   acceptance tests exercise the presenters with fake views.
 - **A thin, replaceable client**: the client only knows the shape of the states and events.
   Another client (native, another framework) can speak the same protocol.
@@ -39,7 +39,7 @@ session attributes and access to the client storage (`clientSessionStore`,
 
 ### Places: the screen tree
 
-A *place* is a node in a tree of screens, identified by an id that grows with depth. In Shopping:
+A *place* is a node in a tree of screens, identified by an id that grows with depth. In Store:
 
 ```mermaid
 flowchart LR
@@ -81,7 +81,7 @@ the URL), the **attributes** (server-only) and the **slots**, read and written t
 4. **rollback** on an exception: the presenters that already existed go back to their previous
    state and the newly created ones are released.
 
-Shopping's routes (`Routes`) are just chains of places:
+Store's routes (`Routes`) are just chains of places:
 
 ```php
 $app->navigate()->step(Place::ROOT)->step(Place::RESTRICTED)->step(Place::HOME)->step(Place::CART)
@@ -282,7 +282,7 @@ services look up their own dependencies in the constructor; the presenter just d
   respect the authorization rules based on the session user, and the browser only receives what
   the screen draws.
 
-## 5. REST API (`src/Framework/Rest/`, `src/Shopping/Persistence/Rest/`)
+## 5. REST API (`src/Framework/Rest/`, `src/Store/Persistence/Rest/`)
 
 For clients that prefer to access the data directly (native apps, other SPAs), the server exposes
 the repositories over HTTP — `/api/auth`, `/api/repo/<entity>/<operation>` and `/api/tx` — with the
@@ -312,8 +312,8 @@ For more than one core or more users, run several instances behind a load balanc
 | `src/Framework/Persistence/` | PostgreSQL access, JsonQuery, dialects, transactions (local and remote) |
 | `src/Framework/Rest/` | REST API base |
 | `src/Framework/Commons/` | utilities: `Beans`, scheduler, Base62, RSA, JSON, logging |
-| `src/Shopping/Domain/` | Shopping's entities, criteria, orderings and codecs |
-| `src/Shopping/Persistence/` | repositories, schema and seed, authentication, REST API |
-| `src/Shopping/Presentation/` | Shopping's places, routes, keys and presenters |
-| `src/Shopping/RemoteHost/`, `src/Shopping/Server/` | Shopping's remote session and server |
+| `src/Store/Domain/` | Store's entities, criteria, orderings and codecs |
+| `src/Store/Persistence/` | repositories, schema and seed, authentication, REST API |
+| `src/Store/Presentation/` | Store's places, routes, keys and presenters |
+| `src/Store/RemoteHost/`, `src/Store/Server/` | Store's remote session and server |
 | `frontend/` | the React shell and the bridge that implements the protocol on the client |

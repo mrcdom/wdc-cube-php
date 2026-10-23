@@ -3,7 +3,7 @@
 The data layer is part of the architecture, not an afterthought: its central mechanism - a
 projection turned into ONE query that returns the whole graph as JSON - is what keeps
 screens fast and free of N+1. Sources: `src/Framework/Domain/`, `src/Framework/Persistence/`,
-and the Shopping repositories in `src/Shopping/Persistence/Repository/`.
+and the Store repositories in `src/Store/Persistence/Repository/`.
 
 ## Contents
 
@@ -99,7 +99,7 @@ $projection = (new Purchase())
   (`$old = null` ⇒ every projected field).
 - Domain interfaces (`ProductRepository`) add specific operations (`fetchImage`).
 - **Getting one**: `Beans::of(ProductRepository::class)` (`Wdc\Framework\Commons\Beans`,
-  typed by PHPStan). `ShoppingRepositories::register($db)` (stateless, no fields) puts every repository and the
+  typed by PHPStan). `StoreRepositories::register($db)` (stateless, no fields) puts every repository and the
   `TransactionService` there by interface, once at startup; the server registers the optional
   `AuthenticationService` (read with `Beans::find`, which may return `null`). One instance per
   process serves every session: repositories hold no per-call state. A service looks up its own
@@ -209,12 +209,12 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
   `Table` and the queries cannot diverge. PHP does not interpolate constants in strings, so
   `Sql::alias($a)` returns a closure (`$c`) whose call does interpolate: `"{$c(self::ID)} DESC"`.
   Hand-written SQL concatenates: `'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE . " {$pi} WHERE ...)"`.
-  The DDL in `ShoppingSchema` stays plain SQL (repository tests catch divergence).
+  The DDL in `StoreSchema` stays plain SQL (repository tests catch divergence).
 - Columns that are FKs and not fields (`USERID`) are written by `insertBean($bean, [self::USERID
   => ...])` / `updateBean(..., [self::USERID => [getter, ColumnType]])`.
 - SQL identifiers never use quotes (PostgreSQL lowercases unquoted names).
 - Every ORDER BY ends with a unique tie-break (the id): pagination needs a total order.
-- Register the repository with one `Beans::set` line in `ShoppingRepositories::register($db)`.
+- Register the repository with one `Beans::set` line in `StoreRepositories::register($db)`.
 
 ## 6. JsonQuery: what it generates
 
@@ -275,14 +275,14 @@ Beans::of(TransactionService::class)->required(function (TransactionContext $tx)
 
 ## 10. Schema and seed
 
-`ShoppingSchema`: DDL (`create` if the tables do not exist, `drop`), `reset` (delete all and
-seed). Seed ids are public constants (`ShoppingSchema::PEN_DRIVE2GB_ID`), used by the tests
-(`use ShoppingSchema as Seed`). The server creates the database if it does not exist and
+`StoreSchema`: DDL (`create` if the tables do not exist, `drop`), `reset` (delete all and
+seed). Seed ids are public constants (`StoreSchema::PEN_DRIVE2GB_ID`), used by the tests
+(`use StoreSchema as Seed`). The server creates the database if it does not exist and
 the schema on first start.
 
 ## 11. The REST API
 
-Repositories are also exposed over HTTP (`src/Shopping/Persistence/Rest/`):
+Repositories are also exposed over HTTP (`src/Store/Persistence/Rest/`):
 `/api/auth/*` (HMAC challenge, JWT), `/api/repo/<entity>/<operation>`, `/api/tx/*` (remote
 transaction with `X-Tx-Id`). Each entity has a `ModelCodec` (`ProductCodec`...) that reads
 and writes the JSON, including criteria (`{"price": {"or": true, "p": [{"o": "GE", "v": [10]}]}}`)
@@ -302,7 +302,7 @@ criteria, translator and codec criteria field.
 - [ ] Table, sequence and column names only through the owning repository's public constants
       (`self::RATING`, `PurchaseItemRepositoryImpl::PURCHASEID`), never as string literals.
       *Symptom: a typo surfaces as an SQL error only when that query runs, not in PHPStan.*
-- [ ] A new repository is registered in `ShoppingRepositories::register()`. *Symptom:
+- [ ] A new repository is registered in `StoreRepositories::register()`. *Symptom:
       "No implementation registered for ...XxxRepository" on the first screen that uses it.*
 - [ ] Repositories and services keep nothing of a call in a field (they are shared by every
       session). *Symptom: one user's data showing up in another session.*

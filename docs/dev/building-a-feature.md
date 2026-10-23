@@ -82,18 +82,18 @@ example; the dashed arrows are the **bindings**, which must match exactly.
 
 ```mermaid
 flowchart TB
-  subgraph db["Database - src/Shopping/Persistence"]
-    SCH["ShoppingSchema<br/>REVIEW_DDL, create(), DROP, reset() + seed"]
+  subgraph db["Database - src/Store/Persistence"]
+    SCH["StoreSchema<br/>REVIEW_DDL, create(), DROP, reset() + seed"]
   end
-  subgraph dom["Domain - src/Shopping/Domain/Review"]
+  subgraph dom["Domain - src/Store/Domain/Review"]
     ENT["Review (entity)"]
     CRI["ReviewCriteria + ReviewOrderBy"]
     REP["ReviewRepository (interface)"]
     ROLE["Security/Role: review:*"]
   end
-  subgraph per["Persistence - src/Shopping/Persistence"]
+  subgraph per["Persistence - src/Store/Persistence"]
     IMP["Repository/ReviewRepositoryImpl<br/>Table + JsonQuery 'rv'"]
-    AGG["ShoppingRepositories::register()<br/>+1 Beans::set line"]
+    AGG["StoreRepositories::register()<br/>+1 Beans::set line"]
   end
   subgraph pres["Presentation - Presenter/Restricted/Products"]
     SVC["Reviews/ReviewService + ReviewInfo"]
@@ -101,10 +101,10 @@ flowchart TB
     OWN["ProductPresenter (owner)<br/>ProductViewState::$reviewsPanelView"]
   end
   subgraph host["View hosts"]
-    RH["RemoteHost/ShoppingRemoteApplication<br/>installViewFactories"]
-    MK["tests: ShoppingApplicationMock<br/>installViewMocks + ReviewsPanelViewMock"]
+    RH["RemoteHost/StoreRemoteApplication<br/>installViewFactories"]
+    MK["tests: StoreApplicationMock<br/>installViewMocks + ReviewsPanelViewMock"]
   end
-  subgraph view["View - frontend/shopping.shell.react"]
+  subgraph view["View - frontend/store.shell.react"]
     RV["views/product/ReviewsPanel.tsx<br/>+ reviews-sel.ts + reviews.scss"]
     IDX["index.tsx: registerComponents"]
     PV["ProductView.tsx: bridge.createView"]
@@ -151,19 +151,19 @@ sequenceDiagram
 
 | # | Step | Where | Details in |
 |---:|---|---|---|
-| 1 | Table, sequence, index, DROP/reset and seed | `src/Shopping/Persistence/ShoppingSchema.php` | [repository.md](repository.md) |
-| 2 | Entity | `src/Shopping/Domain/Review/Review.php` | [repository.md](repository.md) |
+| 1 | Table, sequence, index, DROP/reset and seed | `src/Store/Persistence/StoreSchema.php` | [repository.md](repository.md) |
+| 2 | Entity | `src/Store/Domain/Review/Review.php` | [repository.md](repository.md) |
 | 3 | Criteria + orderings | `Domain/Review/ReviewCriteria.php`, `ReviewOrderBy.php` | [repository.md](repository.md) |
 | 4 | Repository interface | `Domain/Review/ReviewRepository.php` | [repository.md](repository.md) |
 | 5 | Implementation (`Table` + `JsonQuery`) | `Persistence/Repository/ReviewRepositoryImpl.php` | [repository.md](repository.md), [json-query.md](json-query.md) |
-| 6 | Register in `Beans` (one line) | `Persistence/ShoppingRepositories.php` | [repository.md](repository.md) |
+| 6 | Register in `Beans` (one line) | `Persistence/StoreRepositories.php` | [repository.md](repository.md) |
 | 7 | Role permissions | `Domain/Security/Role.php` | [repository.md](repository.md) |
 | 8 | Application service + screen DTO | `Presenter/Restricted/Products/Reviews/ReviewService.php`, `ReviewInfo.php` | [application-service.md](application-service.md), [transaction-service.md](transaction-service.md) |
 | 9 | ViewState + (child) presenter + expected exception | `Reviews/ReviewsPanelViewState.php`, `ReviewsPanelPresenter.php`, `Exception/InvalidReviewException.php` | [presentation-module.md](presentation-module.md) |
 | 10 | The owner creates, feeds and releases the child | `Products/ProductPresenter.php`, `ProductViewState.php` | [presentation-module.md](presentation-module.md) |
-| 11 | `$createView` in the remote host **and** in the test mock | `RemoteHost/ShoppingRemoteApplication.php`, `tests/.../Mock/` | [presentation-module.md](presentation-module.md) |
-| 12 | React view + selectors + styles + registration + drawing in the owner | `frontend/shopping.shell.react/src/scripts/...` | [react-views.md](react-views.md) |
-| 13 | Repository and presentation tests | `tests/Shopping/Persistence/`, `tests/Shopping/Presentation/` | [repository.md](repository.md), [presentation-module.md](presentation-module.md) |
+| 11 | `$createView` in the remote host **and** in the test mock | `RemoteHost/StoreRemoteApplication.php`, `tests/.../Mock/` | [presentation-module.md](presentation-module.md) |
+| 12 | React view + selectors + styles + registration + drawing in the owner | `frontend/store.shell.react/src/scripts/...` | [react-views.md](react-views.md) |
+| 13 | Repository and presentation tests | `tests/Store/Persistence/`, `tests/Store/Presentation/` | [repository.md](repository.md), [presentation-module.md](presentation-module.md) |
 | 14 | Frontend build, `composer check`, see it in the browser | root | [setup-local.md](setup-local.md) |
 
 > **What if it were a screen with its own address?** Between steps 11 and 12 you would add the
@@ -182,7 +182,7 @@ Keep the layer guide open alongside when you want to understand the reason behin
 
 ### Step 1 - Schema, DROP, reset and seed
 
-The shop schema is PHP code: `ShoppingSchema` creates the tables on first startup and seeds
+The shop schema is PHP code: `StoreSchema` creates the tables on first startup and seeds
 the demo data. The new table goes in a **separate** constant from the main DDL, so it can be
 applied on its own to a database that existed before reviews:
 
@@ -201,7 +201,7 @@ private const string REVIEW_DDL = <<<'SQL'
     SQL;
 ```
 
-Four places change in `ShoppingSchema`, and they all matter:
+Four places change in `StoreSchema`, and they all matter:
 
 - **`create()`**: a new database runs `self::DDL . self::REVIEW_DDL`; an old database (it
   already has `EN_USER`) creates only `EN_REVIEW`, if it doesn't exist. Without this, the server
@@ -232,7 +232,7 @@ Details: [repository.md](repository.md).
 
 ### Step 2 - The entity
 
-`src/Shopping/Domain/Review/Review.php`. A mutable entity, with **private**, nullable fields
+`src/Store/Domain/Review/Review.php`. A mutable entity, with **private**, nullable fields
 (`null` = not loaded, or not projected) and `field()` / `withField()` accessors that return
 `static` for chaining. Relations are objects (`?Product`, `?User`), not loose ids; the FK value
 is derived:
@@ -304,7 +304,7 @@ that. It is this interface, not the implementation, that the upper layers know.
 
 ### Step 5 - The implementation: `Table` + `JsonQuery`
 
-`src/Shopping/Persistence/Repository/ReviewRepositoryImpl.php`, `extends AbstractRepository
+`src/Store/Persistence/Repository/ReviewRepositoryImpl.php`, `extends AbstractRepository
 implements ReviewRepository`. In the constructor: the field ↔ column mapping (`Table`) and the
 projection query (`JsonQuery`, alias `rv`), with the two N:1 relations. The table, sequence and
 column names are public class constants, used everywhere instead of loose text (the reason is in
@@ -376,18 +376,18 @@ With this, "the product's reviews with the author's name" is **a single SELECT**
 
 ### Step 6 - Register in `Beans`
 
-`ShoppingRepositories::register(Database $db)` creates every repository over the same
+`StoreRepositories::register(Database $db)` creates every repository over the same
 `Database` and registers them by interface. The reviews one is one more line; it finds
 `products` and `users` on its own, through the `productRepository()`/`userRepository()` methods
 from step 5:
 
 ```php
-// in ShoppingRepositories::register(): from here on, anything can find the repository by its interface
+// in StoreRepositories::register(): from here on, anything can find the repository by its interface
 Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db));
 ```
 
-`ShoppingRepositories` has no field per repository. `register()` runs once, at server startup
-(inside `ShoppingRepositories::open(...)`), and in the tests' `TestDatabase::open()`.
+`StoreRepositories` has no field per repository. `register()` runs once, at server startup
+(inside `StoreRepositories::open(...)`), and in the tests' `TestDatabase::open()`.
 After that, whoever needs the repository asks for it by **interface**:
 `Beans::of(ReviewRepository::class)`. PHPStan knows the return is a `ReviewRepository`. There
 is no getter on the session and no new argument in any constructor.
@@ -395,7 +395,7 @@ is no getter on the session and no new argument in any constructor.
 ### Step 7 - Role permissions
 
 Permissions are `entity:operation` strings, per role, in the `Role` enum
-(`src/Shopping/Domain/Security/Role.php`):
+(`src/Store/Domain/Security/Role.php`):
 
 ```php
 self::ADMIN => ['user:*', 'product:*', 'purchase:*', 'purchase-item:*', 'review:*', PermissionModel::DATA_ALL],
@@ -403,7 +403,7 @@ self::CUSTOMER => ['product:read', 'purchase:read', 'purchase:write', 'purchase-
 ```
 
 They are checked by `SecurityEnforcer::require($entity, $operation)` in the REST API
-controllers (`src/Shopping/Persistence/Rest/`). The example doesn't expose reviews over REST;
+controllers (`src/Store/Persistence/Rest/`). The example doesn't expose reviews over REST;
 the permissions are declared for when there is a controller. Details:
 [repository.md](repository.md).
 
@@ -503,7 +503,7 @@ final class ReviewsPanelViewState implements ViewState
 ```
 
 **The expected failure** is a dedicated exception, `InvalidReviewException extends
-RuntimeException` (in `src/Shopping/Presentation/Exception/`). It becomes a code + message in the
+RuntimeException` (in `src/Store/Presentation/Exception/`). It becomes a code + message in the
 panel state, not the unexpected-error alert.
 
 **The presenter** is an `AbstractChildPresenter`: it has no place or parameters, the owner
@@ -511,7 +511,7 @@ creates and releases it, and the product to show arrives through `showProduct()`
 that matter:
 
 ```php
-/** @extends AbstractChildPresenter<ShoppingApplication> */
+/** @extends AbstractChildPresenter<StoreApplication> */
 final class ReviewsPanelPresenter extends AbstractChildPresenter
 {
     private const int EVENT_SUBMIT_REVIEW = 1;
@@ -524,7 +524,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     private readonly ReviewService $service;
     private ?int $productId = null;   // CONTROL state: the loaded product
 
-    public function __construct(ShoppingApplication $app, public readonly ProductPresenter $owner)
+    public function __construct(StoreApplication $app, public readonly ProductPresenter $owner)
     {
         parent::__construct($app);
         $this->state = new ReviewsPanelViewState();
@@ -647,20 +647,20 @@ The presenter doesn't know how to draw: the host provides the view. There are **
 and missing either one throws "`$createView` not configured":
 
 ```php
-// src/Shopping/RemoteHost/ShoppingRemoteApplication.php, in installViewFactories()
+// src/Store/RemoteHost/StoreRemoteApplication.php, in installViewFactories()
 ReviewsPanelPresenter::$createView = static fn (ReviewsPanelPresenter $p) => new RemoteView(self::of($p->app), $p, $p->state, $p->skeleton());
 
-// tests/Shopping/Presentation/Mock/ShoppingApplicationMock.php, in installViewMocks()
+// tests/Store/Presentation/Mock/StoreApplicationMock.php, in installViewMocks()
 ReviewsPanelPresenter::$createView = static fn (ReviewsPanelPresenter $p) => new ReviewsPanelViewMock($p);
 ```
 
-The fake view, `tests/Shopping/Presentation/Mock/ReviewsPanelViewMock.php`, extends
+The fake view, `tests/Store/Presentation/Mock/ReviewsPanelViewMock.php`, extends
 `AbstractViewMock` and only exposes `$presenter` and `$state` (the same object as the
 presenter's), so tests can call the methods and check the state.
 
 ### Step 12 - The React view
 
-Three new files in `frontend/shopping.shell.react/src/scripts/views/product/`:
+Three new files in `frontend/store.shell.react/src/scripts/views/product/`:
 
 - **`ReviewsPanel.tsx`**: the view class, `extends BaseViewClass<ViewProps,
   ReviewsPanelState>`;
@@ -718,13 +718,13 @@ Details (classes, local state, events, styles): [react-views.md](react-views.md)
 
 Two files, each on its own layer, both against the test database:
 
-**`tests/Shopping/Persistence/ReviewRepositoryTest.php`** (`extends RepositoryTestCase`):
+**`tests/Store/Persistence/ReviewRepositoryTest.php`** (`extends RepositoryTestCase`):
 lists by product with the author's name **in a single SQL statement** (counted with
 `$this->db->onQuery(...)`), the three orderings, the default projection (only the FK ids),
 `insert` generating the id from the sequence and writing the FKs, `count` by product and by
 rating (`rating()->ge(5)`), and `update` changing only what changed.
 
-**`tests/Shopping/Presentation/ProductReviewsTest.php`** (`extends PresentationTestCase`):
+**`tests/Store/Presentation/ProductReviewsTest.php`** (`extends PresentationTestCase`):
 no browser; it calls what the events would call and checks the state of the fake views:
 
 ```php
@@ -756,7 +756,7 @@ the database; leaving the product releases the panel (`$panel->released`).
 ### Step 14 - Build, check and browser
 
 ```bash
-bin/build-frontend.sh     # BEFORE composer check: ShoppingServerTest uses the built shell
+bin/build-frontend.sh     # BEFORE composer check: StoreServerTest uses the built shell
 composer check            # PHPStan level 8 + PHPUnit
 php bin/server.php
 ```
@@ -778,12 +778,12 @@ complain, and still **nothing works at runtime**. Check them one by one:
 | **`classId`** | `new Skeleton('8cc32236e32a', ...)` in PHP **=** `BaseViewClass.FC(ReviewsPanelClass, "8cc32236e32a")` in React | the panel area stays blank, with no error on the server |
 | **Event codes** | `EVENT_SUBMIT_REVIEW = 1` in the `match` **=** `ON_SUBMIT_REVIEW = 1` in `bridge.submit` | `eventCode(N) not handled` in the log and an unexpected-error alert on click |
 | **`p.*` arguments** | `bridge.setFormField(vsid, "p.rating", ...)` **=** `$form['p.rating']` in the skeleton | the argument arrives `null`; validation rejects it and it looks like a "rule bug" |
-| **`$createView`** | `ShoppingRemoteApplication::installViewFactories` **and** `ShoppingApplicationMock::installViewMocks` | `LogicException` "`$createView` not configured" (in the browser or only in the tests) |
+| **`$createView`** | `StoreRemoteApplication::installViewFactories` **and** `StoreApplicationMock::installViewMocks` | `LogicException` "`$createView` not configured" (in the browser or only in the tests) |
 | **View registration** | `import` **and** argument to `bridge.registerComponents` in `index.tsx` | the same blank screen as a wrong `classId` |
 | **Child view in the owner** | `ProductViewState::$reviewsPanelView` (PHP) → `reviewsPanelViewId` (JSON) → `bridge.createView(state.reviewsPanelViewId)` (React) | the panel exists on the server but never appears |
 | **ViewState fields** | **public** properties in PHP **=** TypeScript type fields, optional when they can be omitted | a field that is always empty in React, or `{}` instead of an object |
 | **Complete schema** | `REVIEW_DDL` **+** `create()` for an old database **+** `DROP` **+** `reset()` **+** `restartSequence` | the server breaks on an old database, or `insert` collides with a seed id |
-| **Registered repository** | `Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db))` in `ShoppingRepositories::register()` | `LogicException` "No implementation registered for ...ReviewRepository" on the first screen that uses it |
+| **Registered repository** | `Beans::set(ReviewRepository::class, new ReviewRepositoryImpl($db))` in `StoreRepositories::register()` | `LogicException` "No implementation registered for ...ReviewRepository" on the first screen that uses it |
 | **Frontend rebuild** | `bin/build-frontend.sh` (or `npm run watch`) after changing React | the server serves the old shell from `work/frontend/` |
 
 ---
@@ -798,12 +798,12 @@ you don't know they exist.
    would make those `DELETE`s fail on the FK. That's why the seed uses the coffee maker, `admin`
    and `john`. Before seeding, look in the tests for who deletes what.
 2. **The shared test database keeps the new table when you switch branches.** Tests start with
-   `ShoppingSchema::drop()` (`tests/Support/TestDatabase.php`). On a branch without reviews,
+   `StoreSchema::drop()` (`tests/Support/TestDatabase.php`). On a branch without reviews,
    the old `DROP` doesn't know about `EN_REVIEW`, and dropping `EN_PRODUCT`/`EN_USER` fails
    because `EN_REVIEW` still points to them. Fix: drop `EN_REVIEW` and `SQ_REVIEW` by hand in
    the **test** database (`DROP TABLE EN_REVIEW; DROP SEQUENCE SQ_REVIEW;`).
-3. **`ShoppingServerTest` needs the built frontend.** Without `work/frontend/
-   shopping.shell.react/index.html`, it is skipped; with a stale build, it tests the stale
+3. **`StoreServerTest` needs the built frontend.** Without `work/frontend/
+   store.shell.react/index.html`, it is skipped; with a stale build, it tests the stale
    shell. Run `bin/build-frontend.sh` before `composer check`.
 4. **The frontend build doesn't check types.** Parcel transpiles TypeScript with SWC, which
    strips the types without checking them: a misnamed field in the state type compiles and only
@@ -814,7 +814,7 @@ you don't know they exist.
    `Y-m-d H:i:s` format, in UTC. Two reviews submitted in the same second have the same
    `CREATEDAT`; the id tie-breaker, at the end of every ordering, is what keeps the list stable.
 6. **Repository written but not registered.** Without the line
-   `Beans::set(ReviewRepository::class, ...)` in `ShoppingRepositories::register()`, the first
+   `Beans::set(ReviewRepository::class, ...)` in `StoreRepositories::register()`, the first
    call to `Beans::of(ReviewRepository::class)` (or to the `repositoryOf` of whoever uses it)
    throws "No implementation registered". The tests catch this right away: both the repository
    and the presentation tests find the repository through `Beans`.
@@ -854,7 +854,7 @@ Persistence and application:
 - [ ] `JsonQuery` with its own alias, conditions, ordering (ending with the id) and relations in closures
 - [ ] FKs as extra columns in `insert` and `update`
 - [ ] `newProjection()` with only the relation ids
-- [ ] Registered in `Beans` (one line in `ShoppingRepositories::register()`)
+- [ ] Registered in `Beans` (one line in `StoreRepositories::register()`)
 - [ ] Permissions in `Role`
 
 Presentation:
@@ -870,7 +870,7 @@ Presentation:
 - [ ] `$this->update()` after every state change
 - [ ] Child created in the owner's `if ($initialization)`, fed on every trip, released in the owner's `release()`
 - [ ] (screen with an address) `Place`, `Routes` and keys with a unique prefix
-- [ ] `$createView` in `ShoppingRemoteApplication` **and** in `ShoppingApplicationMock` + mock view
+- [ ] `$createView` in `StoreRemoteApplication` **and** in `StoreApplicationMock` + mock view
 
 View:
 

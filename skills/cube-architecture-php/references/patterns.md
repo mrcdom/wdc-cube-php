@@ -1,6 +1,6 @@
 # Templates and patterns
 
-Taken from the Shopping application (`src/Shopping/Presentation`). Adapt the names; keep
+Taken from the Store application (`src/Store/Presentation`). Adapt the names; keep
 the shape.
 
 ## Contents
@@ -51,7 +51,7 @@ enum Place: int implements CubePlace
         };
     }
 
-    public function go(ShoppingApplication $app, CubeIntent $intent): bool
+    public function go(StoreApplication $app, CubeIntent $intent): bool
     {
         return match ($this) {
             // ...
@@ -63,7 +63,7 @@ enum Place: int implements CubePlace
 
 ```php
 // Routes.php - the chain of places IS the face
-public static function orders(ShoppingApplication $app, ?CubeIntent $intent = null): bool
+public static function orders(StoreApplication $app, ?CubeIntent $intent = null): bool
 {
     return $app->navigate()->step(Place::ROOT)->step(Place::RESTRICTED)->step(Place::HOME)->step(Place::ORDERS)
         ->execute($intent ?? $app->newIntent());
@@ -223,7 +223,7 @@ final class ProductService
 
 ```php
 // ProductPresenter.php
-/** @extends AbstractCubePresenter<ShoppingApplication> */
+/** @extends AbstractCubePresenter<StoreApplication> */
 final class ProductPresenter extends AbstractCubePresenter
 {
     private const int EVENT_OPEN_PRODUCTS = 1;
@@ -236,7 +236,7 @@ final class ProductPresenter extends AbstractCubePresenter
     private readonly ProductService $productService;
     private ?CubeViewSlot $ownerSlot = null;
 
-    public function __construct(ShoppingApplication $app)
+    public function __construct(StoreApplication $app)
     {
         parent::__construct($app);
         $this->state = new ProductViewState();
@@ -308,10 +308,10 @@ final class ProductPresenter extends AbstractCubePresenter
 Wiring the view factory - in BOTH places:
 
 ```php
-// RemoteHost/ShoppingRemoteApplication::installViewFactories()
+// RemoteHost/StoreRemoteApplication::installViewFactories()
 ProductPresenter::$createView = static fn (ProductPresenter $p) => new RemoteView(self::of($p->app), $p, $p->state, $p->skeleton());
 
-// tests/.../Mock/ShoppingApplicationMock::installViewMocks()
+// tests/.../Mock/StoreApplicationMock::installViewMocks()
 ProductPresenter::$createView = static fn (ProductPresenter $p) => new ProductViewMock($p);
 ```
 
@@ -332,7 +332,7 @@ final class ProductViewMock extends AbstractViewMock
 ## 3. The React view and its registration
 
 ```tsx
-// frontend/shopping.shell.react/src/scripts/views/product/ProductView.tsx
+// frontend/store.shell.react/src/scripts/views/product/ProductView.tsx
 const ON_OPEN_PRODUCTS = 1          // the SAME codes as the skeleton
 const ON_ADD_TO_CART = 2
 
@@ -358,7 +358,7 @@ export default BaseViewClass.FC(ProductViewClass, "48b693f67410")   // the SAME 
 ```
 
 ```tsx
-// frontend/shopping.shell.react/src/scripts/index.tsx
+// frontend/store.shell.react/src/scripts/index.tsx
 bridge.registerComponents(/* ... */, ProductView /* , ... */)
 ```
 
@@ -374,7 +374,7 @@ way belong in the presenter (or the info struct).
 /** Guard of the restricted area (no view). Without a logged user, back to the public area. */
 final class RestrictedPresenter implements CubePresenter
 {
-    public function __construct(public readonly ShoppingApplication $app)
+    public function __construct(public readonly StoreApplication $app)
     {
     }
 
@@ -408,7 +408,7 @@ final class HomePresenter extends AbstractCubePresenter
     private readonly CubeViewSlot $contentSlot;
     private ?CubeViewSlot $ownerSlot = null;
 
-    public function __construct(ShoppingApplication $app)
+    public function __construct(StoreApplication $app)
     {
         parent::__construct($app);
         $this->state = new HomeViewState();
@@ -453,7 +453,7 @@ final class HomePresenter extends AbstractCubePresenter
 ## 6. CHILD segment presenter
 
 ```php
-/** @extends AbstractChildPresenter<ShoppingApplication> */
+/** @extends AbstractChildPresenter<StoreApplication> */
 final class ProductsPanelPresenter extends AbstractChildPresenter
 {
     /** @var (Closure(self): CubeView)|null */
@@ -461,7 +461,7 @@ final class ProductsPanelPresenter extends AbstractChildPresenter
 
     public readonly ProductsPanelViewState $state;
 
-    public function __construct(ShoppingApplication $app, public readonly HomePresenter $owner)
+    public function __construct(StoreApplication $app, public readonly HomePresenter $owner)
     {
         parent::__construct($app);
         $this->state = new ProductsPanelViewState();
