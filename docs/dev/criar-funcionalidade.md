@@ -405,8 +405,8 @@ permissões ficam declaradas para quando houver um controller. Detalhes:
 ### Passo 8 - Serviço de aplicação e DTO de tela
 
 A lógica de negócio não mora no presenter. `ReviewService` fica junto ao presenter que o usa
-(`Presenter/Restricted/Products/Reviews/`), recebe a **interface** do repositório e não guarda
-estado de tela:
+(`Presenter/Restricted/Products/Reviews/`), acha o repositório no `Beans` pela **interface** e
+não guarda estado de tela:
 
 ```php
 final class ReviewService
@@ -415,8 +415,11 @@ final class ReviewService
     public const int MAX_RATING = 5;
     public const int MAX_COMMENT_LENGTH = 500;
 
-    public function __construct(private readonly ReviewRepository $reviews)
+    private readonly ReviewRepository $reviews;
+
+    public function __construct()
     {
+        $this->reviews = Beans::of(ReviewRepository::class);
     }
 
     /** @return list<ReviewInfo> mais recentes primeiro */
@@ -519,7 +522,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     {
         parent::__construct($app);
         $this->state = new ReviewsPanelViewState();
-        $this->service = new ReviewService(Beans::of(ReviewRepository::class));
+        $this->service = new ReviewService();
     }
 
     /** Passar pelo caminho não é recarregar: só consulta quando o produto mudou. */
@@ -849,7 +852,7 @@ Persistência e aplicação:
 
 Apresentação:
 
-- [ ] Serviço recebe a interface do repositório, valida fora da escrita e projeta só o que a tela mostra
+- [ ] Serviço acha o repositório no construtor (`Beans::of(XxxRepository::class)`), valida fora da escrita e projeta só o que a tela mostra
 - [ ] Várias escritas numa transação (`Beans::of(TransactionService::class)->required(...)`)
 - [ ] DTO de tela com campos públicos
 - [ ] ViewState com propriedades públicas e valores padrão

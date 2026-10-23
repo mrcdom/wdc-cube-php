@@ -102,8 +102,10 @@ $projection = (new Purchase())
   typed by PHPStan). `ShoppingRepositories::register()` puts every repository and the
   `TransactionService` there by interface, once at startup; the server registers the optional
   `AuthenticationService` (read with `Beans::find`, which may return `null`). One instance per
-  process serves every session: repositories hold no per-call state. Only whoever CREATES a
-  service calls `Beans::of`; the service takes the interfaces in its constructor. A new
+  process serves every session: repositories hold no per-call state. A service looks up its own
+  dependencies in its constructor (`$this->products = Beans::of(ProductRepository::class)`,
+  `readonly` fields); whoever creates it just does `new ProductService()`. Tests swap an
+  implementation with `Beans::set` before creating the service. A new
   repository = create it in `ShoppingRepositories` + one `Beans::set` line in `register()`;
   there is no getter in the session and no constructor argument anywhere else.
 

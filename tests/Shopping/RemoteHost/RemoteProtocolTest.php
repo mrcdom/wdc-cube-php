@@ -63,6 +63,11 @@ final class RemoteProtocolTest extends TestCase
         $this->dispatcher = new RemoteDispatcher($this->host->registry, self::$security);
     }
 
+    protected function tearDown(): void
+    {
+        Beans::clear();
+    }
+
     /** @param array<string, array<string, string>>|null $storage */
     private function newBrowser(?array $storage = null): FakeBrowser
     {

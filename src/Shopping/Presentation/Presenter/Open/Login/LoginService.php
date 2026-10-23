@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Open\Login;
 
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Framework\Domain\Security\PasswordUtil;
@@ -12,10 +13,15 @@ use Wdc\Shopping\Domain\User\UserRepository;
 
 final class LoginService
 {
-    public function __construct(
-        private readonly UserRepository $users,
-        private readonly ?AuthenticationService $auth = null,
-    ) {
+    private readonly UserRepository $users;
+
+    /** null ⇒ sem autenticação configurada: confere a senha direto no repositório */
+    private readonly ?AuthenticationService $auth;
+
+    public function __construct()
+    {
+        $this->users = Beans::of(UserRepository::class);
+        $this->auth = Beans::find(AuthenticationService::class);
     }
 
     /** null = credenciais inválidas. */

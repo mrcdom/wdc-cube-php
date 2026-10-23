@@ -135,7 +135,7 @@ final class OrderPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new OrderViewState();
-        $this->service = new OrderService(Beans::of(OrderRepository::class));
+        $this->service = new OrderService()   // the service looks up its repositories in Beans;
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool

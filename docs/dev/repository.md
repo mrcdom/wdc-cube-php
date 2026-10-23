@@ -598,7 +598,7 @@ O servidor chama `ShoppingRepositories::open(...)->register()` uma vez, na subid
 diante, presenters e serviços acham o repositório pela interface:
 
 ```php
-$this->service = new ReviewService(Beans::of(ReviewRepository::class));
+$this->reviews = Beans::of(ReviewRepository::class);   // no construtor do ReviewService
 ```
 
 `Beans::of` é tipado: o PHPStan sabe que o retorno é um `ReviewRepository`. Sem registro, a
@@ -617,15 +617,18 @@ isso as Fibers das várias sessões podem usá-lo ao mesmo tempo.
 
 ## Usando o repositório num serviço de aplicação
 
-Presenters não montam critérios: delegam a um serviço de aplicação, que recebe a **interface**
-(detalhes em [application-service.md](application-service.md)). No exemplo, o painel de avaliações
-cria `new ReviewService(Beans::of(ReviewRepository::class))`:
+Presenters não montam critérios: delegam a um serviço de aplicação, que acha o repositório pela
+**interface** (detalhes em [application-service.md](application-service.md)). No exemplo, o painel
+de avaliações cria `new ReviewService()`:
 
 ```php
 final class ReviewService
 {
-    public function __construct(private readonly ReviewRepository $reviews)
+    private readonly ReviewRepository $reviews;
+
+    public function __construct()
     {
+        $this->reviews = Beans::of(ReviewRepository::class);
     }
 
     /** @return list<ReviewInfo> mais recentes primeiro */

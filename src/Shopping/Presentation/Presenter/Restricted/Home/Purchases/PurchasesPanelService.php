@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Home\Purchases;
 
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Pagination\Page;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseCriteria;
 use Wdc\Shopping\Domain\Purchase\PurchaseOrderBy;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\PurchaseInfo;
 
 final class PurchasesPanelService
@@ -19,8 +20,11 @@ final class PurchasesPanelService
     /** Data usada quando a compra não tem data (sentinela fixa). */
     private const int NO_DATE_MILLIS = 115754400000;
 
-    public function __construct(private readonly PurchaseRepository $purchases)
+    private readonly PurchaseRepository $purchases;
+
+    public function __construct()
     {
+        $this->purchases = Beans::of(PurchaseRepository::class);
     }
 
     /** @return list<PurchaseInfo> */

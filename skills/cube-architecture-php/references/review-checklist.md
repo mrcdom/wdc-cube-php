@@ -81,8 +81,8 @@ rest is a suggestion.
 - [ ] Table, sequence and column names as public constants of the owning repository
       (`self::TABLE`, `self::ID`, `Sql::alias($a)` for aliased columns); no column name as a
       string literal. *Symptom: a typo caught only when the query runs, not by PHPStan.*
-- [ ] Repositories and services obtained with `Beans::of(XxxInterface::class)` by whoever creates
-      the service; the service takes interfaces in its constructor. A new repository has its
+- [ ] A service looks up its repositories / `TransactionService` with
+      `Beans::of(XxxInterface::class)` in its constructor; the presenter does `new XxxService()`. A new repository has its
       `Beans::set` in `ShoppingRepositories::register()`. *Symptom: "Nenhuma implementação
       registrada" at runtime.*
 - [ ] Multi-write operations in `Beans::of(TransactionService::class)->required(...)`.

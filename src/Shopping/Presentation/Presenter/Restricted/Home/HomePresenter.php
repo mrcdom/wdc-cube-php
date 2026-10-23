@@ -16,8 +16,6 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Security\AuthenticationService;
-use Wdc\Framework\Domain\Transaction\TransactionService;
-use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
 use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\LoginKeys;
@@ -100,7 +98,7 @@ final class HomePresenter extends AbstractCubePresenter
             $this->purchasesPanel = new PurchasesPanelPresenter($this->app, $this);
             $this->state->purchasesPanelView = $this->purchasesPanel->initialize();
 
-            $this->cart = new CartManager(Beans::of(TransactionService::class), Beans::of(PurchaseRepository::class));
+            $this->cart = new CartManager();
             $this->cartListeners = [
                 $this->cart->addCommitListener($this->onCartCommitted(...)),
                 $this->cart->addChangeListener($this->onCartChanged(...)),

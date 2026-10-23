@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Products;
 
+use Wdc\Framework\Commons\Beans;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
@@ -11,8 +12,11 @@ use Wdc\Shopping\Presentation\Exception\WrongParametersException;
 
 final class ProductService
 {
-    public function __construct(private readonly ProductRepository $products)
+    private readonly ProductRepository $products;
+
+    public function __construct()
     {
+        $this->products = Beans::of(ProductRepository::class);
     }
 
     public function loadProductById(?int $productId): ProductInfo

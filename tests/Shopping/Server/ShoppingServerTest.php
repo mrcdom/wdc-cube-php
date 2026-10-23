@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Tests\Shopping\Server;
 
+use Wdc\Framework\Commons\Beans;
 use Amp\Http\Client\HttpClient;
 use Amp\Http\Client\HttpClientBuilder;
 use Amp\Http\Client\Request;
@@ -67,6 +68,7 @@ final class ShoppingServerTest extends TestCase
             $this->server->stop();
             exec('rm -rf ' . escapeshellarg($this->dir));
         }
+        Beans::clear();
     }
 
     /** @return array{string, string} app_id e app_skey, como o browser os recebe */

@@ -745,8 +745,9 @@ frontend/shopping.shell.react/src/scripts/views/product/
 ```
 
 A entidade `Review`, o critério e o repositório são o assunto de [repository.md](repository.md);
-o `ReviewService`, de [application-service.md](application-service.md). O presenter acha o
-repositório no `Beans`, pela interface: `Beans::of(ReviewRepository::class)`.
+o `ReviewService`, de [application-service.md](application-service.md). O serviço acha o
+repositório no `Beans`, pela interface (`Beans::of(ReviewRepository::class)`); o presenter só
+faz `new ReviewService()`.
 
 ### 9.2 O estado e a struct de apresentação
 
@@ -807,7 +808,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     {
         parent::__construct($app);
         $this->state = new ReviewsPanelViewState();
-        $this->service = new ReviewService(Beans::of(ReviewRepository::class));
+        $this->service = new ReviewService();
     }
 
     /** Chamado pelo dono em todo applyParameters. Passar pelo caminho não é recarregar. */

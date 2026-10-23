@@ -202,8 +202,11 @@ final class ProductInfo
 // ProductService.php - the screen talks to the repository through here
 final class ProductService
 {
-    public function __construct(private readonly ProductRepository $products)
+    private readonly ProductRepository $products;
+
+    public function __construct()
     {
+        $this->products = Beans::of(ProductRepository::class);   // looked up by interface
     }
 
     public function loadProductById(?int $productId): ProductInfo
@@ -237,7 +240,7 @@ final class ProductPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new ProductViewState();
-        $this->productService = new ProductService(Beans::of(ProductRepository::class));
+        $this->productService = new ProductService();
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool

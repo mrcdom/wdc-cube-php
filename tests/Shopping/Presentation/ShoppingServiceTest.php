@@ -7,6 +7,7 @@ namespace Wdc\Tests\Shopping\Presentation;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Product\Product;
 use Wdc\Shopping\Domain\Product\ProductCriteria;
@@ -27,6 +28,19 @@ use Wdc\Tests\Shopping\Persistence\RepositoryTestCase;
 /** Serviço de compras testado diretamente, sem presenters. */
 final class ShoppingServiceTest extends RepositoryTestCase
 {
+    /** Os serviços acham os repositórios no Beans; sem autenticação registrada, o login confere a senha direto. */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Beans::clear();
+        $this->repos->register();
+    }
+
+    protected function tearDown(): void
+    {
+        Beans::clear();
+    }
+
     #[Test]
     public function purchaseStatement_ordersByPurchaseDate_notByInsertionOrder(): void
     {
@@ -37,7 +51,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
             ->withItems([new PurchaseItem()->withProduct(new Product()->withId(Seed::PEN_DRIVE2GB_ID))->withPrice(55.0)->withAmount(1)]);
         $this->repos->purchases->insert($late);
 
-        $statement = new PurchasesPanelService($this->repos->purchases)->loadPurchasesOfUser(Seed::ADMIN_ID);
+        $statement = new PurchasesPanelService()->loadPurchasesOfUser(Seed::ADMIN_ID);
         $ids = array_map(static fn ($p) => $p->id, $statement);
         self::assertCount(3, $ids);
 
@@ -64,19 +78,19 @@ final class ShoppingServiceTest extends RepositoryTestCase
     #[Test]
     public function login_wrongPassword_isRejected(): void
     {
-        self::assertNull(new LoginService($this->repos->users)->fetchSubject('admin', 'senha-errada'));
+        self::assertNull(new LoginService()->fetchSubject('admin', 'senha-errada'));
     }
 
     #[Test]
     public function login_unknownUser_isRejected(): void
     {
-        self::assertNull(new LoginService($this->repos->users)->fetchSubject('ninguem', 'admin'));
+        self::assertNull(new LoginService()->fetchSubject('ninguem', 'admin'));
     }
 
     #[Test]
     public function fullServiceFlow(): void
     {
-        $result = new LoginService($this->repos->users)->fetchSubject('admin', 'admin');
+        $result = new LoginService()->fetchSubject('admin', 'admin');
         self::assertNotNull($result);
         self::assertSame(Seed::ADMIN_ID, $result->subject->id);
         self::assertSame('João da Silva', $result->subject->nickName);
@@ -87,7 +101,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
             $this->repos->products->fetch(new ProductCriteria()),
         )));
         self::assertSame([0, 1, 2, 3], array_map(static fn (ProductInfo $p) => $p->id, $products));
-        $service = new ProductService($this->repos->products);
+        $service = new ProductService();
         foreach ($products as $product) {
             self::assertNotSame('', trim($product->name));
             self::assertStringEndsWith('.png', $product->image);
@@ -96,7 +110,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
             self::assertEquals($product, $service->loadProductById($product->id), 'mesmo produto pelos dois caminhos');
         }
 
-        $purchasesService = new PurchasesPanelService($this->repos->purchases);
+        $purchasesService = new PurchasesPanelService();
         $purchases = $purchasesService->loadPurchases(new PurchaseCriteria()->withOrderBy(PurchaseOrderBy::OLDEST_FIRST));
         self::assertSame([Seed::ADMIN_FIRST_PURCHASE_ID, Seed::ADMIN_SECOND_PURCHASE_ID], array_map(static fn ($p) => $p->id, $purchases));
         self::assertCount(1, $purchases[0]->items);
@@ -118,7 +132,7 @@ final class ShoppingServiceTest extends RepositoryTestCase
         self::assertCount(2, $statement[0]->items);
         self::assertSame(65.0, $statement[0]->total);
 
-        $receipt = new ReceiptService($this->repos->purchases)->loadReceipt($purchase->id());
+        $receipt = new ReceiptService()->loadReceipt($purchase->id());
         self::assertNotNull($receipt);
         self::assertSame(65.0, $receipt->total);
         self::assertSame(

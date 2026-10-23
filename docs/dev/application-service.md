@@ -127,25 +127,35 @@ Convenção de nomes:
 
 ## 5. Como estruturar a classe
 
-**Construtor: só dependências.** O serviço recebe as **interfaces** dos repositórios
-(`ProductRepository`, `PurchaseRepository`...) e, se precisar, o `TransactionService`. Quem cria
-o serviço os acha no `Beans`, pela interface:
+**Construtor: o serviço acha as próprias dependências.** No construtor, ele busca no `Beans`, pela
+**interface**, os repositórios (`ProductRepository`, `PurchaseRepository`...) e, se precisar, o
+`TransactionService`, e os guarda em campos `readonly`. Quem cria o serviço não sabe do que ele
+depende:
 
 ```php
 // ProductPresenter::__construct
-$this->productService = new ProductService(Beans::of(ProductRepository::class));
+$this->productService = new ProductService();
 
 // HomePresenter (o carrinho da sessão)
-$this->cart = new CartManager(Beans::of(TransactionService::class), Beans::of(PurchaseRepository::class));
+$this->cart = new CartManager();
+
+// ProductService: o construtor busca o que usa
+private readonly ProductRepository $products;
+
+public function __construct()
+{
+    $this->products = Beans::of(ProductRepository::class);
+}
 ```
 
-Só quem **cria** o serviço chama `Beans::of`; o serviço recebe as interfaces no construtor. Assim
-a dependência fica visível na assinatura, e o teste pode passar outra implementação sem mexer no
-registro.
+Buscar no construtor, e não a cada chamada, faz um registro esquecido aparecer logo, ao criar o
+serviço. O registro não muda depois da subida, então o campo guardado continua valendo. Para
+trocar uma implementação num teste, registre a outra com `Beans::set(...)` antes de criar o
+serviço (o `ShoppingServiceTest` registra os repositórios no `setUp`).
 
-> **Dica de PHP:** `private readonly` no parâmetro do construtor é a *promoção de propriedade*:
-> declara o campo, atribui e o torna imutável numa linha só. `final class` impede herança — os
-> serviços não são pontos de extensão.
+> **Dica de PHP:** um campo `readonly` só pode ser atribuído uma vez, de dentro da própria
+> classe - aqui, no construtor. Depois disso, tentar mudá-lo é erro. `final class` impede
+> herança: os serviços não são pontos de extensão.
 
 **Retorno: structs de apresentação, montadas com a projeção da tela.** A struct sabe duas coisas:
 quais campos a tela precisa (`projection()`) e como converter a entidade (`create()`). O serviço
@@ -519,8 +529,8 @@ presenter.
 | Pergunta | Resposta |
 |---|---|
 | Onde fica o serviço? | Na pasta do presenter que o usa: `Presenter/<Área>/<Tela>/XxxService.php`. |
-| Quem cria? | O presenter, no construtor: `new XxxService(Beans::of(XxxRepository::class))`. O `CartManager` é criado uma vez por sessão. |
-| O que recebe no construtor? | As interfaces dos repositórios e, se escrever em mais de um lugar, o `TransactionService`. |
+| Quem cria? | O presenter, no construtor: `new XxxService()`. O `CartManager` é criado uma vez por sessão. |
+| De onde vêm as dependências? | Do `Beans`, no construtor do serviço: `Beans::of(XxxRepository::class)` e, se escrever em mais de um lugar, `Beans::of(TransactionService::class)`. |
 | O que devolve? | Structs de apresentação com campos públicos (`ProductInfo`, `ReviewInfo`), `list<...>`, `Page<...>`, um id, ou nada. |
 | Como escolhe os campos? | `XxxInfo::projection()` no critério (`withProjection`) ou no `fetchById($id, $projection)`. |
 | Filtros e ordem? | No critério (`withProductId`, `withUserId`, `withOrderBy`), nunca em PHP depois da busca. |

@@ -7,14 +7,15 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Cart;
 use Closure;
 use DateTimeImmutable;
 use LogicException;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Concurrent\CallbackRegistration;
 use Wdc\Framework\Commons\Concurrent\Registration;
 use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Shopping\Domain\Exception\InvalidCartItemException;
 use Wdc\Shopping\Domain\Product\Product;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItem;
 use Wdc\Shopping\Domain\User\User;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\Subject;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductInfo;
@@ -33,10 +34,14 @@ final class CartManager
     /** @var array<int, Closure(): mixed> */
     private array $changeListeners = [];
 
-    public function __construct(
-        private readonly TransactionService $tx,
-        private readonly PurchaseRepository $purchases,
-    ) {
+    private readonly TransactionService $tx;
+
+    private readonly PurchaseRepository $purchases;
+
+    public function __construct()
+    {
+        $this->tx = Beans::of(TransactionService::class);
+        $this->purchases = Beans::of(PurchaseRepository::class);
     }
 
     /**

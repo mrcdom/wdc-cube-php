@@ -254,7 +254,7 @@ servidor, e registrados pela interface em `Wdc\Framework\Commons\Beans`. Quem pr
 pede pela interface, de qualquer ponto:
 
 ```php
-$this->service = new ProductService(Beans::of(ProductRepository::class));
+$this->products = Beans::of(ProductRepository::class);   // no construtor do ProductService
 ```
 
 `Beans::of` é tipado (o PHPStan sabe que o retorno é um `ProductRepository`) e lança um erro de
@@ -262,7 +262,8 @@ montagem se nada foi registrado; `Beans::find` devolve `null` para um serviço o
 autenticação desligada. O registro só é escrito na subida e depois apenas lido. Como os
 repositórios não guardam estado entre chamadas, as sessões usam as mesmas instâncias ao mesmo
 tempo: cada Fiber tem as próprias variáveis, e a transação aberta fica presa à Fiber. Os
-serviços de aplicação recebem as interfaces no construtor; só quem os cria chama `Beans::of`.
+serviços de aplicação buscam as próprias dependências no construtor; o presenter só faz
+`new ProductService()`.
 
 ## 4. Segurança
 

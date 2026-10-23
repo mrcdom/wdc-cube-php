@@ -49,12 +49,15 @@ A interface é `Wdc\Framework\Domain\Transaction\TransactionService`; a implemen
 | Presenter ou serviço da apresentação | `Beans::of(TransactionService::class)` (registrado pelo `ShoppingRepositories::register()`) |
 | Persistência, API REST, testes | `$repos->transactions` (campo público de `ShoppingRepositories`) |
 
-O serviço de aplicação **recebe** o `TransactionService` no construtor, como recebe os
-repositórios — ele não sabe de onde veio:
+O serviço de aplicação busca o `TransactionService` no construtor, como busca os repositórios:
 
 ```php
-// HomePresenter: o carrinho da sessão
-$this->cart = new CartManager(Beans::of(TransactionService::class), Beans::of(PurchaseRepository::class));
+// CartManager: o carrinho da sessão
+public function __construct()
+{
+    $this->tx = Beans::of(TransactionService::class);
+    $this->purchases = Beans::of(PurchaseRepository::class);
+}
 ```
 
 ---

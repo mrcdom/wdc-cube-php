@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Receipt;
 
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Projection\ProjectionValues as PV;
 use Wdc\Shopping\Domain\Purchase\Purchase;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
@@ -11,8 +12,11 @@ use Wdc\Shopping\Presentation\Exception\WrongParametersException;
 
 final class ReceiptService
 {
-    public function __construct(private readonly PurchaseRepository $purchases)
+    private readonly PurchaseRepository $purchases;
+
+    public function __construct()
     {
+        $this->purchases = Beans::of(PurchaseRepository::class);
     }
 
     public function loadReceipt(?int $purchaseId): ?ReceiptForm
