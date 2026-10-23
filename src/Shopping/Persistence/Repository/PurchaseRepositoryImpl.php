@@ -29,15 +29,25 @@ use Wdc\Shopping\Persistence\ShoppingRepositories;
  */
 final class PurchaseRepositoryImpl extends AbstractRepository implements PurchaseRepository
 {
+    /*
+     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
+     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     */
+    public const string TABLE = 'EN_PURCHASE';
+    public const string SEQUENCE = 'SQ_PURCHASE';
+    public const string ID = 'ID';
+    public const string USERID = 'USERID';
+    public const string BUYDATE = 'BUYDATE';
+
     /** @var JsonQuery<Purchase, PurchaseCriteria> */
     private readonly JsonQuery $query;
 
     public function __construct(Database $db, private readonly ShoppingRepositories $repos)
     {
         parent::__construct($db);
-        $table = new Table('EN_PURCHASE', static fn (): Purchase => new Purchase(), [
-            new Column('id', 'ID', ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
-            new Column('buyDate', 'BUYDATE', ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
+        $table = new Table(self::TABLE, static fn (): Purchase => new Purchase(), [
+            new Column('id', self::ID, ColumnType::Int, static fn (Purchase $p) => $p->id(), static fn (Purchase $p, mixed $v) => $p->withId($v)),
+            new Column('buyDate', self::BUYDATE, ColumnType::DateTime, static fn (Purchase $p) => $p->buyDate(), static fn (Purchase $p, mixed $v) => $p->withBuyDate($v)),
         ]);
         // As consultas-alvo vêm em closures: compra → item → compra é um ciclo, e quando este
         // construtor roda o repositório de itens ainda nem existe.
@@ -49,14 +59,14 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
                 static fn (Purchase $p) => $p->user(),
                 static fn (Purchase $p, ?User $u) => $p->withUser($u),
                 fn () => $this->repos->users->query(),
-                'USERID',
+                self::USERID,
             )
             ->addToMany(
                 'items',
                 static fn (Purchase $p) => $p->items(),
                 static fn (Purchase $p, array $items) => $p->withItems($items),
                 fn () => $this->repos->purchaseItems->query(),
-                'PURCHASEID',
+                PurchaseItemRepositoryImpl::PURCHASEID,
             );
     }
 
@@ -76,7 +86,7 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     /** Insere a compra e, junto, os itens (cada item passa a apontar para ela). */
     public function insert(object $bean): bool
     {
-        $inserted = $this->insertBean($bean, ['USERID' => $bean->userId()]);
+        $inserted = $this->insertBean($bean, [self::USERID => $bean->userId()]);
         if ($inserted) {
             foreach ($bean->items() ?? [] as $item) {
                 $this->repos->purchaseItems->insert($item->withPurchase($bean));
@@ -89,7 +99,7 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     public function update(object $newBean, ?object $oldBean = null, ?object $projection = null): bool
     {
         return $this->updateBean($newBean, $oldBean, $projection, [
-            'USERID' => [static fn (Purchase $p) => $p->userId(), ColumnType::Int],
+            self::USERID => [static fn (Purchase $p) => $p->userId(), ColumnType::Int],
         ]);
     }
 
@@ -100,7 +110,8 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
         $alias = $this->query->newAlias($ctx);
         [$where, $params] = Sql::where($this->conditions($criteria, $alias, $ctx));
         $this->db->execute(
-            "DELETE FROM EN_PURCHASEITEM WHERE PURCHASEID IN (SELECT {$alias}.ID FROM EN_PURCHASE {$alias}{$where})",
+            'DELETE FROM ' . PurchaseItemRepositoryImpl::TABLE . ' WHERE ' . PurchaseItemRepositoryImpl::PURCHASEID
+                . " IN (SELECT {$alias}." . self::ID . ' FROM ' . self::TABLE . " {$alias}{$where})",
             $params,
         );
 
@@ -109,28 +120,32 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
 
     protected function sequence(): string
     {
-        return 'SQ_PURCHASE';
+        return self::SEQUENCE;
     }
 
     protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        $c = Sql::alias($a);
+
         return Sql::and([
-            CT::translate("{$a}.ID", $criteria->purchaseId()),
-            CT::translate("{$a}.USERID", $criteria->userId()),
+            CT::translate($c(self::ID), $criteria->purchaseId()),
+            CT::translate($c(self::USERID), $criteria->userId()),
             // ColumnType::formatDate(...) é a sintaxe "first-class callable": vira uma Closure
-            CT::translate("{$a}.BUYDATE", $criteria->buyDate(), ColumnType::formatDate(...)),
+            CT::translate($c(self::BUYDATE), $criteria->buyDate(), ColumnType::formatDate(...)),
             $this->existsItemMatching($criteria, $a, $ctx),
         ]);
     }
 
     protected function orderBy(?object $criteria, string $a): string
     {
+        $c = Sql::alias($a);
+
         return match ($criteria?->orderBy()) {
             null => '',
-            PurchaseOrderBy::OLDEST_FIRST => "{$a}.ID ASC",
-            PurchaseOrderBy::NEWEST_FIRST => "{$a}.ID DESC",
-            PurchaseOrderBy::MOST_RECENT_PURCHASE_FIRST => "{$a}.BUYDATE DESC, {$a}.ID DESC",
-            PurchaseOrderBy::EARLIEST_PURCHASE_FIRST => "{$a}.BUYDATE ASC, {$a}.ID ASC",
+            PurchaseOrderBy::OLDEST_FIRST => "{$c(self::ID)} ASC",
+            PurchaseOrderBy::NEWEST_FIRST => "{$c(self::ID)} DESC",
+            PurchaseOrderBy::MOST_RECENT_PURCHASE_FIRST => "{$c(self::BUYDATE)} DESC, {$c(self::ID)} DESC",
+            PurchaseOrderBy::EARLIEST_PURCHASE_FIRST => "{$c(self::BUYDATE)} ASC, {$c(self::ID)} ASC",
         };
     }
 
@@ -148,13 +163,16 @@ final class PurchaseRepositoryImpl extends AbstractRepository implements Purchas
     private function existsItemMatching(PurchaseCriteria $criteria, string $a, QueryContext $ctx): ?Sql
     {
         $pi = $ctx->alias('pi');
-        $onProduct = CT::translate("{$pi}.PRODUCTID", $criteria->productId());
+        $c = Sql::alias($a);
+        $i = Sql::alias($pi);
+        $onProduct = CT::translate($i(PurchaseItemRepositoryImpl::PRODUCTID), $criteria->productId());
         if ($onProduct === null) {
             return null;
         }
 
         return new Sql(
-            "EXISTS (SELECT 1 FROM EN_PURCHASEITEM {$pi} WHERE {$pi}.PURCHASEID = {$a}.ID AND {$onProduct->sql})",
+            'EXISTS (SELECT 1 FROM ' . PurchaseItemRepositoryImpl::TABLE
+                . " {$pi} WHERE {$i(PurchaseItemRepositoryImpl::PURCHASEID)} = {$c(self::ID)} AND {$onProduct->sql})",
             $onProduct->params,
         );
     }

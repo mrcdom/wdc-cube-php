@@ -31,18 +31,30 @@ use Wdc\Shopping\Domain\Product\ProductRepository;
  */
 final class ProductRepositoryImpl extends AbstractRepository implements ProductRepository
 {
+    /*
+     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
+     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     */
+    public const string TABLE = 'EN_PRODUCT';
+    public const string SEQUENCE = 'SQ_PRODUCT';
+    public const string ID = 'ID';
+    public const string NAME = 'NAME';
+    public const string PRICE = 'PRICE';
+    public const string DESCRIPTION = 'DESCRIPTION';
+    public const string IMAGE = 'IMAGE';
+
     /** @var JsonQuery<Product, ProductCriteria> */
     private readonly JsonQuery $query;
 
     public function __construct(Database $db)
     {
         parent::__construct($db);
-        $table = new Table('EN_PRODUCT', static fn (): Product => new Product(), [
-            new Column('id', 'ID', ColumnType::Int, static fn (Product $p) => $p->id(), static fn (Product $p, mixed $v) => $p->withId($v)),
-            new Column('name', 'NAME', ColumnType::Text, static fn (Product $p) => $p->name(), static fn (Product $p, mixed $v) => $p->withName($v)),
-            new Column('price', 'PRICE', ColumnType::Float, static fn (Product $p) => $p->price(), static fn (Product $p, mixed $v) => $p->withPrice($v)),
-            new Column('description', 'DESCRIPTION', ColumnType::Text, static fn (Product $p) => $p->description(), static fn (Product $p, mixed $v) => $p->withDescription($v)),
-            new Column('image', 'IMAGE', ColumnType::Blob, static fn (Product $p) => $p->image(), static fn (Product $p, mixed $v) => $p->withImage($v)),
+        $table = new Table(self::TABLE, static fn (): Product => new Product(), [
+            new Column('id', self::ID, ColumnType::Int, static fn (Product $p) => $p->id(), static fn (Product $p, mixed $v) => $p->withId($v)),
+            new Column('name', self::NAME, ColumnType::Text, static fn (Product $p) => $p->name(), static fn (Product $p, mixed $v) => $p->withName($v)),
+            new Column('price', self::PRICE, ColumnType::Float, static fn (Product $p) => $p->price(), static fn (Product $p, mixed $v) => $p->withPrice($v)),
+            new Column('description', self::DESCRIPTION, ColumnType::Text, static fn (Product $p) => $p->description(), static fn (Product $p, mixed $v) => $p->withDescription($v)),
+            new Column('image', self::IMAGE, ColumnType::Blob, static fn (Product $p) => $p->image(), static fn (Product $p, mixed $v) => $p->withImage($v)),
         ]);
         // $this->conditions(...) transforma o método numa Closure (que enxerga os membros protegidos)
         $this->query = new JsonQuery($table, ProductCriteria::class, 'pr', $db->dialect())
@@ -85,7 +97,7 @@ final class ProductRepositoryImpl extends AbstractRepository implements ProductR
 
     public function fetchImage(int $productId): ?string
     {
-        $rows = $this->db->fetchAll('SELECT IMAGE FROM EN_PRODUCT WHERE ID = ?', [$productId]);
+        $rows = $this->db->fetchAll('SELECT ' . self::IMAGE . ' FROM ' . self::TABLE . ' WHERE ' . self::ID . ' = ?', [$productId]);
         if ($rows === []) {
             throw new BusinessException("Product {$productId} not found");
         }
@@ -97,35 +109,39 @@ final class ProductRepositoryImpl extends AbstractRepository implements ProductR
     public function updateImage(int $productId, ?string $image): bool
     {
         return $this->db->execute(
-            'UPDATE EN_PRODUCT SET IMAGE = ? WHERE ID = ?',
+            'UPDATE ' . self::TABLE . ' SET ' . self::IMAGE . ' = ? WHERE ' . self::ID . ' = ?',
             [$image === null ? null : new Blob($image), $productId],
         ) > 0;
     }
 
     protected function sequence(): string
     {
-        return 'SQ_PRODUCT';
+        return self::SEQUENCE;
     }
 
     protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        $c = Sql::alias($a);
+
         return Sql::and([
-            CT::translate("{$a}.ID", $criteria->productId()),
-            CT::translate("{$a}.NAME", $criteria->name()),
-            CT::translate("{$a}.PRICE", $criteria->price()),
-            CT::translate("{$a}.DESCRIPTION", $criteria->description()),
+            CT::translate($c(self::ID), $criteria->productId()),
+            CT::translate($c(self::NAME), $criteria->name()),
+            CT::translate($c(self::PRICE), $criteria->price()),
+            CT::translate($c(self::DESCRIPTION), $criteria->description()),
         ]);
     }
 
     protected function orderBy(?object $criteria, string $a): string
     {
+        $c = Sql::alias($a);
+
         return match ($criteria?->orderBy()) {
             null => '',
-            ProductOrderBy::OLDEST_FIRST => "{$a}.ID ASC",
-            ProductOrderBy::NEWEST_FIRST => "{$a}.ID DESC",
-            ProductOrderBy::NAME_A_TO_Z => "{$a}.NAME ASC, {$a}.ID ASC",
-            ProductOrderBy::CHEAPEST_FIRST => "{$a}.PRICE ASC, {$a}.ID ASC",
-            ProductOrderBy::MOST_EXPENSIVE_FIRST => "{$a}.PRICE DESC, {$a}.ID ASC",
+            ProductOrderBy::OLDEST_FIRST => "{$c(self::ID)} ASC",
+            ProductOrderBy::NEWEST_FIRST => "{$c(self::ID)} DESC",
+            ProductOrderBy::NAME_A_TO_Z => "{$c(self::NAME)} ASC, {$c(self::ID)} ASC",
+            ProductOrderBy::CHEAPEST_FIRST => "{$c(self::PRICE)} ASC, {$c(self::ID)} ASC",
+            ProductOrderBy::MOST_EXPENSIVE_FIRST => "{$c(self::PRICE)} DESC, {$c(self::ID)} ASC",
         };
     }
 

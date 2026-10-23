@@ -29,16 +29,28 @@ use Wdc\Shopping\Persistence\ShoppingRepositories;
  */
 final class PurchaseItemRepositoryImpl extends AbstractRepository implements PurchaseItemRepository
 {
+    /*
+     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
+     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     */
+    public const string TABLE = 'EN_PURCHASEITEM';
+    public const string SEQUENCE = 'SQ_PURCHASEITEM';
+    public const string ID = 'ID';
+    public const string PURCHASEID = 'PURCHASEID';
+    public const string PRODUCTID = 'PRODUCTID';
+    public const string AMOUNT = 'AMOUNT';
+    public const string PRICE = 'PRICE';
+
     /** @var JsonQuery<PurchaseItem, PurchaseItemCriteria> */
     private readonly JsonQuery $query;
 
     public function __construct(Database $db, private readonly ShoppingRepositories $repos)
     {
         parent::__construct($db);
-        $table = new Table('EN_PURCHASEITEM', static fn (): PurchaseItem => new PurchaseItem(), [
-            new Column('id', 'ID', ColumnType::Int, static fn (PurchaseItem $i) => $i->id(), static fn (PurchaseItem $i, mixed $v) => $i->withId($v)),
-            new Column('amount', 'AMOUNT', ColumnType::Int, static fn (PurchaseItem $i) => $i->amount(), static fn (PurchaseItem $i, mixed $v) => $i->withAmount($v)),
-            new Column('price', 'PRICE', ColumnType::Float, static fn (PurchaseItem $i) => $i->price(), static fn (PurchaseItem $i, mixed $v) => $i->withPrice($v)),
+        $table = new Table(self::TABLE, static fn (): PurchaseItem => new PurchaseItem(), [
+            new Column('id', self::ID, ColumnType::Int, static fn (PurchaseItem $i) => $i->id(), static fn (PurchaseItem $i, mixed $v) => $i->withId($v)),
+            new Column('amount', self::AMOUNT, ColumnType::Int, static fn (PurchaseItem $i) => $i->amount(), static fn (PurchaseItem $i, mixed $v) => $i->withAmount($v)),
+            new Column('price', self::PRICE, ColumnType::Float, static fn (PurchaseItem $i) => $i->price(), static fn (PurchaseItem $i, mixed $v) => $i->withPrice($v)),
         ]);
         $this->query = new JsonQuery($table, PurchaseItemCriteria::class, 'pi', $db->dialect())
             ->withConditions($this->conditions(...))
@@ -48,14 +60,14 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
                 static fn (PurchaseItem $i) => $i->purchase(),
                 static fn (PurchaseItem $i, ?Purchase $p) => $i->withPurchase($p),
                 fn () => $this->repos->purchases->query(),
-                'PURCHASEID',
+                self::PURCHASEID,
             )
             ->addToOne(
                 'product',
                 static fn (PurchaseItem $i) => $i->product(),
                 static fn (PurchaseItem $i, ?Product $p) => $i->withProduct($p),
                 fn () => $this->repos->products->query(),
-                'PRODUCTID',
+                self::PRODUCTID,
             );
     }
 
@@ -77,8 +89,8 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
     public function insert(object $bean): bool
     {
         return $this->insertBean($bean, [
-            'PURCHASEID' => $bean->purchaseId(),
-            'PRODUCTID' => $bean->productId(),
+            self::PURCHASEID => $bean->purchaseId(),
+            self::PRODUCTID => $bean->productId(),
         ]);
     }
 
@@ -86,8 +98,8 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
     public function update(object $newBean, ?object $oldBean = null, ?object $projection = null): bool
     {
         return $this->updateBean($newBean, $oldBean, $projection, [
-            'PURCHASEID' => [static fn (PurchaseItem $i) => $i->purchaseId(), ColumnType::Int],
-            'PRODUCTID' => [static fn (PurchaseItem $i) => $i->productId(), ColumnType::Int],
+            self::PURCHASEID => [static fn (PurchaseItem $i) => $i->purchaseId(), ColumnType::Int],
+            self::PRODUCTID => [static fn (PurchaseItem $i) => $i->productId(), ColumnType::Int],
         ]);
     }
 
@@ -98,29 +110,33 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
 
     protected function sequence(): string
     {
-        return 'SQ_PURCHASEITEM';
+        return self::SEQUENCE;
     }
 
     protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        $c = Sql::alias($a);
+
         return Sql::and([
-            CT::translate("{$a}.ID", $criteria->purchaseItemId()),
-            CT::translate("{$a}.PURCHASEID", $criteria->purchaseId()),
-            CT::translate("{$a}.PRODUCTID", $criteria->productId()),
-            CT::translate("{$a}.AMOUNT", $criteria->amount()),
-            CT::translate("{$a}.PRICE", $criteria->price()),
+            CT::translate($c(self::ID), $criteria->purchaseItemId()),
+            CT::translate($c(self::PURCHASEID), $criteria->purchaseId()),
+            CT::translate($c(self::PRODUCTID), $criteria->productId()),
+            CT::translate($c(self::AMOUNT), $criteria->amount()),
+            CT::translate($c(self::PRICE), $criteria->price()),
             $this->existsPurchaseOfUser($criteria, $a, $ctx),
         ]);
     }
 
     protected function orderBy(?object $criteria, string $a): string
     {
+        $c = Sql::alias($a);
+
         return match ($criteria?->orderBy()) {
             null => '',
-            PurchaseItemOrderBy::OLDEST_FIRST => "{$a}.ID ASC",
-            PurchaseItemOrderBy::NEWEST_FIRST => "{$a}.ID DESC",
-            PurchaseItemOrderBy::MOST_EXPENSIVE_FIRST => "{$a}.PRICE DESC, {$a}.ID ASC",
-            PurchaseItemOrderBy::LARGEST_QUANTITY_FIRST => "{$a}.AMOUNT DESC, {$a}.ID ASC",
+            PurchaseItemOrderBy::OLDEST_FIRST => "{$c(self::ID)} ASC",
+            PurchaseItemOrderBy::NEWEST_FIRST => "{$c(self::ID)} DESC",
+            PurchaseItemOrderBy::MOST_EXPENSIVE_FIRST => "{$c(self::PRICE)} DESC, {$c(self::ID)} ASC",
+            PurchaseItemOrderBy::LARGEST_QUANTITY_FIRST => "{$c(self::AMOUNT)} DESC, {$c(self::ID)} ASC",
         };
     }
 
@@ -138,13 +154,16 @@ final class PurchaseItemRepositoryImpl extends AbstractRepository implements Pur
     private function existsPurchaseOfUser(PurchaseItemCriteria $criteria, string $a, QueryContext $ctx): ?Sql
     {
         $pu = $ctx->alias('pu');
-        $onUser = CT::translate("{$pu}.USERID", $criteria->userId());
+        $c = Sql::alias($a);
+        $p = Sql::alias($pu);
+        $onUser = CT::translate($p(PurchaseRepositoryImpl::USERID), $criteria->userId());
         if ($onUser === null) {
             return null;
         }
 
         return new Sql(
-            "EXISTS (SELECT 1 FROM EN_PURCHASE {$pu} WHERE {$pu}.ID = {$a}.PURCHASEID AND {$onUser->sql})",
+            'EXISTS (SELECT 1 FROM ' . PurchaseRepositoryImpl::TABLE
+                . " {$pu} WHERE {$p(PurchaseRepositoryImpl::ID)} = {$c(self::PURCHASEID)} AND {$onUser->sql})",
             $onUser->params,
         );
     }

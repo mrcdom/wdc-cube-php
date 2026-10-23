@@ -25,18 +25,30 @@ use Wdc\Shopping\Domain\User\UserRepository;
  */
 final class UserRepositoryImpl extends AbstractRepository implements UserRepository
 {
+    /*
+     * Nomes da tabela, da sequência e das colunas - este repositório é o dono deles. São
+     * públicos porque outros repositórios também os usam (EXISTS, DELETE em cascata).
+     */
+    public const string TABLE = 'EN_USER';
+    public const string SEQUENCE = 'SQ_USER';
+    public const string ID = 'ID';
+    public const string USERNAME = 'USERNAME';
+    public const string PASSWORD = 'PASSWORD';
+    public const string NAME = 'NAME';
+    public const string ROLES = 'ROLES';
+
     /** @var JsonQuery<User, UserCriteria> */
     private readonly JsonQuery $query;
 
     public function __construct(Database $db)
     {
         parent::__construct($db);
-        $table = new Table('EN_USER', static fn (): User => new User(), [
-            new Column('id', 'ID', ColumnType::Int, static fn (User $u) => $u->id(), static fn (User $u, mixed $v) => $u->withId($v)),
-            new Column('userName', 'USERNAME', ColumnType::Text, static fn (User $u) => $u->userName(), static fn (User $u, mixed $v) => $u->withUserName($v)),
-            new Column('password', 'PASSWORD', ColumnType::Text, static fn (User $u) => $u->password(), static fn (User $u, mixed $v) => $u->withPassword($v === null ? null : trim($v))),
-            new Column('name', 'NAME', ColumnType::Text, static fn (User $u) => $u->name(), static fn (User $u, mixed $v) => $u->withName($v)),
-            new Column('roles', 'ROLES', ColumnType::Text, static fn (User $u) => $u->roles(), static fn (User $u, mixed $v) => $u->withRoles($v)),
+        $table = new Table(self::TABLE, static fn (): User => new User(), [
+            new Column('id', self::ID, ColumnType::Int, static fn (User $u) => $u->id(), static fn (User $u, mixed $v) => $u->withId($v)),
+            new Column('userName', self::USERNAME, ColumnType::Text, static fn (User $u) => $u->userName(), static fn (User $u, mixed $v) => $u->withUserName($v)),
+            new Column('password', self::PASSWORD, ColumnType::Text, static fn (User $u) => $u->password(), static fn (User $u, mixed $v) => $u->withPassword($v === null ? null : trim($v))),
+            new Column('name', self::NAME, ColumnType::Text, static fn (User $u) => $u->name(), static fn (User $u, mixed $v) => $u->withName($v)),
+            new Column('roles', self::ROLES, ColumnType::Text, static fn (User $u) => $u->roles(), static fn (User $u, mixed $v) => $u->withRoles($v)),
         ]);
         $this->query = new JsonQuery($table, UserCriteria::class, 'u', $db->dialect())
             ->withConditions($this->conditions(...))
@@ -78,27 +90,31 @@ final class UserRepositoryImpl extends AbstractRepository implements UserReposit
 
     protected function sequence(): string
     {
-        return 'SQ_USER';
+        return self::SEQUENCE;
     }
 
     protected function conditions(object $criteria, string $a, QueryContext $ctx): ?Sql
     {
+        $c = Sql::alias($a);
+
         return Sql::and([
-            CT::translate("{$a}.ID", $criteria->userId()),
-            CT::translate("{$a}.USERNAME", $criteria->userName()),
-            CT::translate("{$a}.NAME", $criteria->name()),
-            CT::translate("{$a}.ROLES", $criteria->roles()),
+            CT::translate($c(self::ID), $criteria->userId()),
+            CT::translate($c(self::USERNAME), $criteria->userName()),
+            CT::translate($c(self::NAME), $criteria->name()),
+            CT::translate($c(self::ROLES), $criteria->roles()),
         ]);
     }
 
     protected function orderBy(?object $criteria, string $a): string
     {
+        $c = Sql::alias($a);
+
         return match ($criteria?->orderBy()) {
             null => '',
-            UserOrderBy::OLDEST_FIRST => "{$a}.ID ASC",
-            UserOrderBy::NEWEST_FIRST => "{$a}.ID DESC",
-            UserOrderBy::NAME_A_TO_Z => "{$a}.NAME ASC, {$a}.ID ASC",
-            UserOrderBy::LOGIN_A_TO_Z => "{$a}.USERNAME ASC, {$a}.ID ASC",
+            UserOrderBy::OLDEST_FIRST => "{$c(self::ID)} ASC",
+            UserOrderBy::NEWEST_FIRST => "{$c(self::ID)} DESC",
+            UserOrderBy::NAME_A_TO_Z => "{$c(self::NAME)} ASC, {$c(self::ID)} ASC",
+            UserOrderBy::LOGIN_A_TO_Z => "{$c(self::USERNAME)} ASC, {$c(self::ID)} ASC",
         };
     }
 

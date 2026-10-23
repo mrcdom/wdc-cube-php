@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Wdc\Framework\Persistence;
 
+use Closure;
+
 /**
- * Pedaço de SQL com seus parâmetros posicionais (?). Equivale ao `Sql` do jOOQ.
+ * Pedaço de SQL com seus parâmetros posicionais (?).
  * `null` no lugar de uma Sql significa "sem condição".
  */
 final readonly class Sql
@@ -33,6 +35,18 @@ final readonly class Sql
     public static function or(iterable $conditions): ?self
     {
         return self::join(' OR ', $conditions);
+    }
+
+    /**
+     * Prefixador de colunas de um alias: `$c = Sql::alias('pi2'); $c(self::PRICE)` → `pi2.PRICE`.
+     * Interpolável numa string: `"{$c(self::PRICE)} DESC, {$c(self::ID)} ASC"` - o PHP não
+     * interpola constantes, mas interpola a chamada de uma closure guardada numa variável.
+     *
+     * @return Closure(string): string
+     */
+    public static function alias(string $alias): Closure
+    {
+        return static fn (string $column): string => "{$alias}.{$column}";
     }
 
     /**
