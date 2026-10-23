@@ -26,7 +26,7 @@ flowchart TD
 |---|---|
 | [setup-local.md](setup-local.md) | Pré-requisitos, configuração, banco, build do front, rodar, testar e resolver problemas |
 | [criar-funcionalidade.md](criar-funcionalidade.md) | **O guia-mestre**: a ordem em que se monta uma funcionalidade e as amarrações entre as camadas |
-| [repository.md](repository.md) | Entidade, critério, repositório, schema e seed, decorator de segurança, registro e testes |
+| [repository.md](repository.md) | Entidade, critério, repositório, schema e seed, permissões, registro e testes |
 | [json-query.md](json-query.md) | Consultas por projeção: o grafo inteiro num SELECT, relações 1:1 e 1:N, filtros, ordem, recorte |
 | [application-service.md](application-service.md) | Serviços de aplicação: a lógica de negócio que o presenter usa, sem engordá-lo |
 | [transaction-service.md](transaction-service.md) | Transações: `required()`, a transação presa à Fiber e a transação remota da API REST |

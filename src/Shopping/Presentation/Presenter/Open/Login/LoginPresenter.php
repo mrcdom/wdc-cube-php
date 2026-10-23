@@ -69,9 +69,6 @@ final class LoginPresenter extends AbstractCubePresenter
                 $this->app->setSubject(null);
                 $this->alertUserOrPasswordNotRecognize();
             } else {
-                if ($result->securityContext !== null) {
-                    $this->app->setSecurityContext($result->securityContext);
-                }
                 if ($result->persistentToken !== null) {
                     $this->app->clientPersistentStore()->secure()->set(StorageKeys::AUTH_TOKEN, $result->persistentToken);
                 }

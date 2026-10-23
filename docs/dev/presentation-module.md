@@ -75,7 +75,6 @@ flowchart TD
             restr["Restricted/ - guarda + Home/, Cart/, Products/, Receipt/"]
         end
         exc["Exception/<br/>falhas esperadas (NotFound, Invalid...)"]
-        sec["Security/<br/>repositórios embrulhados com a segurança da sessão"]
     end
     host["src/Shopping/RemoteHost/ShoppingRemoteApplication.php<br/>installViewFactories(): presenter → RemoteView"]
     mock["tests/Shopping/Presentation/Mock/ShoppingApplicationMock.php<br/>installViewMocks(): presenter → XxxViewMock"]
@@ -747,14 +746,13 @@ frontend/shopping.shell.react/src/scripts/views/product/
 ```
 
 A entidade `Review`, o critério e o repositório são o assunto de [repository.md](repository.md);
-o `ReviewService`, de [application-service.md](application-service.md). A sessão ganha o acessor,
-já embrulhado com a segurança:
+o `ReviewService`, de [application-service.md](application-service.md). A sessão ganha o acessor:
 
 ```php
 // ShoppingApplication
 public function reviewRepository(): ReviewRepository
 {
-    return $this->reviewRepository ??= new SecuredReviewRepository($this->context->reviews, $this->securityContext(...));
+    return $this->context->reviews;
 }
 ```
 

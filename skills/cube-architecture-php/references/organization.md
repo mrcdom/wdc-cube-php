@@ -52,7 +52,7 @@ Framework code never imports application code.
 src/Shopping/
   Domain/          entities, XxxCriteria, XxxOrderBy, repository interfaces, codecs, roles, config
   Persistence/     repository implementations, schema + seed, authentication, REST controllers
-  Presentation/    places, routes, names, presenters, view states, services, secured repositories
+  Presentation/    places, routes, keys, presenters, view states, services
   RemoteHost/      the WebSocket session (installs the RemoteView factories) and its bootstrap
   Server/          the HTTP/WebSocket server and its routes
 ```
@@ -67,7 +67,6 @@ Presentation/
   ShoppingApplication.php  the session base: services, subject, cart, alerts
   ShoppingContext.php    the dependencies shared by every session (repositories, scheduler, auth)
   Exception/             expected navigation failures (XxxNotFound, WrongParameters)
-  Security/              Secured*Repository decorators
   Presenter/
     RootPresenter.php        place ROOT (+ the alert view)
     RootKeys.php             the base keys: user parameter and the composition slot

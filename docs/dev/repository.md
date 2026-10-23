@@ -19,7 +19,7 @@ guia é uma funcionalidade de **avaliações de produto** (`Review`): cada usuá
 4. [Passo 3 — A interface do repositório](#passo-3--a-interface-do-repositório)
 5. [Passo 4 — Schema e seed (`ShoppingSchema`)](#passo-4--schema-e-seed-shoppingschema)
 6. [Passo 5 — A implementação (`AbstractRepository` + `JsonQuery`)](#passo-5--a-implementação-abstractrepository--jsonquery)
-7. [Passo 6 — O decorador de segurança](#passo-6--o-decorador-de-segurança)
+7. [Passo 6 — As permissões](#passo-6--as-permissões)
 8. [Passo 7 — Ligar tudo (composition root)](#passo-7--ligar-tudo-composition-root)
 9. [Usando o repositório num serviço de aplicação](#usando-o-repositório-num-serviço-de-aplicação)
 10. [Passo 8 — Testes (`RepositoryTestCase`)](#passo-8--testes-repositorytestcase)
@@ -37,7 +37,6 @@ src/Shopping/Domain/Review/                     ← contrato: entidade, critéri
 src/Shopping/Persistence/ShoppingSchema.php     ← DDL e seed (não há ferramenta de migração)
 src/Shopping/Persistence/Repository/            ← implementação SQL (JsonQuery + Table)
 src/Shopping/Persistence/ShoppingRepositories   ← agregado que cria e liga os repositórios
-src/Shopping/Presentation/Security/             ← decorador Secured*Repository (contexto de segurança)
 src/Shopping/Presentation/ShoppingContext       ← serviços compartilhados por todas as sessões
 src/Shopping/Presentation/ShoppingApplication   ← o repositório que cada sessão (presenters) usa
 tests/Shopping/Persistence/                     ← testes contra um PostgreSQL de verdade
@@ -45,18 +44,16 @@ tests/Shopping/Persistence/                     ← testes contra um PostgreSQL 
 
 ```mermaid
 flowchart LR
-    P[Presenter / serviço de aplicação] -->|ReviewRepository| S[SecuredReviewRepository]
-    S -->|runAs contexto da sessão| I[ReviewRepositoryImpl]
+    P[Presenter / serviço de aplicação] -->|ReviewRepository| I[ReviewRepositoryImpl]
     I -->|JsonQuery: 1 SELECT| DB[(PostgreSQL)]
     I -.->|insertBean / updateBean| DB
     R[ShoppingRepositories] -->|cria| I
     C[ShoppingContext] -->|guarda| I
-    A[ShoppingApplication] -->|embrulha| S
+    A[ShoppingApplication] -->|entrega| P
 ```
 
 O domínio (`Wdc\Shopping\Domain`) não sabe nada de SQL: quem usa o repositório só conhece a
-interface `ReviewRepository`. A implementação não sabe nada de sessão. O decorador não sabe nada
-de SQL. Por isso cada parte é testável sozinha — e por isso a lista de arquivos é longa.
+interface `ReviewRepository`. A implementação não sabe nada de sessão. Por isso cada parte é testável sozinha — e por isso a lista de arquivos é longa.
 
 ---
 
@@ -547,33 +544,18 @@ protected function criteriaForIds(array $ids, object $projection): object
 
 ---
 
-## Passo 6 — O decorador de segurança
-
-`src/Shopping/Presentation/Security/SecuredReviewRepository.php`:
-
-```php
-/**
- * @extends SecuredRepository<Review, ReviewCriteria>
- */
-final class SecuredReviewRepository extends SecuredRepository implements ReviewRepository
-{
-}
-```
-
-Toda a lógica está na base `SecuredRepository`: cada chamada roda dentro de
-`CurrentSecurityContext::runAs($contextoDaSessão, ...)`, de modo que o código mais abaixo enxerga
-quem é o usuário da sessão. O contexto corrente é **por Fiber** (cada sessão roda na sua) — nunca o
-guarde num campo estático.
-
-A subclasse vazia existe porque o PHP não gera em tempo de execução uma classe que implemente uma
-interface: é ela que faz o decorador "ser" um `ReviewRepository`. Se a interface ganhar operações
-próprias, elas vão aqui, cada uma embrulhada em `$this->run(fn () => ...)` (veja
-`SecuredProductRepository::fetchImage`).
+## Passo 6 — As permissões
 
 As permissões ficam em `src/Shopping/Domain/Security/Role.php`, no formato `entidade:operação`.
-O exemplo acrescentou `'review:*'` ao `ADMIN` e `'review:read', 'review:write'` ao `CUSTOMER`. Hoje
-quem as confere é a API REST (`SecurityEnforcer`); o decorador da apresentação só estabelece o
-contexto.
+O exemplo acrescentou `'review:*'` ao `ADMIN` e `'review:read', 'review:write'` ao `CUSTOMER`.
+
+Quem as confere é a **API REST** (`SecurityEnforcer`, em `src/Shopping/Persistence/Rest/`): lá a
+requisição chega pronta de um cliente que não controlamos, então cada endpoint verifica se quem
+pede tem a permissão e, sem `data:all`, restringe o critério aos dados do próprio usuário.
+
+A apresentação usa o repositório direto, sem embrulho de segurança. O presenter roda no servidor
+e é escrito para respeitar as regras de autorização: ele decide o que mostrar e o que alterar a
+partir do usuário logado na sessão, e o navegador só recebe o que a tela desenha.
 
 ---
 
@@ -625,16 +607,14 @@ public function __construct(
 ### 7c. `ShoppingApplication` — o repositório da sessão
 
 ```php
-private ?ReviewRepository $reviewRepository = null;
-
 public function reviewRepository(): ReviewRepository
 {
-    return $this->reviewRepository ??= new SecuredReviewRepository($this->context->reviews, $this->securityContext(...));
+    return $this->context->reviews;
 }
 ```
 
-`??=` cria o decorador na primeira chamada e reaproveita depois. `$this->securityContext(...)` é
-passado como closure para que o contexto seja lido **a cada chamada** (ele muda no login/logout).
+O repositório é o mesmo para todas as sessões: ele não guarda estado de usuário, e cada consulta
+recebe tudo o que precisa no critério.
 
 ---
 
@@ -806,11 +786,10 @@ Implementação (`XxxRepositoryImpl`)
 
 Ligação e segurança
 
-- [ ] `SecuredXxxRepository extends SecuredRepository implements XxxRepository`.
 - [ ] Permissões em `Role`.
 - [ ] `ShoppingRepositories::$xxx`.
 - [ ] `ShoppingContext`: argumento novo, na mesma posição em `of()`, `ShoppingServer` e testes.
-- [ ] `ShoppingApplication::xxxRepository()` com `??=` e o decorador.
+- [ ] `ShoppingApplication::xxxRepository()`.
 
 Testes
 

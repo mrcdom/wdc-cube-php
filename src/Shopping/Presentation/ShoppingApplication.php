@@ -11,7 +11,6 @@ use Wdc\Framework\Cube\CubeApplication;
 use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubePlace;
 use Wdc\Framework\Domain\Security\AuthenticationService;
-use Wdc\Framework\Domain\Security\SecurityContext;
 use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
@@ -20,10 +19,6 @@ use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\Subject;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartManager;
 use Wdc\Shopping\Presentation\Presenter\RootPresenter;
-use Wdc\Shopping\Presentation\Security\SecuredProductRepository;
-use Wdc\Shopping\Presentation\Security\SecuredPurchaseItemRepository;
-use Wdc\Shopping\Presentation\Security\SecuredPurchaseRepository;
-use Wdc\Shopping\Presentation\Security\SecuredUserRepository;
 
 /**
  * Uma sessão do Shopping: quem está logado, o carrinho e o acesso aos serviços.
@@ -36,16 +31,6 @@ abstract class ShoppingApplication extends CubeApplication
     protected ?Subject $subject = null;
 
     protected ?CartManager $cart = null;
-
-    private ?SecurityContext $securityContext = null;
-
-    private ?UserRepository $userRepository = null;
-
-    private ?ProductRepository $productRepository = null;
-
-    private ?PurchaseRepository $purchaseRepository = null;
-
-    private ?PurchaseItemRepository $purchaseItemRepository = null;
 
     public function __construct(public readonly ShoppingContext $context, ?LoggerInterface $logger = null)
     {
@@ -94,20 +79,6 @@ abstract class ShoppingApplication extends CubeApplication
         return $old;
     }
 
-    public function securityContext(): ?SecurityContext
-    {
-        return $this->securityContext;
-    }
-
-    /**
-     * Não precisa recriar os repositórios embrulhados: o embrulho lê o contexto da sessão a
-     * cada chamada.
-     */
-    public function setSecurityContext(?SecurityContext $securityContext): void
-    {
-        $this->securityContext = $securityContext;
-    }
-
     public function tx(): TransactionService
     {
         return $this->context->transactions;
@@ -123,26 +94,26 @@ abstract class ShoppingApplication extends CubeApplication
         return $this->context->scheduler;
     }
 
-    // :: Repositórios: cada chamada roda com o SecurityContext desta sessão
+    // :: Repositórios
 
     public function userRepository(): UserRepository
     {
-        return $this->userRepository ??= new SecuredUserRepository($this->context->users, $this->securityContext(...));
+        return $this->context->users;
     }
 
     public function productRepository(): ProductRepository
     {
-        return $this->productRepository ??= new SecuredProductRepository($this->context->products, $this->securityContext(...));
+        return $this->context->products;
     }
 
     public function purchaseRepository(): PurchaseRepository
     {
-        return $this->purchaseRepository ??= new SecuredPurchaseRepository($this->context->purchases, $this->securityContext(...));
+        return $this->context->purchases;
     }
 
     public function purchaseItemRepository(): PurchaseItemRepository
     {
-        return $this->purchaseItemRepository ??= new SecuredPurchaseItemRepository($this->context->purchaseItems, $this->securityContext(...));
+        return $this->context->purchaseItems;
     }
 
     // :: Navegação por nome ("cart", "product?pr-id=3"...)

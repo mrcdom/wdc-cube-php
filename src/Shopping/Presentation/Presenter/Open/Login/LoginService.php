@@ -44,13 +44,12 @@ final class LoginService
             return null;
         }
 
-        $securityContext = $auth->resolveToken($result->accessToken);              // 5. contexto da sessão
-        $persistentToken = $auth->createPersistentToken($result->userId, $userName);   // 6. "lembrar-me"
-        $subject = Subject::create($this->users->fetch(new UserCriteria()          // 7. nome de exibição
+        $persistentToken = $auth->createPersistentToken($result->userId, $userName);   // 5. "lembrar-me"
+        $subject = Subject::create($this->users->fetch(new UserCriteria()          // 6. nome de exibição
             ->withUserId($result->userId)
             ->withProjection(Subject::projection()), 0, 1)[0] ?? null);
 
-        return $subject === null ? null : new LoginResult($subject, $securityContext, $persistentToken);
+        return $subject === null ? null : new LoginResult($subject, $persistentToken);
     }
 
     /**
@@ -67,6 +66,6 @@ final class LoginService
         }
         $subject = Subject::create($user);
 
-        return $subject === null ? null : new LoginResult($subject, null, null);
+        return $subject === null ? null : new LoginResult($subject, null);
     }
 }

@@ -73,8 +73,7 @@ teste sem tela) precisasse fazer a mesma coisa, ela precisaria deste código?"* 
 flowchart LR
     V["View React<br/>(navegador)"] -- "evento + formulário<br/>(WebSocket)" --> P["Presenter<br/>estado da tela"]
     P -- "chama" --> S["Serviço de aplicação<br/>regra de negócio"]
-    S -- "critério + projeção" --> R["Secured*Repository<br/>(permissões da sessão)"]
-    R --> RI["*RepositoryImpl<br/>(SQL / JsonQuery)"]
+    S -- "critério + projeção" --> RI["*RepositoryImpl<br/>(SQL / JsonQuery)"]
     RI --> DB[("PostgreSQL")]
     S -. "ProductInfo, ReviewInfo...<br/>(structs com campos públicos)" .-> P
     P -. "ViewState serializado" .-> V
@@ -82,10 +81,11 @@ flowchart LR
 
 Três pontos do desenho:
 
-- **O serviço recebe os repositórios já protegidos.** A `ShoppingApplication` (a sessão) entrega
-  cada repositório embrulhado num `Secured*Repository`, que põe o contexto de segurança do usuário
-  logado em cada chamada. Assim, as regras de permissão e de "cada cliente só vê os próprios dados"
-  valem automaticamente dentro do serviço.
+- **A autorização é responsabilidade do presenter e do serviço.** A `ShoppingApplication` (a
+  sessão) entrega os repositórios sem embrulho de segurança. Quem roda no servidor já é escrito
+  para respeitar as regras: o serviço filtra pelo usuário logado (`$app->subject()`) quando a tela
+  é "os meus dados". A conferência de permissões por papel existe só na API REST, onde a
+  requisição vem pronta de um cliente que não controlamos.
 - **O que volta para o presenter são structs de apresentação** — classes com campos públicos, como
   `ProductInfo` e `ReviewInfo` —, não entidades. Elas são o que o serializador sabe enviar ao React.
 - **A consulta é uma só.** O serviço pede exatamente os campos que a tela usa (a projeção), e
@@ -139,9 +139,9 @@ $this->productService = new ProductService($app->productRepository());
 $this->cart = new CartManager($this->app->tx(), $this->app->purchaseRepository());
 ```
 
-`$app->productRepository()` devolve um `SecuredProductRepository` — o embrulho que roda cada
-chamada com o `SecurityContext` da sessão. Nunca entregue ao serviço o repositório "cru" do
-`ShoppingContext`: ele não aplicaria as permissões do usuário.
+Pegue os repositórios pela sessão (`$app->productRepository()`), não direto do
+`ShoppingContext`: é o ponto único por onde a apresentação chega aos dados, e o lugar a mudar se
+um dia isso precisar de outra coisa.
 
 > **Dica de PHP:** `private readonly` no parâmetro do construtor é a *promoção de propriedade*:
 > declara o campo, atribui e o torna imutável numa linha só. `final class` impede herança — os

@@ -216,9 +216,13 @@ $this->app->tx()->required(function (TransactionContext $tx) use ($purchase): vo
 
 ## 8. Security in the data layer
 
-- Presenters get repositories wrapped by `Secured*Repository`, which put the session's
-  `SecurityContext` as the current one (`CurrentSecurityContext::runAs`) on every call.
-- The current security context is per Fiber: never keep it in a static field.
+- Permissions are checked ONLY at the REST endpoints: there the request comes ready-made from a
+  client we do not control. Presenters use the repositories directly (`$app->xxxRepository()`,
+  no security wrapper): they run on the server and are written to respect the authorization
+  rules from the session's user (`$app->subject()`), and the browser only gets what the screen
+  draws. Do not add a security decorator to the presentation.
+- The REST security context (`CurrentSecurityContext`) is per Fiber: never keep it in a static
+  field.
 - Permissions are `entity:operation` (`purchase:write`) plus `data:all`; roles in `Role`.
 - Without `data:all`, a user only sees and changes their own data: the REST controllers
   force the owner criterion (`SecurityEnforcer::forceOwner`, which also neutralizes an

@@ -97,11 +97,6 @@ final class RootPresenter extends AbstractCubePresenter
 
     /**
      * Auto-login: o token persistente ("lembrar-me") guardado no armazenamento seguro do cliente.
-     *
-     * O SecurityContext resolvido fica só na sessão, não no contexto corrente
-     * (`CurrentSecurityContext`) — gravá-lo ali fora de uma chamada o deixaria visível a
-     * quem rodasse em seguida na mesma Fiber. Os repositórios da sessão o
-     * aplicam a cada chamada.
      */
     private function tryAutoLogin(): void
     {
@@ -120,10 +115,6 @@ final class RootPresenter extends AbstractCubePresenter
             return;
         }
 
-        $securityContext = $auth->resolveToken($result->accessToken);
-        if ($securityContext !== null) {
-            $this->app->setSecurityContext($securityContext);
-        }
         $user = $this->app->userRepository()->fetch(
             new UserCriteria()->withUserId($result->userId)->withProjection(Subject::projection()),
             0,

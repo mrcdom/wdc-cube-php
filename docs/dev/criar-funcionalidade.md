@@ -55,7 +55,7 @@ controller que devolve HTML, e sim um presenter que mantém o estado da tela no 
   o autor é sempre quem está logado; mais recentes primeiro.)
 - Em que **face** isso aparece? É uma tela nova (um *place*, com endereço próprio) ou um
   **segmento** dentro de uma tela que já existe? As avaliações não têm endereço próprio: vivem
-  dentro do detalhe do produto. Isso decide o tipo de presenter (passo 11).
+  dentro do detalhe do produto. Isso decide o tipo de presenter (passo 10).
 
 **Modelagem mínima.** Rascunhe a tabela (colunas, tipos, FKs, índices), a entidade, os
 filtros e ordenações de que as telas precisam, e quais papéis podem ler e escrever.
@@ -96,7 +96,6 @@ flowchart TB
     AGG["ShoppingRepositories::$reviews"]
   end
   subgraph app["Aplicação - src/Shopping/Presentation"]
-    SEC["Security/SecuredReviewRepository"]
     CTX["ShoppingContext (novo argumento)"]
     SAPP["ShoppingApplication::reviewRepository()"]
   end
@@ -116,9 +115,7 @@ flowchart TB
   end
 
   SCH --> ENT --> CRI --> REP --> IMP --> AGG --> CTX --> SAPP
-  SEC --> SAPP
   SAPP --> SVC --> PRES --> OWN
-  ROLE -.-> SEC
   RH -. "$createView" .-> PRES
   MK -. "$createView" .-> PRES
   PRES == "classId 8cc32236e32a + evento 1" ==> RV
@@ -137,7 +134,7 @@ sequenceDiagram
   participant SK as Skeleton 8cc32236e32a
   participant P as ReviewsPanelPresenter
   participant S as ReviewService
-  participant R as SecuredReviewRepository<br/>-> ReviewRepositoryImpl
+  participant R as ReviewRepositoryImpl
   RV->>RV: setFormField(vsid, "p.rating" / "p.comment")
   RV->>WS: bridge.submit(vsid, 1)
   WS->>SK: evento 1 + formulário
@@ -164,15 +161,14 @@ sequenceDiagram
 | 5 | Implementação (`Table` + `JsonQuery`) | `Persistence/Repository/ReviewRepositoryImpl.php` | [repository.md](repository.md), [json-query.md](json-query.md) |
 | 6 | Registrar no agregado de repositórios | `Persistence/ShoppingRepositories.php` | [repository.md](repository.md) |
 | 7 | Permissões dos papéis | `Domain/Security/Role.php` | [repository.md](repository.md) |
-| 8 | Decorator de segurança | `Presentation/Security/SecuredReviewRepository.php` | [repository.md](repository.md) |
-| 9 | Contexto e getter da aplicação | `ShoppingContext.php`, `ShoppingApplication.php`, `Server/ShoppingServer.php` (+ teste) | [application-service.md](application-service.md) |
-| 10 | Serviço de aplicação + DTO de tela | `Presenter/Restricted/Products/Reviews/ReviewService.php`, `ReviewInfo.php` | [application-service.md](application-service.md), [transaction-service.md](transaction-service.md) |
-| 11 | ViewState + presenter (filho) + exceção esperada | `Reviews/ReviewsPanelViewState.php`, `ReviewsPanelPresenter.php`, `Exception/InvalidReviewException.php` | [presentation-module.md](presentation-module.md) |
-| 12 | O dono cria, alimenta e libera o filho | `Products/ProductPresenter.php`, `ProductViewState.php` | [presentation-module.md](presentation-module.md) |
-| 13 | `$createView` no host remoto **e** no mock de testes | `RemoteHost/ShoppingRemoteApplication.php`, `tests/.../Mock/` | [presentation-module.md](presentation-module.md) |
-| 14 | View React + seletores + estilos + registro + desenho no dono | `frontend/shopping.shell.react/src/scripts/...` | [react-views.md](react-views.md) |
-| 15 | Testes de repositório e de apresentação | `tests/Shopping/Persistence/`, `tests/Shopping/Presentation/` | [repository.md](repository.md), [presentation-module.md](presentation-module.md) |
-| 16 | Build do frontend, `composer check`, ver no navegador | raiz | [setup-local.md](setup-local.md) |
+| 8 | Contexto e getter da aplicação | `ShoppingContext.php`, `ShoppingApplication.php`, `Server/ShoppingServer.php` (+ teste) | [application-service.md](application-service.md) |
+| 9 | Serviço de aplicação + DTO de tela | `Presenter/Restricted/Products/Reviews/ReviewService.php`, `ReviewInfo.php` | [application-service.md](application-service.md), [transaction-service.md](transaction-service.md) |
+| 10 | ViewState + presenter (filho) + exceção esperada | `Reviews/ReviewsPanelViewState.php`, `ReviewsPanelPresenter.php`, `Exception/InvalidReviewException.php` | [presentation-module.md](presentation-module.md) |
+| 11 | O dono cria, alimenta e libera o filho | `Products/ProductPresenter.php`, `ProductViewState.php` | [presentation-module.md](presentation-module.md) |
+| 12 | `$createView` no host remoto **e** no mock de testes | `RemoteHost/ShoppingRemoteApplication.php`, `tests/.../Mock/` | [presentation-module.md](presentation-module.md) |
+| 13 | View React + seletores + estilos + registro + desenho no dono | `frontend/shopping.shell.react/src/scripts/...` | [react-views.md](react-views.md) |
+| 14 | Testes de repositório e de apresentação | `tests/Shopping/Persistence/`, `tests/Shopping/Presentation/` | [repository.md](repository.md), [presentation-module.md](presentation-module.md) |
+| 15 | Build do frontend, `composer check`, ver no navegador | raiz | [setup-local.md](setup-local.md) |
 
 > **E se fosse uma tela com endereço próprio?** Entre os passos 11 e 12 entrariam o caso
 > novo no enum `Place`, o método em `Routes` e uma classe de keys (`XxxKeys extends` as keys
@@ -402,25 +398,7 @@ REST (`src/Shopping/Persistence/Rest/`). O exemplo não expõe avaliações por 
 permissões ficam declaradas para quando houver um controller. Detalhes:
 [repository.md](repository.md).
 
-### Passo 8 - O decorator de segurança
-
-```php
-/**
- * @extends SecuredRepository<Review, ReviewCriteria>
- */
-final class SecuredReviewRepository extends SecuredRepository implements ReviewRepository
-{
-}
-```
-
-`SecuredRepository` (em `src/Shopping/Presentation/Security/`) embrulha o repositório e, em
-cada chamada, põe o `SecurityContext` da sessão como contexto corrente
-(`CurrentSecurityContext::runAs`). A subclasse só declara qual interface implementa: o PHP não
-gera classes para uma interface em tempo de execução. Se a sua interface declarar métodos
-próprios, eles são delegados aqui, com `$this->run(fn () => ...)`, como faz
-`SecuredProductRepository`.
-
-### Passo 9 - Contexto e getter na aplicação
+### Passo 8 - Contexto e getter na aplicação
 
 `ShoppingContext` reúne os serviços compartilhados por todas as sessões. Ganha um argumento,
 **na posição** logo depois de `purchaseItems`:
@@ -440,22 +418,20 @@ O construtor é chamado **posicionalmente** em três lugares, e os três precisa
 `$repos->reviews` na mesma posição: `ShoppingContext::of()`, `ShoppingServer` e o
 `PresentationBehaviourTest` (veja a [armadilha 6](#6-armadilhas-encontradas-no-caminho)).
 
-Em `ShoppingApplication`, o getter embrulha o repositório cru no decorator, com cache por
-sessão:
+Em `ShoppingApplication`, o getter entrega o repositório do contexto:
 
 ```php
-private ?ReviewRepository $reviewRepository = null;
-
 public function reviewRepository(): ReviewRepository
 {
-    return $this->reviewRepository ??= new SecuredReviewRepository($this->context->reviews, $this->securityContext(...));
+    return $this->context->reviews;
 }
 ```
 
-Repare no `$this->securityContext(...)`: é uma closure (*first-class callable*), lida a cada
-chamada, e não o contexto do momento em que o getter rodou.
+O presenter usa o repositório sem filtro de permissão: ele mesmo é escrito para respeitar as
+regras de autorização (só mostra e altera o que o usuário logado pode). Quem precisa conferir
+permissões é a API REST, porque lá a requisição chega pronta de um cliente que não controlamos.
 
-### Passo 10 - Serviço de aplicação e DTO de tela
+### Passo 9 - Serviço de aplicação e DTO de tela
 
 A lógica de negócio não mora no presenter. `ReviewService` fica junto ao presenter que o usa
 (`Presenter/Restricted/Products/Reviews/`), recebe a **interface** do repositório e não guarda
@@ -529,7 +505,7 @@ public static function projection(): Review
 A data vai como milissegundos desde 1970 (`(int) $createdAt->format('Uv')`), e o navegador a
 formata no fuso de quem lê. Detalhes: [application-service.md](application-service.md).
 
-### Passo 11 - ViewState, presenter-filho e a exceção esperada
+### Passo 10 - ViewState, presenter-filho e a exceção esperada
 
 **O estado de renderização** é um contrato com a view React, escrito em propriedades públicas:
 
@@ -646,7 +622,7 @@ Pontos de atenção que o código acima já resolve:
 
 Detalhes: [presentation-module.md](presentation-module.md).
 
-### Passo 12 - O dono cria, alimenta e libera o filho
+### Passo 11 - O dono cria, alimenta e libera o filho
 
 O `ProductPresenter` ganha um campo para o filho, e o `ProductViewState` um campo `CubeView`:
 
@@ -682,9 +658,9 @@ public function release(): void
 ```
 
 O serializador transforma a propriedade `CubeView` `reviewsPanelView` no campo
-`reviewsPanelViewId` do JSON: é esse nome que a view React do dono lê (passo 14).
+`reviewsPanelViewId` do JSON: é esse nome que a view React do dono lê (passo 13).
 
-### Passo 13 - `$createView` nos dois hosts
+### Passo 12 - `$createView` nos dois hosts
 
 O presenter não sabe desenhar: quem fornece a view é o host. São **dois** lugares, e faltar
 qualquer um lança "`$createView` não configurado":
@@ -701,7 +677,7 @@ A view falsa, `tests/Shopping/Presentation/Mock/ReviewsPanelViewMock.php`, esten
 `AbstractViewMock` e só expõe `$presenter` e `$state` (o mesmo objeto do presenter), para os
 testes chamarem os métodos e conferirem o estado.
 
-### Passo 14 - A view React
+### Passo 13 - A view React
 
 Três arquivos novos em `frontend/shopping.shell.react/src/scripts/views/product/`:
 
@@ -757,7 +733,7 @@ reviewsPanelViewId?: string // a view do presenter-filho (ReviewsPanelPresenter)
 
 Detalhes (classes, estado local, eventos, estilos): [react-views.md](react-views.md).
 
-### Passo 15 - Testes
+### Passo 14 - Testes
 
 Dois arquivos, cada um sobre a sua camada, ambos contra o banco de testes:
 
@@ -796,7 +772,7 @@ vira alerta; nota ausente e comentário com 501 caracteres recusados (com 500 `�
 ainda passa); passar de novo pelo mesmo produto **não consulta** o banco; sair do produto
 libera o painel (`$panel->released`).
 
-### Passo 16 - Build, checagem e navegador
+### Passo 15 - Build, checagem e navegador
 
 ```bash
 bin/build-frontend.sh     # ANTES do composer check: o ShoppingServerTest usa o shell compilado
@@ -827,7 +803,7 @@ assim **nada funciona em runtime**. Confira um a um:
 | **Campos do ViewState** | propriedades **públicas** no PHP **=** campos do tipo TypeScript, opcionais quando podem ser omitidos | campo sempre vazio no React, ou `{}` no lugar de um objeto |
 | **Contexto posicional** | `ShoppingContext::__construct` **=** `ShoppingContext::of()`, `ShoppingServer` e `PresentationBehaviourTest` | `TypeError` na subida, ou repositório trocado de lugar |
 | **Schema completo** | `REVIEW_DDL` **+** `create()` para banco antigo **+** `DROP` **+** `reset()` **+** `restartSequence` | servidor quebra num banco antigo, ou o `insert` colide com o id do seed |
-| **Repositório até a sessão** | `ShoppingRepositories::$reviews` → `ShoppingContext::$reviews` → `ShoppingApplication::reviewRepository()` (com o decorator) | erro na montagem, ou repositório sem o contexto de segurança da sessão |
+| **Repositório até a sessão** | `ShoppingRepositories::$reviews` → `ShoppingContext::$reviews` → `ShoppingApplication::reviewRepository()` | erro na montagem: o construtor posicional do `ShoppingContext` recebe o argumento fora de lugar |
 | **Rebuild do front** | `bin/build-frontend.sh` (ou `npm run watch`) depois de mexer no React | o servidor serve o shell antigo de `work/frontend/` |
 
 ---
@@ -899,9 +875,8 @@ Persistência e aplicação:
 - [ ] `newProjection()` com só os ids das relações
 - [ ] Registrado em `ShoppingRepositories`
 - [ ] Permissões em `Role`
-- [ ] `SecuredXxxRepository`
 - [ ] `ShoppingContext` com o argumento novo, e os três pontos de construção atualizados
-- [ ] Getter com cache em `ShoppingApplication`, embrulhando no decorator
+- [ ] Getter em `ShoppingApplication`
 
 Apresentação:
 

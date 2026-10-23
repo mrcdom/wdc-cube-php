@@ -256,10 +256,11 @@ no retorno normal ou rollback na exceção. A compra do carrinho (compra + itens
 - **Permissões por papel** (`Role`): `entidade:operação` (`purchase:write`, `product:read`...) e
   `data:all`, que libera os dados de todos os usuários. Sem `data:all`, cada usuário só vê e altera
   os próprios dados.
-- Na apresentação, os repositórios são embrulhados em decoradores (`Secured*Repository`) que
-  põem o contexto de segurança da sessão como o corrente em cada chamada. As permissões por
-  papel são conferidas na API REST (`SecurityEnforcer`), que também restringe cada usuário aos
-  próprios dados.
+- **Onde as permissões são conferidas: na API REST** (`SecurityEnforcer`), que também restringe
+  cada usuário aos próprios dados. Lá a requisição chega pronta de um cliente que não
+  controlamos. Os presenters usam os repositórios direto: rodam no servidor, são escritos para
+  respeitar as regras de autorização a partir do usuário da sessão, e o navegador só recebe o
+  que a tela desenha.
 
 ## 5. API REST (`src/Framework/Rest/`, `src/Shopping/Persistence/Rest/`)
 

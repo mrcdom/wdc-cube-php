@@ -7,7 +7,6 @@ namespace Wdc\Tests\Shopping\Presentation;
 use LogicException;
 use PHPUnit\Framework\Attributes\Test;
 use Wdc\Framework\Commons\Storage\InMemoryClientStorage;
-use Wdc\Framework\Domain\Security\CurrentSecurityContext;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 use Wdc\Shopping\Presentation\Place;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartPresenter;
@@ -162,22 +161,6 @@ final class PresentationBehaviourTest extends PresentationTestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('eventCode(99) not handled');
         $home->presenter->skeleton()->submit(99, 1, []);
-    }
-
-    #[Test]
-    public function repositoryCalls_runWithTheSessionSecurityContext(): void
-    {
-        $this->login();
-        $seen = [];
-        $this->repos->db->onQuery(static function () use (&$seen): void {   // &$seen: a closure altera o array de fora
-            $seen[] = CurrentSecurityContext::get()?->userName();
-        });
-
-        $this->home()->presenter->onOpenProduct(Seed::CAFETEIRA_ID);
-
-        self::assertNotEmpty($seen);
-        self::assertSame(['admin'], array_values(array_unique($seen)));
-        self::assertNull(CurrentSecurityContext::get(), 'fora da chamada o contexto global fica limpo');
     }
 
     #[Test]
