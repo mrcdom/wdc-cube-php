@@ -135,7 +135,7 @@ final class OrderPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new OrderViewState();
-        $this->service = new OrderService($app->orderRepository());
+        $this->service = new OrderService(Beans::of(OrderRepository::class));
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool
@@ -283,7 +283,7 @@ view, wiring, tests) are in [references/patterns.md](references/patterns.md).
     its own criteria and limit), in the same query. A `foreach` that calls a repository per row
     is the N+1 the `JsonQuery` exists to prevent. See
     [references/persistence.md](references/persistence.md).
-19. **Several writes = one transaction.** `$this->app->tx()->required(fn () => ...)`. The
+19. **Several writes = one transaction.** `Beans::of(TransactionService::class)->required(fn () => ...)`. The
     transaction is bound to the current Fiber: work spawned with `async()` inside it runs
     OUTSIDE the transaction.
 

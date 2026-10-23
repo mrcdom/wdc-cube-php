@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Persistence;
 
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Domain\Transaction\TransactionService;
 use Wdc\Framework\Persistence\Database;
 use Wdc\Framework\Persistence\SqlTransactionService;
+use Wdc\Shopping\Domain\Product\ProductRepository;
+use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
+use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Persistence\Repository\ProductRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\PurchaseItemRepositoryImpl;
 use Wdc\Shopping\Persistence\Repository\PurchaseRepositoryImpl;
@@ -34,6 +39,21 @@ final class ShoppingRepositories
         $this->purchases = new PurchaseRepositoryImpl($db, $this);
         $this->purchaseItems = new PurchaseItemRepositoryImpl($db, $this);
         $this->transactions = new SqlTransactionService($db);
+    }
+
+    /**
+     * Registra os repositórios e o serviço de transação no `Beans`, pela interface: a partir daí
+     * qualquer ponto os acha com `Beans::of(ProductRepository::class)`.
+     */
+    public function register(): self
+    {
+        Beans::set(UserRepository::class, $this->users);
+        Beans::set(ProductRepository::class, $this->products);
+        Beans::set(PurchaseRepository::class, $this->purchases);
+        Beans::set(PurchaseItemRepository::class, $this->purchaseItems);
+        Beans::set(TransactionService::class, $this->transactions);
+
+        return $this;
     }
 
     /**

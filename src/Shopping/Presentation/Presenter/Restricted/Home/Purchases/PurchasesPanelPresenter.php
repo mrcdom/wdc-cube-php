@@ -7,11 +7,13 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Home\Purchases;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Lang\Coerce;
 use Wdc\Framework\Cube\AbstractChildPresenter;
 use Wdc\Framework\Cube\CubeSkeleton;
 use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\Skeleton;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomePresenter;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
@@ -34,7 +36,7 @@ final class PurchasesPanelPresenter extends AbstractChildPresenter
     {
         parent::__construct($app);
         $this->state = new PurchasesPanelViewState();
-        $this->service = new PurchasesPanelService($app->purchaseRepository());
+        $this->service = new PurchasesPanelService(Beans::of(PurchaseRepository::class));
     }
 
     public function onPageChange(int $page): void

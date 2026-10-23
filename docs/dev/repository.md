@@ -36,9 +36,7 @@ Uma entidade nova toca em vários arquivos, mas cada um tem uma única responsab
 src/Shopping/Domain/Review/                     ← contrato: entidade, critério, OrderBy, interface
 src/Shopping/Persistence/ShoppingSchema.php     ← DDL e seed (não há ferramenta de migração)
 src/Shopping/Persistence/Repository/            ← implementação SQL (JsonQuery + Table)
-src/Shopping/Persistence/ShoppingRepositories   ← agregado que cria e liga os repositórios
-src/Shopping/Presentation/ShoppingContext       ← serviços compartilhados por todas as sessões
-src/Shopping/Presentation/ShoppingApplication   ← o repositório que cada sessão (presenters) usa
+src/Shopping/Persistence/ShoppingRepositories   ← agregado que cria os repositórios e os registra no Beans
 tests/Shopping/Persistence/                     ← testes contra um PostgreSQL de verdade
 ```
 
@@ -48,8 +46,8 @@ flowchart LR
     I -->|JsonQuery: 1 SELECT| DB[(PostgreSQL)]
     I -.->|insertBean / updateBean| DB
     R[ShoppingRepositories] -->|cria| I
-    C[ShoppingContext] -->|guarda| I
-    A[ShoppingApplication] -->|entrega| P
+    R -->|"register(): Beans::set"| B[Beans]
+    P -->|"Beans::of(ReviewRepository::class)"| B
 ```
 
 O domínio (`Wdc\Shopping\Domain`) não sabe nada de SQL: quem usa o repositório só conhece a
@@ -561,7 +559,7 @@ partir do usuário logado na sessão, e o navegador só recebe o que a tela dese
 
 ## Passo 7 — Ligar tudo (composition root)
 
-Não há contêiner de injeção de dependências: os objetos são criados à mão, em três lugares.
+Não há contêiner de injeção de dependências: os objetos são criados à mão no `ShoppingRepositories` e registrados, pela interface, no `Beans` (`src/Framework/Commons/Beans.php`).
 
 ### 7a. `ShoppingRepositories` — cria a implementação
 
@@ -584,37 +582,36 @@ O agregado passa `$this` para os repositórios com relações; é por isso que o
 `addToOne` são closures (`fn () => $this->repos->products->query()`): eles só são resolvidos na
 hora da consulta, quando todos já existem.
 
-### 7b. `ShoppingContext` — um argumento novo no construtor
+### 7b. `register()` — registra pela interface
 
 ```php
-public function __construct(
-    public UserRepository $users,
-    public ProductRepository $products,
-    public PurchaseRepository $purchases,
-    public PurchaseItemRepository $purchaseItems,
-    public ReviewRepository $reviews,          // ← novo
-    public TransactionService $transactions,
-    public Scheduler $scheduler,
-    // ...
-```
-
-**Atenção:** `ShoppingContext` é construído **posicionalmente** em mais de um lugar —
-`ShoppingContext::of()`, `src/Shopping/Server/ShoppingServer.php` e
-`tests/Shopping/Presentation/PresentationBehaviourTest.php`. Acrescente `$repos->reviews` (ou
-`$this->repos->reviews`) **na mesma posição** em todos. Procure com
-`grep -rn 'new ShoppingContext' src tests`.
-
-### 7c. `ShoppingApplication` — o repositório da sessão
-
-```php
-public function reviewRepository(): ReviewRepository
+public function register(): self
 {
-    return $this->context->reviews;
+    // ... users, products, purchases, purchaseItems, transactions ...
+    Beans::set(ReviewRepository::class, $this->reviews);
+
+    return $this;
 }
 ```
 
+O servidor chama `ShoppingRepositories::open(...)->register()` uma vez, na subida. Daí em
+diante, presenters e serviços acham o repositório pela interface:
+
+```php
+$this->service = new ReviewService(Beans::of(ReviewRepository::class));
+```
+
+`Beans::of` é tipado: o PHPStan sabe que o retorno é um `ReviewRepository`. Sem registro, a
+chamada lança `LogicException` com o nome da interface - um erro de montagem, visto na primeira
+tela que usa o repositório.
+
 O repositório é o mesmo para todas as sessões: ele não guarda estado de usuário, e cada consulta
-recebe tudo o que precisa no critério.
+recebe tudo o que precisa no critério. O `Beans` só é escrito na subida e depois apenas lido, por
+isso as Fibers das várias sessões podem usá-lo ao mesmo tempo.
+
+> **Por que não `ReviewRepository::$bean`?** Uma interface PHP não pode ter propriedade
+> estática, nem uma constante com um objeto. O registro fica numa classe à parte, com a
+> interface como chave.
 
 ---
 
@@ -622,7 +619,7 @@ recebe tudo o que precisa no critério.
 
 Presenters não montam critérios: delegam a um serviço de aplicação, que recebe a **interface**
 (detalhes em [application-service.md](application-service.md)). No exemplo, o painel de avaliações
-cria `new ReviewService($app->reviewRepository())`:
+cria `new ReviewService(Beans::of(ReviewRepository::class))`:
 
 ```php
 final class ReviewService
@@ -747,8 +744,8 @@ Problemas reais encontrados ao implementar o exemplo:
   errada.
 - **FKs que não são campos do bean** vão como colunas extras em `insertBean`/`updateBean`. Esqueça
   uma e ela chega `NULL` no banco (ou viola `NOT NULL`).
-- **`ShoppingContext` posicional**: acrescente o repositório na mesma posição em todos os lugares
-  que o constroem, ou um teste receberá o `TransactionService` no lugar do repositório.
+- **Repositório não registrado**: criado no `ShoppingRepositories`, mas sem o `Beans::set` no
+  `register()`, o `Beans::of` lança "Nenhuma implementação registrada".
 - **`create()` retorna cedo** quando `EN_USER` existe: tabela nova precisa do próprio passo.
 - **Critério com `null` não filtra** — um id obrigatório não pode chegar null.
 - **Identificadores sem aspas**: `"EN_REVIEW"` com aspas seria outra tabela para o PostgreSQL.
@@ -788,8 +785,7 @@ Ligação e segurança
 
 - [ ] Permissões em `Role`.
 - [ ] `ShoppingRepositories::$xxx`.
-- [ ] `ShoppingContext`: argumento novo, na mesma posição em `of()`, `ShoppingServer` e testes.
-- [ ] `ShoppingApplication::xxxRepository()`.
+- [ ] `Beans::set(XxxRepository::class, $this->xxx)` no `register()`.
 
 Testes
 

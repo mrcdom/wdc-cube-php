@@ -6,7 +6,9 @@ namespace Wdc\Tests\Shopping\Presentation;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\Test;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Storage\InMemoryClientStorage;
+use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 use Wdc\Shopping\Presentation\Place;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartPresenter;
@@ -166,15 +168,8 @@ final class PresentationBehaviourTest extends PresentationTestCase
     #[Test]
     public function withoutAuthenticationService_loginChecksThePasswordDirectly(): void
     {
-        $context = new ShoppingContext(
-            $this->repos->users,
-            $this->repos->products,
-            $this->repos->purchases,
-            $this->repos->purchaseItems,
-            $this->repos->transactions,
-            $this->scheduler,
-        );
-        $app = new ShoppingApplicationMock($context);
+        Beans::set(AuthenticationService::class, null);
+        $app = new ShoppingApplicationMock(new ShoppingContext($this->scheduler));
         Routes::login($app);
         LoginViewMock::cast($app->rootView()->state->contentView)->presenter->onEnter('fulano', 'fulano');
 

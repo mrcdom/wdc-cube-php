@@ -247,6 +247,23 @@ Duas consequências de projeto:
 `TransactionService::required($work)` abre uma transação (ou participa da corrente) e faz commit
 no retorno normal ou rollback na exceção. A compra do carrinho (compra + itens) usa isso.
 
+### Onde se acham os repositórios: o `Beans`
+
+Os repositórios, o serviço de transação e o de autenticação são criados uma vez, na subida do
+servidor, e registrados pela interface em `Wdc\Framework\Commons\Beans`. Quem precisa de um
+pede pela interface, de qualquer ponto:
+
+```php
+$this->service = new ProductService(Beans::of(ProductRepository::class));
+```
+
+`Beans::of` é tipado (o PHPStan sabe que o retorno é um `ProductRepository`) e lança um erro de
+montagem se nada foi registrado; `Beans::find` devolve `null` para um serviço opcional, como a
+autenticação desligada. O registro só é escrito na subida e depois apenas lido. Como os
+repositórios não guardam estado entre chamadas, as sessões usam as mesmas instâncias ao mesmo
+tempo: cada Fiber tem as próprias variáveis, e a transação aberta fica presa à Fiber. Os
+serviços de aplicação recebem as interfaces no construtor; só quem os cria chama `Beans::of`.
+
 ## 4. Segurança
 
 - **Login por desafio HMAC**: o servidor manda um nonce; o cliente responde com
@@ -291,7 +308,7 @@ Para mais de um núcleo ou mais usuários, roda-se várias instâncias atrás de
 | `src/Framework/Domain/` | contratos: repositório, critério, projeção, transação, segurança, codecs |
 | `src/Framework/Persistence/` | acesso ao PostgreSQL, JsonQuery, dialetos, transações (locais e remotas) |
 | `src/Framework/Rest/` | base da API REST |
-| `src/Framework/Commons/` | utilitários: agendador, Base62, RSA, JSON, log |
+| `src/Framework/Commons/` | utilitários: `Beans`, agendador, Base62, RSA, JSON, log |
 | `src/Shopping/Domain/` | entidades, critérios, ordenações e codecs do Shopping |
 | `src/Shopping/Persistence/` | repositórios, schema e seed, autenticação, API REST |
 | `src/Shopping/Presentation/` | places, rotas, keys e presenters do Shopping |

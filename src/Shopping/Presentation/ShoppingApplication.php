@@ -10,12 +10,6 @@ use Wdc\Framework\Commons\Concurrent\Scheduler;
 use Wdc\Framework\Cube\CubeApplication;
 use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubePlace;
-use Wdc\Framework\Domain\Security\AuthenticationService;
-use Wdc\Framework\Domain\Transaction\TransactionService;
-use Wdc\Shopping\Domain\Product\ProductRepository;
-use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
-use Wdc\Shopping\Domain\PurchaseItem\PurchaseItemRepository;
-use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\Subject;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartManager;
 use Wdc\Shopping\Presentation\Presenter\RootPresenter;
@@ -79,41 +73,9 @@ abstract class ShoppingApplication extends CubeApplication
         return $old;
     }
 
-    public function tx(): TransactionService
-    {
-        return $this->context->transactions;
-    }
-
-    public function authService(): ?AuthenticationService
-    {
-        return $this->context->auth;
-    }
-
     public function scheduler(): Scheduler
     {
         return $this->context->scheduler;
-    }
-
-    // :: Repositórios
-
-    public function userRepository(): UserRepository
-    {
-        return $this->context->users;
-    }
-
-    public function productRepository(): ProductRepository
-    {
-        return $this->context->products;
-    }
-
-    public function purchaseRepository(): PurchaseRepository
-    {
-        return $this->context->purchases;
-    }
-
-    public function purchaseItemRepository(): PurchaseItemRepository
-    {
-        return $this->context->purchaseItems;
     }
 
     // :: Navegação por nome ("cart", "product?pr-id=3"...)

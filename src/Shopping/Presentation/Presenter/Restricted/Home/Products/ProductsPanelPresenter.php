@@ -7,11 +7,13 @@ namespace Wdc\Shopping\Presentation\Presenter\Restricted\Home\Products;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Lang\Coerce;
 use Wdc\Framework\Cube\AbstractChildPresenter;
 use Wdc\Framework\Cube\CubeSkeleton;
 use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\Skeleton;
+use Wdc\Shopping\Domain\Product\ProductRepository;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomePresenter;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductService;
 use Wdc\Shopping\Presentation\ShoppingApplication;
@@ -36,7 +38,7 @@ final class ProductsPanelPresenter extends AbstractChildPresenter
     {
         parent::__construct($app);
         $this->state = new ProductsPanelViewState();
-        $this->service = new ProductService($app->productRepository());
+        $this->service = new ProductService(Beans::of(ProductRepository::class));
     }
 
     public function onOpenProduct(?int $productId): void

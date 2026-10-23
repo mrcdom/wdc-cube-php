@@ -727,7 +727,6 @@ caracteres). Nada disso vai para o endereço - o produto mostrado é decidido pe
 ```text
 src/Shopping/Presentation/
   Exception/InvalidReviewException.php                       falha esperada da validação
-  ShoppingApplication.php                                     + reviewRepository()
   Presenter/Restricted/Products/
     ProductPresenter.php                                      dono: cria, alimenta e libera o filho
     ProductViewState.php                                      + ?CubeView $reviewsPanelView
@@ -746,15 +745,8 @@ frontend/shopping.shell.react/src/scripts/views/product/
 ```
 
 A entidade `Review`, o critério e o repositório são o assunto de [repository.md](repository.md);
-o `ReviewService`, de [application-service.md](application-service.md). A sessão ganha o acessor:
-
-```php
-// ShoppingApplication
-public function reviewRepository(): ReviewRepository
-{
-    return $this->context->reviews;
-}
-```
+o `ReviewService`, de [application-service.md](application-service.md). O presenter acha o
+repositório no `Beans`, pela interface: `Beans::of(ReviewRepository::class)`.
 
 ### 9.2 O estado e a struct de apresentação
 
@@ -815,7 +807,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     {
         parent::__construct($app);
         $this->state = new ReviewsPanelViewState();
-        $this->service = new ReviewService($app->reviewRepository());
+        $this->service = new ReviewService(Beans::of(ReviewRepository::class));
     }
 
     /** Chamado pelo dono em todo applyParameters. Passar pelo caminho não é recarregar. */

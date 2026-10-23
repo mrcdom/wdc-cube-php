@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Open\Login;
 
-use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Lang\Coerce;
 use Wdc\Framework\Cube\AbstractCubePresenter;
 use Wdc\Framework\Cube\CubeIntent;
@@ -16,6 +16,9 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
+use Wdc\Framework\Domain\Security\AuthenticationService;
+use Wdc\Shopping\Domain\User\UserRepository;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
 
@@ -37,7 +40,7 @@ final class LoginPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new LoginViewState();
-        $this->loginService = new LoginService($app->userRepository(), $app->authService());
+        $this->loginService = new LoginService(Beans::of(UserRepository::class), Beans::find(AuthenticationService::class));
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool

@@ -6,18 +6,20 @@ namespace Wdc\Tests\Shopping\RemoteHost;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Concurrent\ManualScheduler;
 use Wdc\Framework\Commons\Security\Rsa;
 use Wdc\Framework\Cube\Remote\RemoteAppSecurity;
 use Wdc\Framework\Cube\Remote\RemoteDispatcher;
+use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
 use Wdc\Shopping\Persistence\ShoppingRepositories;
-use Wdc\Tests\Support\TestDatabase;
 use Wdc\Shopping\Persistence\ShoppingSchema as Seed;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartPresenter;
 use Wdc\Shopping\Presentation\ShoppingContext;
 use Wdc\Shopping\Presentation\StorageKeys;
 use Wdc\Shopping\RemoteHost\ShoppingRemoteHost;
+use Wdc\Tests\Support\TestDatabase;
 
 /**
  * O protocolo do shell React de ponta a ponta, sem rede: um "browser" falso conversa com o
@@ -52,9 +54,10 @@ final class RemoteProtocolTest extends TestCase
             $keys = RemoteAppSecurity::generateDevKeys();
             self::$security = new RemoteAppSecurity(Rsa::fromBase36($keys['rsaPublicKey'], $keys['rsaPrivateKey']), $keys['signPublicKey'], $keys['signPrivateKey']);
         }
-        $repos = TestDatabase::repositories();
+        $repos = TestDatabase::repositories()->register();
         $this->scheduler = new ManualScheduler();
-        $this->context = ShoppingContext::of($repos, $this->scheduler, new AuthenticationServiceImpl($repos->users, 'jwt-secret'));
+        Beans::set(AuthenticationService::class, new AuthenticationServiceImpl($repos->users, 'jwt-secret'));
+        $this->context = new ShoppingContext($this->scheduler);
         $this->host = new ShoppingRemoteHost($this->context, self::$security, maxSessions: 2, clock: fn (): float => $this->nowMs);
         $this->host->registry->init($this->scheduler);
         $this->dispatcher = new RemoteDispatcher($this->host->registry, self::$security);

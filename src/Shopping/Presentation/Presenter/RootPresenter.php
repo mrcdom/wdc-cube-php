@@ -7,13 +7,16 @@ namespace Wdc\Shopping\Presentation\Presenter;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Cube\AbstractCubePresenter;
 use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubeSkeleton;
 use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
+use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Shopping\Domain\User\UserCriteria;
+use Wdc\Shopping\Domain\User\UserRepository;
 use Wdc\Shopping\Presentation\Exception\WrongPlace;
 use Wdc\Shopping\Presentation\Presenter\Open\Login\Subject;
 use Wdc\Shopping\Presentation\ShoppingApplication;
@@ -102,7 +105,7 @@ final class RootPresenter extends AbstractCubePresenter
     {
         $storage = $this->app->clientPersistentStore()->secure();
         $token = $storage->get(StorageKeys::AUTH_TOKEN);
-        $auth = $this->app->authService();
+        $auth = Beans::find(AuthenticationService::class);
         if ($token === null || trim($token) === '' || $auth === null) {
             return;
         }
@@ -115,7 +118,7 @@ final class RootPresenter extends AbstractCubePresenter
             return;
         }
 
-        $user = $this->app->userRepository()->fetch(
+        $user = Beans::of(UserRepository::class)->fetch(
             new UserCriteria()->withUserId($result->userId)->withProjection(Subject::projection()),
             0,
             1,

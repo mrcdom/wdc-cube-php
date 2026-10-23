@@ -100,7 +100,7 @@ Node. Ele é iniciado uma vez (`php bin/server.php`) e atende todos os usuários
 | Layout com `@yield` / `{% block %}` | **slots**: um lugar na tela onde a tela de baixo se encaixa | `HomePresenter.php` |
 | Componentes / partials | **presenters-filhos** (os painéis da home) | `.../Home/Products/ProductsPanelPresenter.php` |
 | `Produto::with('itens')` (eager loading) | **projeção**: o que buscar, numa consulta só | `ProductInfo::projection()` |
-| `DB::transaction(fn () => ...)` | `$this->app->tx()->required(fn () => ...)` | `CartManager::commit` |
+| `DB::transaction(fn () => ...)` | `Beans::of(TransactionService::class)->required(fn () => ...)` | `CartManager::commit` |
 
 Se você guardar só uma linha dessa tabela, guarde esta: **o controller vira um objeto que
 continua existindo enquanto a tela está aberta**. É daí que vem todo o resto.

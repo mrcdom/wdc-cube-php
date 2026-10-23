@@ -98,6 +98,14 @@ $projection = (new Purchase())
 - `update` writes only the fields that are both projected AND changed relative to `$old`
   (`$old = null` ⇒ every projected field).
 - Domain interfaces (`ProductRepository`) add specific operations (`fetchImage`).
+- **Getting one**: `Beans::of(ProductRepository::class)` (`Wdc\Framework\Commons\Beans`,
+  typed by PHPStan). `ShoppingRepositories::register()` puts every repository and the
+  `TransactionService` there by interface, once at startup; the server registers the optional
+  `AuthenticationService` (read with `Beans::find`, which may return `null`). One instance per
+  process serves every session: repositories hold no per-call state. Only whoever CREATES a
+  service calls `Beans::of`; the service takes the interfaces in its constructor. A new
+  repository = create it in `ShoppingRepositories` + one `Beans::set` line in `register()`;
+  there is no getter in the session and no constructor argument anywhere else.
 
 ## 5. A repository implementation
 
@@ -202,7 +210,7 @@ parsed and hydrated into entities. Inspect the generated SQL in a test with
 ## 7. Transactions
 
 ```php
-$this->app->tx()->required(function (TransactionContext $tx) use ($purchase): void {
+Beans::of(TransactionService::class)->required(function (TransactionContext $tx) use ($purchase): void {
     $this->purchases->insert($purchase);        // purchase + items, atomically
 });
 ```
@@ -217,7 +225,7 @@ $this->app->tx()->required(function (TransactionContext $tx) use ($purchase): vo
 ## 8. Security in the data layer
 
 - Permissions are checked ONLY at the REST endpoints: there the request comes ready-made from a
-  client we do not control. Presenters use the repositories directly (`$app->xxxRepository()`,
+  client we do not control. Presenters use the repositories directly (`Beans::of(XxxRepository::class)`,
   no security wrapper): they run on the server and are written to respect the authorization
   rules from the session's user (`$app->subject()`), and the browser only gets what the screen
   draws. Do not add a security decorator to the presentation.
@@ -269,6 +277,10 @@ criteria, translator and codec criteria field.
 - [ ] Table, sequence and column names only through the owning repository's public constants
       (`self::RATING`, `PurchaseItemRepositoryImpl::PURCHASEID`), never as string literals.
       *Symptom: a typo surfaces as an SQL error only when that query runs, not in PHPStan.*
+- [ ] A new repository is registered in `ShoppingRepositories::register()`. *Symptom:
+      "Nenhuma implementação registrada para ...XxxRepository" on the first screen that uses it.*
+- [ ] Repositories and services keep nothing of a call in a field (they are shared by every
+      session). *Symptom: one user's data showing up in another session.*
 - [ ] Several writes in one `required()`. *Symptom: half an operation saved after an error.*
 - [ ] No `async()` expecting to be inside the transaction.
 - [ ] Criteria built from screen input: `null` means "no filter" - an id that must restrict

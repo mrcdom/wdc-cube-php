@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Receipt;
 
-use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Cube\AbstractCubePresenter;
 use Wdc\Framework\Cube\CubeIntent;
 use Wdc\Framework\Cube\CubeSkeleton;
 use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
@@ -39,7 +41,7 @@ final class ReceiptPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new ReceiptViewState();
-        $this->receiptService = new ReceiptService($app->purchaseRepository());
+        $this->receiptService = new ReceiptService(Beans::of(PurchaseRepository::class));
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool

@@ -55,7 +55,7 @@ controller que devolve HTML, e sim um presenter que mantém o estado da tela no 
   o autor é sempre quem está logado; mais recentes primeiro.)
 - Em que **face** isso aparece? É uma tela nova (um *place*, com endereço próprio) ou um
   **segmento** dentro de uma tela que já existe? As avaliações não têm endereço próprio: vivem
-  dentro do detalhe do produto. Isso decide o tipo de presenter (passo 10).
+  dentro do detalhe do produto. Isso decide o tipo de presenter (passo 9).
 
 **Modelagem mínima.** Rascunhe a tabela (colunas, tipos, FKs, índices), a entidade, os
 filtros e ordenações de que as telas precisam, e quais papéis podem ler e escrever.
@@ -93,12 +93,9 @@ flowchart TB
   end
   subgraph per["Persistência - src/Shopping/Persistence"]
     IMP["Repository/ReviewRepositoryImpl<br/>Table + JsonQuery 'rv'"]
-    AGG["ShoppingRepositories::$reviews"]
+    AGG["ShoppingRepositories::$reviews<br/>+ Beans::set no register()"]
   end
   subgraph app["Aplicação - src/Shopping/Presentation"]
-    CTX["ShoppingContext (novo argumento)"]
-    SAPP["ShoppingApplication::reviewRepository()"]
-  end
   subgraph pres["Apresentação - Presenter/Restricted/Products"]
     SVC["Reviews/ReviewService + ReviewInfo"]
     PRES["Reviews/ReviewsPanelPresenter<br/>+ ReviewsPanelViewState"]
@@ -159,16 +156,15 @@ sequenceDiagram
 | 3 | Critério + ordenações | `Domain/Review/ReviewCriteria.php`, `ReviewOrderBy.php` | [repository.md](repository.md) |
 | 4 | Interface do repositório | `Domain/Review/ReviewRepository.php` | [repository.md](repository.md) |
 | 5 | Implementação (`Table` + `JsonQuery`) | `Persistence/Repository/ReviewRepositoryImpl.php` | [repository.md](repository.md), [json-query.md](json-query.md) |
-| 6 | Registrar no agregado de repositórios | `Persistence/ShoppingRepositories.php` | [repository.md](repository.md) |
+| 6 | Criar no agregado e registrar no `Beans` | `Persistence/ShoppingRepositories.php` | [repository.md](repository.md) |
 | 7 | Permissões dos papéis | `Domain/Security/Role.php` | [repository.md](repository.md) |
-| 8 | Contexto e getter da aplicação | `ShoppingContext.php`, `ShoppingApplication.php`, `Server/ShoppingServer.php` (+ teste) | [application-service.md](application-service.md) |
-| 9 | Serviço de aplicação + DTO de tela | `Presenter/Restricted/Products/Reviews/ReviewService.php`, `ReviewInfo.php` | [application-service.md](application-service.md), [transaction-service.md](transaction-service.md) |
-| 10 | ViewState + presenter (filho) + exceção esperada | `Reviews/ReviewsPanelViewState.php`, `ReviewsPanelPresenter.php`, `Exception/InvalidReviewException.php` | [presentation-module.md](presentation-module.md) |
-| 11 | O dono cria, alimenta e libera o filho | `Products/ProductPresenter.php`, `ProductViewState.php` | [presentation-module.md](presentation-module.md) |
-| 12 | `$createView` no host remoto **e** no mock de testes | `RemoteHost/ShoppingRemoteApplication.php`, `tests/.../Mock/` | [presentation-module.md](presentation-module.md) |
-| 13 | View React + seletores + estilos + registro + desenho no dono | `frontend/shopping.shell.react/src/scripts/...` | [react-views.md](react-views.md) |
-| 14 | Testes de repositório e de apresentação | `tests/Shopping/Persistence/`, `tests/Shopping/Presentation/` | [repository.md](repository.md), [presentation-module.md](presentation-module.md) |
-| 15 | Build do frontend, `composer check`, ver no navegador | raiz | [setup-local.md](setup-local.md) |
+| 8 | Serviço de aplicação + DTO de tela | `Presenter/Restricted/Products/Reviews/ReviewService.php`, `ReviewInfo.php` | [application-service.md](application-service.md), [transaction-service.md](transaction-service.md) |
+| 9 | ViewState + presenter (filho) + exceção esperada | `Reviews/ReviewsPanelViewState.php`, `ReviewsPanelPresenter.php`, `Exception/InvalidReviewException.php` | [presentation-module.md](presentation-module.md) |
+| 10 | O dono cria, alimenta e libera o filho | `Products/ProductPresenter.php`, `ProductViewState.php` | [presentation-module.md](presentation-module.md) |
+| 11 | `$createView` no host remoto **e** no mock de testes | `RemoteHost/ShoppingRemoteApplication.php`, `tests/.../Mock/` | [presentation-module.md](presentation-module.md) |
+| 12 | View React + seletores + estilos + registro + desenho no dono | `frontend/shopping.shell.react/src/scripts/...` | [react-views.md](react-views.md) |
+| 13 | Testes de repositório e de apresentação | `tests/Shopping/Persistence/`, `tests/Shopping/Presentation/` | [repository.md](repository.md), [presentation-module.md](presentation-module.md) |
+| 14 | Build do frontend, `composer check`, ver no navegador | raiz | [setup-local.md](setup-local.md) |
 
 > **E se fosse uma tela com endereço próprio?** Entre os passos 11 e 12 entrariam o caso
 > novo no enum `Place`, o método em `Routes` e uma classe de keys (`XxxKeys extends` as keys
@@ -370,7 +366,7 @@ Com isso, "as avaliações do produto com o nome de quem escreveu" é **um únic
 `ReviewRepositoryTest` conta os comandos e cobra exatamente um. Detalhes:
 [repository.md](repository.md) e, para projeções e relações, [json-query.md](json-query.md).
 
-### Passo 6 - Registrar no agregado de repositórios
+### Passo 6 - Criar no agregado e registrar no `Beans`
 
 `ShoppingRepositories` cria todos os repositórios sobre o mesmo `Database`. O de avaliações
 recebe o próprio agregado, para consultar `products` e `users` pelas closures do passo 5:
@@ -381,7 +377,15 @@ public readonly ReviewRepositoryImpl $reviews;
 // no construtor:
 // avaliação → produto/usuário: consulta os outros repositórios pelo agregado
 $this->reviews = new ReviewRepositoryImpl($db, $this);
+
+// no register(): a partir daqui, qualquer ponto acha o repositório pela interface
+Beans::set(ReviewRepository::class, $this->reviews);
 ```
+
+O `register()` roda uma vez, na subida do servidor (e no `setUp` dos testes de apresentação).
+Depois disso, quem precisa do repositório pede pela **interface**:
+`Beans::of(ReviewRepository::class)`. O PHPStan sabe que o retorno é um `ReviewRepository`. Não
+há getter na sessão nem argumento novo em construtor nenhum.
 
 ### Passo 7 - Permissões dos papéis
 
@@ -398,40 +402,7 @@ REST (`src/Shopping/Persistence/Rest/`). O exemplo não expõe avaliações por 
 permissões ficam declaradas para quando houver um controller. Detalhes:
 [repository.md](repository.md).
 
-### Passo 8 - Contexto e getter na aplicação
-
-`ShoppingContext` reúne os serviços compartilhados por todas as sessões. Ganha um argumento,
-**na posição** logo depois de `purchaseItems`:
-
-```php
-public function __construct(
-    public UserRepository $users,
-    public ProductRepository $products,
-    public PurchaseRepository $purchases,
-    public PurchaseItemRepository $purchaseItems,
-    public ReviewRepository $reviews,            // novo
-    public TransactionService $transactions,
-    // ...
-```
-
-O construtor é chamado **posicionalmente** em três lugares, e os três precisam do
-`$repos->reviews` na mesma posição: `ShoppingContext::of()`, `ShoppingServer` e o
-`PresentationBehaviourTest` (veja a [armadilha 6](#6-armadilhas-encontradas-no-caminho)).
-
-Em `ShoppingApplication`, o getter entrega o repositório do contexto:
-
-```php
-public function reviewRepository(): ReviewRepository
-{
-    return $this->context->reviews;
-}
-```
-
-O presenter usa o repositório sem filtro de permissão: ele mesmo é escrito para respeitar as
-regras de autorização (só mostra e altera o que o usuário logado pode). Quem precisa conferir
-permissões é a API REST, porque lá a requisição chega pronta de um cliente que não controlamos.
-
-### Passo 9 - Serviço de aplicação e DTO de tela
+### Passo 8 - Serviço de aplicação e DTO de tela
 
 A lógica de negócio não mora no presenter. `ReviewService` fica junto ao presenter que o usa
 (`Presenter/Restricted/Products/Reviews/`), recebe a **interface** do repositório e não guarda
@@ -483,7 +454,7 @@ final class ReviewService
 
 `add()` faz uma única escrita, então não precisa de transação explícita. Se a ação gravasse
 mais de uma coisa (a avaliação e, digamos, uma média consolidada no produto), as escritas
-iriam juntas em `$this->app->tx()->required(fn () => ...)`, como explica
+iriam juntas em `Beans::of(TransactionService::class)->required(fn () => ...)`, como explica
 [transaction-service.md](transaction-service.md).
 
 `ReviewInfo` é o que a tela mostra, com **campos públicos**: o serializador só envia
@@ -505,7 +476,7 @@ public static function projection(): Review
 A data vai como milissegundos desde 1970 (`(int) $createdAt->format('Uv')`), e o navegador a
 formata no fuso de quem lê. Detalhes: [application-service.md](application-service.md).
 
-### Passo 10 - ViewState, presenter-filho e a exceção esperada
+### Passo 9 - ViewState, presenter-filho e a exceção esperada
 
 **O estado de renderização** é um contrato com a view React, escrito em propriedades públicas:
 
@@ -548,7 +519,7 @@ final class ReviewsPanelPresenter extends AbstractChildPresenter
     {
         parent::__construct($app);
         $this->state = new ReviewsPanelViewState();
-        $this->service = new ReviewService($app->reviewRepository());
+        $this->service = new ReviewService(Beans::of(ReviewRepository::class));
     }
 
     /** Passar pelo caminho não é recarregar: só consulta quando o produto mudou. */
@@ -622,7 +593,7 @@ Pontos de atenção que o código acima já resolve:
 
 Detalhes: [presentation-module.md](presentation-module.md).
 
-### Passo 11 - O dono cria, alimenta e libera o filho
+### Passo 10 - O dono cria, alimenta e libera o filho
 
 O `ProductPresenter` ganha um campo para o filho, e o `ProductViewState` um campo `CubeView`:
 
@@ -658,9 +629,9 @@ public function release(): void
 ```
 
 O serializador transforma a propriedade `CubeView` `reviewsPanelView` no campo
-`reviewsPanelViewId` do JSON: é esse nome que a view React do dono lê (passo 13).
+`reviewsPanelViewId` do JSON: é esse nome que a view React do dono lê (passo 12).
 
-### Passo 12 - `$createView` nos dois hosts
+### Passo 11 - `$createView` nos dois hosts
 
 O presenter não sabe desenhar: quem fornece a view é o host. São **dois** lugares, e faltar
 qualquer um lança "`$createView` não configurado":
@@ -677,7 +648,7 @@ A view falsa, `tests/Shopping/Presentation/Mock/ReviewsPanelViewMock.php`, esten
 `AbstractViewMock` e só expõe `$presenter` e `$state` (o mesmo objeto do presenter), para os
 testes chamarem os métodos e conferirem o estado.
 
-### Passo 13 - A view React
+### Passo 12 - A view React
 
 Três arquivos novos em `frontend/shopping.shell.react/src/scripts/views/product/`:
 
@@ -733,7 +704,7 @@ reviewsPanelViewId?: string // a view do presenter-filho (ReviewsPanelPresenter)
 
 Detalhes (classes, estado local, eventos, estilos): [react-views.md](react-views.md).
 
-### Passo 14 - Testes
+### Passo 13 - Testes
 
 Dois arquivos, cada um sobre a sua camada, ambos contra o banco de testes:
 
@@ -772,7 +743,7 @@ vira alerta; nota ausente e comentário com 501 caracteres recusados (com 500 `�
 ainda passa); passar de novo pelo mesmo produto **não consulta** o banco; sair do produto
 libera o painel (`$panel->released`).
 
-### Passo 15 - Build, checagem e navegador
+### Passo 14 - Build, checagem e navegador
 
 ```bash
 bin/build-frontend.sh     # ANTES do composer check: o ShoppingServerTest usa o shell compilado
@@ -801,9 +772,8 @@ assim **nada funciona em runtime**. Confira um a um:
 | **Registro da view** | `import` **e** argumento em `bridge.registerComponents` no `index.tsx` | mesma tela em branco do `classId` errado |
 | **View do filho no dono** | `ProductViewState::$reviewsPanelView` (PHP) → `reviewsPanelViewId` (JSON) → `bridge.createView(state.reviewsPanelViewId)` (React) | o painel existe no servidor, mas nunca aparece |
 | **Campos do ViewState** | propriedades **públicas** no PHP **=** campos do tipo TypeScript, opcionais quando podem ser omitidos | campo sempre vazio no React, ou `{}` no lugar de um objeto |
-| **Contexto posicional** | `ShoppingContext::__construct` **=** `ShoppingContext::of()`, `ShoppingServer` e `PresentationBehaviourTest` | `TypeError` na subida, ou repositório trocado de lugar |
 | **Schema completo** | `REVIEW_DDL` **+** `create()` para banco antigo **+** `DROP` **+** `reset()` **+** `restartSequence` | servidor quebra num banco antigo, ou o `insert` colide com o id do seed |
-| **Repositório até a sessão** | `ShoppingRepositories::$reviews` → `ShoppingContext::$reviews` → `ShoppingApplication::reviewRepository()` | erro na montagem: o construtor posicional do `ShoppingContext` recebe o argumento fora de lugar |
+| **Repositório registrado** | `ShoppingRepositories::$reviews` **+** `Beans::set(ReviewRepository::class, ...)` no `register()` | `LogicException` "Nenhuma implementação registrada para ...ReviewRepository" na primeira tela que o usa |
 | **Rebuild do front** | `bin/build-frontend.sh` (ou `npm run watch`) depois de mexer no React | o servidor serve o shell antigo de `work/frontend/` |
 
 ---
@@ -833,10 +803,11 @@ se você não souber que existem.
 5. **As datas são gravadas sem fração de segundo.** `ColumnType::DateTime` grava no formato
    `Y-m-d H:i:s`, em UTC. Duas avaliações enviadas no mesmo segundo têm o mesmo `CREATEDAT`;
    o desempate pelo id, no fim de toda ordenação, é o que mantém a lista estável.
-6. **`ShoppingContext` é montado posicionalmente fora da própria classe.** Além do
-   `ShoppingContext::of()`, o `ShoppingServer` e o `PresentationBehaviourTest` chamam
-   `new ShoppingContext(...)` com os argumentos em ordem. Esquecer um deles desloca os
-   argumentos seguintes.
+6. **Repositório criado mas não registrado.** O `ShoppingRepositories` cria o
+   `ReviewRepositoryImpl`, mas sem a linha `Beans::set(ReviewRepository::class, ...)` no
+   `register()` a primeira chamada a `Beans::of(ReviewRepository::class)` lança "Nenhuma
+   implementação registrada". Os testes de repositório não pegam isso (usam `$repos->reviews`
+   direto); os de apresentação, sim.
 7. **A primeira coluna da `Table` é a chave primária.** `insertBean` e `updateBean` contam com
    isso. Pôr `rating` antes de `id` produz escritas erradas sem nenhum erro de compilação.
 8. **O `classId` precisa ser idêntico nos dois lados.** Um caractere trocado entre o
@@ -873,15 +844,13 @@ Persistência e aplicação:
 - [ ] `JsonQuery` com alias próprio, condições, ordenação (terminando no id) e relações em closures
 - [ ] FKs como colunas extras em `insert` e `update`
 - [ ] `newProjection()` com só os ids das relações
-- [ ] Registrado em `ShoppingRepositories`
+- [ ] Criado em `ShoppingRepositories` e registrado no `Beans` (`register()`)
 - [ ] Permissões em `Role`
-- [ ] `ShoppingContext` com o argumento novo, e os três pontos de construção atualizados
-- [ ] Getter em `ShoppingApplication`
 
 Apresentação:
 
 - [ ] Serviço recebe a interface do repositório, valida fora da escrita e projeta só o que a tela mostra
-- [ ] Várias escritas numa transação (`$this->app->tx()->required(...)`)
+- [ ] Várias escritas numa transação (`Beans::of(TransactionService::class)->required(...)`)
 - [ ] DTO de tela com campos públicos
 - [ ] ViewState com propriedades públicas e valores padrão
 - [ ] Exceção própria para a falha esperada

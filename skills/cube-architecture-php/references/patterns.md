@@ -237,7 +237,7 @@ final class ProductPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new ProductViewState();
-        $this->productService = new ProductService($app->productRepository());
+        $this->productService = new ProductService(Beans::of(ProductRepository::class));
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool

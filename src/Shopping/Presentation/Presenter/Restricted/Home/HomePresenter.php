@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Home;
 
-use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartKeys;
-use Wdc\Shopping\Presentation\Presenter\Open\Login\LoginKeys;
-use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductKeys;
-use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptKeys;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Concurrent\Registration;
 use Wdc\Framework\Cube\AbstractCubePresenter;
 use Wdc\Framework\Cube\CubeIntent;
@@ -18,11 +15,18 @@ use Wdc\Framework\Cube\CubeSkeleton;
 use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
+use Wdc\Framework\Domain\Security\AuthenticationService;
+use Wdc\Framework\Domain\Transaction\TransactionService;
+use Wdc\Shopping\Domain\Purchase\PurchaseRepository;
 use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
 use Wdc\Shopping\Presentation\Exception\PurchaseNotFoundException;
+use Wdc\Shopping\Presentation\Presenter\Open\Login\LoginKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartKeys;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartManager;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\Products\ProductsPanelPresenter;
 use Wdc\Shopping\Presentation\Presenter\Restricted\Home\Purchases\PurchasesPanelPresenter;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Products\ProductKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Receipt\ReceiptKeys;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 use Wdc\Shopping\Presentation\StorageKeys;
 
@@ -96,7 +100,7 @@ final class HomePresenter extends AbstractCubePresenter
             $this->purchasesPanel = new PurchasesPanelPresenter($this->app, $this);
             $this->state->purchasesPanelView = $this->purchasesPanel->initialize();
 
-            $this->cart = new CartManager($this->app->tx(), $this->app->purchaseRepository());
+            $this->cart = new CartManager(Beans::of(TransactionService::class), Beans::of(PurchaseRepository::class));
             $this->cartListeners = [
                 $this->cart->addCommitListener($this->onCartCommitted(...)),
                 $this->cart->addChangeListener($this->onCartChanged(...)),
@@ -184,7 +188,7 @@ final class HomePresenter extends AbstractCubePresenter
             $this->setContentView(null);
             $storage = $this->app->clientPersistentStore()->secure();
             $storage->remove(StorageKeys::AUTH_TOKEN);
-            $this->app->authService()?->logout($storage->get(StorageKeys::AUTH_REFRESH_TOKEN));
+            Beans::find(AuthenticationService::class)?->logout($storage->get(StorageKeys::AUTH_REFRESH_TOKEN));
             LoginKeys::of($this->app)->go();
         } catch (Throwable $caught) {
             $this->app->alertUnexpectedError('Trying to go to login place', $caught);

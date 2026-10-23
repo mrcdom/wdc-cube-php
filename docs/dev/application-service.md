@@ -127,21 +127,21 @@ Convenção de nomes:
 
 ## 5. Como estruturar a classe
 
-**Construtor: só dependências, já protegidas.** O serviço recebe as **interfaces** dos
-repositórios (`ProductRepository`, `PurchaseRepository`...) e, se precisar, o
-`TransactionService`. Quem cria o serviço passa o que a `ShoppingApplication` oferece:
+**Construtor: só dependências.** O serviço recebe as **interfaces** dos repositórios
+(`ProductRepository`, `PurchaseRepository`...) e, se precisar, o `TransactionService`. Quem cria
+o serviço os acha no `Beans`, pela interface:
 
 ```php
 // ProductPresenter::__construct
-$this->productService = new ProductService($app->productRepository());
+$this->productService = new ProductService(Beans::of(ProductRepository::class));
 
 // HomePresenter (o carrinho da sessão)
-$this->cart = new CartManager($this->app->tx(), $this->app->purchaseRepository());
+$this->cart = new CartManager(Beans::of(TransactionService::class), Beans::of(PurchaseRepository::class));
 ```
 
-Pegue os repositórios pela sessão (`$app->productRepository()`), não direto do
-`ShoppingContext`: é o ponto único por onde a apresentação chega aos dados, e o lugar a mudar se
-um dia isso precisar de outra coisa.
+Só quem **cria** o serviço chama `Beans::of`; o serviço recebe as interfaces no construtor. Assim
+a dependência fica visível na assinatura, e o teste pode passar outra implementação sem mexer no
+registro.
 
 > **Dica de PHP:** `private readonly` no parâmetro do construtor é a *promoção de propriedade*:
 > declara o campo, atribui e o torna imutável numa linha só. `final class` impede herança — os
@@ -519,8 +519,8 @@ presenter.
 | Pergunta | Resposta |
 |---|---|
 | Onde fica o serviço? | Na pasta do presenter que o usa: `Presenter/<Área>/<Tela>/XxxService.php`. |
-| Quem cria? | O presenter, no construtor: `new XxxService($app->xxxRepository())`. O `CartManager` é criado uma vez por sessão. |
-| O que recebe no construtor? | As interfaces dos repositórios **protegidos** da `ShoppingApplication` e, se escrever em mais de um lugar, `$app->tx()`. |
+| Quem cria? | O presenter, no construtor: `new XxxService(Beans::of(XxxRepository::class))`. O `CartManager` é criado uma vez por sessão. |
+| O que recebe no construtor? | As interfaces dos repositórios e, se escrever em mais de um lugar, o `TransactionService`. |
 | O que devolve? | Structs de apresentação com campos públicos (`ProductInfo`, `ReviewInfo`), `list<...>`, `Page<...>`, um id, ou nada. |
 | Como escolhe os campos? | `XxxInfo::projection()` no critério (`withProjection`) ou no `fetchById($id, $projection)`. |
 | Filtros e ordem? | No critério (`withProductId`, `withUserId`, `withOrderBy`), nunca em PHP depois da busca. |

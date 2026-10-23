@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Wdc\Shopping\Presentation\Presenter\Restricted\Products;
 
-use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartKeys;
-use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
-use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
 use Closure;
 use LogicException;
 use Throwable;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Lang\Coerce;
 use Wdc\Framework\Cube\AbstractCubePresenter;
 use Wdc\Framework\Cube\CubeIntent;
@@ -18,6 +16,10 @@ use Wdc\Framework\Cube\CubeView;
 use Wdc\Framework\Cube\CubeViewSlot;
 use Wdc\Framework\Cube\Skeleton;
 use Wdc\Framework\Domain\Exception\OfflineException;
+use Wdc\Shopping\Domain\Product\ProductRepository;
+use Wdc\Shopping\Presentation\Exception\ProductNotFoundException;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Cart\CartKeys;
+use Wdc\Shopping\Presentation\Presenter\Restricted\Home\HomeKeys;
 use Wdc\Shopping\Presentation\ShoppingApplication;
 
 /**
@@ -43,7 +45,7 @@ final class ProductPresenter extends AbstractCubePresenter
     {
         parent::__construct($app);
         $this->state = new ProductViewState();
-        $this->productService = new ProductService($app->productRepository());
+        $this->productService = new ProductService(Beans::of(ProductRepository::class));
     }
 
     public function applyParameters(CubeIntent $intent, bool $initialization, bool $deepest): bool

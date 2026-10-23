@@ -13,6 +13,7 @@ use Amp\Http\Server\SocketHttpServer;
 use Amp\Http\Server\StaticContent\DocumentRoot;
 use Amp\Websocket\Server\Websocket;
 use Psr\Log\LoggerInterface;
+use Wdc\Framework\Commons\Beans;
 use Wdc\Framework\Commons\Concurrent\EventLoopScheduler;
 use Wdc\Framework\Cube\Remote\Http\DispatcherEndpoint;
 use Wdc\Framework\Cube\Remote\Http\IndexHtmlHandler;
@@ -22,9 +23,10 @@ use Wdc\Framework\Cube\Remote\Http\WdcWebsocketAcceptor;
 use Wdc\Framework\Cube\Remote\Http\WebCacheHandler;
 use Wdc\Framework\Cube\Remote\ParallelKeyDerivation;
 use Wdc\Framework\Cube\Remote\RemoteDispatcher;
-use Wdc\Shopping\Domain\ShoppingConfig;
-use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
+use Wdc\Framework\Domain\Security\AuthenticationService;
 use Wdc\Framework\Persistence\Transaction\RemoteTransactionOptions;
+use Wdc\Framework\Persistence\Transaction\SqlRemoteTransactionCoordinator;
+use Wdc\Shopping\Domain\ShoppingConfig;
 use Wdc\Shopping\Persistence\Rest\RepositoryApiRoutes;
 use Wdc\Shopping\Persistence\Security\AuthenticationServiceImpl;
 use Wdc\Shopping\Persistence\ShoppingRepositories;
@@ -75,22 +77,17 @@ final class ShoppingServer
             $config->databaseUser(),
             $config->databasePassword(),
             $config->databaseMaxConnections(),
-        );
+        )->register();
         $jwtSecret = $config->jwtSecret;
         $auth = $this->auth = $jwtSecret === null || $jwtSecret === ''
             ? null
             : new AuthenticationServiceImpl($this->repos->users, $jwtSecret, $scheduler, logger: $logger);
+        Beans::set(AuthenticationService::class, $auth);
         $this->remoteTransactions = new SqlRemoteTransactionCoordinator($this->repos->db, RemoteTransactionOptions::fromConfig($config->config), logger: $logger);
         $context = new ShoppingContext(
-            $this->repos->users,
-            $this->repos->products,
-            $this->repos->purchases,
-            $this->repos->purchaseItems,
-            $this->repos->transactions,
             $scheduler,
-            $auth,
             $logger,
-            $config->config->getBoolean('simulation.slowLogin', false),
+            simulateSlowLogin: $config->config->getBoolean('simulation.slowLogin', false),
         );
         // o PBKDF2 do handshake (~180 ms de CPU) roda em processos à parte, fora do event loop
         $this->host = ShoppingRemoteHost::fromConfig($config, $context, new ParallelKeyDerivation());

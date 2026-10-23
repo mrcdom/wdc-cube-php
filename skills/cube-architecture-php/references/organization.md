@@ -41,7 +41,7 @@ src/Framework/
   Persistence/     Database (async PostgreSQL), JsonQuery, dialects, AbstractRepository,
                    transactions (local and remote)
   Rest/            base of the REST API (RestRequest, RestHandler, filters)
-  Commons/         scheduler, FiberValue, ReentrantLock, Base62, RSA, JSON helpers, log
+  Commons/         Beans (services by interface), scheduler, FiberValue, ReentrantLock, Base62, RSA, JSON helpers, log
 ```
 
 Framework code never imports application code.
@@ -65,7 +65,7 @@ Presentation/
   Routes.php             one method per face: the chain of places
   StorageKeys.php        client storage keys
   ShoppingApplication.php  the session base: services, subject, cart, alerts
-  ShoppingContext.php    the dependencies shared by every session (repositories, scheduler, auth)
+  ShoppingContext.php    what every session shares besides the beans: scheduler, logger, simulation flags
   Exception/             expected navigation failures (XxxNotFound, WrongParameters)
   Presenter/
     RootPresenter.php        place ROOT (+ the alert view)
