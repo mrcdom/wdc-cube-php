@@ -122,7 +122,7 @@ export class FlushRequestContext {
     const app = this.app
 
     const socket = (this.socket = new WebSocket(url, ["wdc"]))
-    ;(socket as Record<string, unknown>).withCredentials = true
+    ;(socket as unknown as Record<string, unknown>).withCredentials = true
 
     const handleDisconnect = (cause: unknown) => {
       this.socket = null

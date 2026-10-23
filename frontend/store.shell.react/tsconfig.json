@@ -8,7 +8,10 @@
     "isolatedModules": true,
     //"jsxImportSource": "preact"
     "paths": {
-      "@root/*": ["./src/scripts/*"]
+      "@root/*": ["./src/scripts/*"],
+      "@wdc/remote-bridge-react": ["../remote.bridge.react/src/bridge/index.tsx"],
+      "@/*": ["../remote.bridge.react/src/*"],
+      "react": ["./node_modules/@types/react"]
     }
   }
 }
